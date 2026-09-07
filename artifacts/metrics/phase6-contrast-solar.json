@@ -1,0 +1,1610 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "solar"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "contrast"
+  ],
+  "results": [
+    {
+      "theme": "solar",
+      "route": "groundstation",
+      "contrast": [
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Groundstation",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "span.status-chip.tone-running",
+          "text": "Running",
+          "ratio": 1.56,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(62, 207, 142)",
+          "behind": "rgb(207,232,235)"
+        },
+        {
+          "node": "span.status-chip.tone-running",
+          "text": "Running",
+          "ratio": 1.79,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(62, 207, 142)",
+          "behind": "rgb(229,247,240)"
+        },
+        {
+          "node": "span.status-chip.tone-running",
+          "text": "Working",
+          "ratio": 1.79,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(62, 207, 142)",
+          "behind": "rgb(229,247,240)"
+        },
+        {
+          "node": "span.status-chip.tone-critical",
+          "text": "Needs you",
+          "ratio": 2.59,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(255, 91, 102)",
+          "behind": "rgb(252,233,235)"
+        },
+        {
+          "node": "span.status-chip.tone-warning",
+          "text": "Review",
+          "ratio": 2.59,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(255, 91, 102)",
+          "behind": "rgb(252,233,235)"
+        },
+        {
+          "node": "span.status-chip.tone-warning",
+          "text": "Review",
+          "ratio": 2.59,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(255, 91, 102)",
+          "behind": "rgb(252,233,235)"
+        },
+        {
+          "node": "span.status-chip.tone-idle",
+          "text": "Idle",
+          "ratio": 2.97,
+          "required": 4.5,
+          "size": 11,
+          "weight": 650,
+          "color": "rgb(142, 148, 162)",
+          "behind": "rgb(252,252,253)"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-ok",
+          "text": "84p",
+          "ratio": 3.66,
+          "required": 4.5,
+          "size": 9.5,
+          "weight": 600,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(227,240,235)"
+        },
+        {
+          "node": "b",
+          "text": "7",
+          "ratio": 3.9,
+          "required": 4.5,
+          "size": 10,
+          "weight": 600,
+          "color": "rgb(47, 111, 208)",
+          "behind": "rgb(226,230,238)"
+        },
+        {
+          "node": "button.mc-gs-recipe-run",
+          "text": "Recover",
+          "ratio": 4.25,
+          "required": 4.5,
+          "size": 11,
+          "weight": 500,
+          "color": "rgb(189, 48, 59)",
+          "behind": "rgb(231,218,225)"
+        },
+        {
+          "node": "b",
+          "text": "5",
+          "ratio": 4.3,
+          "required": 4.5,
+          "size": 15,
+          "weight": 700,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(255,255,255)"
+        },
+        {
+          "node": "code",
+          "text": "npm run dev",
+          "ratio": 4.44,
+          "required": 4.5,
+          "size": 10.5,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(227,235,248)"
+        },
+        {
+          "node": "span.mc-ref-resource",
+          "text": "— · 0m",
+          "ratio": 4.44,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(227,235,248)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "workspace",
+      "contrast": [
+        {
+          "node": "div",
+          "text": "[terminal unavailable: Terminal stream did not",
+          "ratio": 1,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgba(0, 0, 0, 0)",
+          "behind": "rgb(5,7,10)"
+        },
+        {
+          "node": "div",
+          "text": "[terminal unavailable: Terminal stream did not",
+          "ratio": 1,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgba(0, 0, 0, 0)",
+          "behind": "rgb(5,7,10)"
+        },
+        {
+          "node": "div",
+          "text": "[terminal unavailable: Terminal stream did not",
+          "ratio": 1,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgba(0, 0, 0, 0)",
+          "behind": "rgb(5,7,10)"
+        },
+        {
+          "node": "div",
+          "text": "Worker is resting. Use Start when you are read",
+          "ratio": 1,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgba(0, 0, 0, 0)",
+          "behind": "rgb(5,7,10)"
+        },
+        {
+          "node": "strong.crash-lens__title",
+          "text": "Process exited unexpectedly",
+          "ratio": 1.07,
+          "required": 4.5,
+          "size": 12.5,
+          "weight": 650,
+          "color": "rgb(17, 21, 28)",
+          "behind": "rgb(26,28,32)"
+        },
+        {
+          "node": "button.crash-lens__btn.crash-lens__btn--ai",
+          "text": "Ask Mission AI",
+          "ratio": 1.18,
+          "required": 4.5,
+          "size": 13,
+          "weight": 600,
+          "color": "rgb(17, 21, 28)",
+          "behind": "rgb(35,34,52)"
+        },
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Workspace",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "span.crash-lens__detail",
+          "text": "Exit code 1. Review the last terminal output.",
+          "ratio": 1.42,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(26,28,32)"
+        },
+        {
+          "node": "b",
+          "text": "7",
+          "ratio": 2.46,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(227,231,239)"
+        },
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 2.65,
+          "required": 4.5,
+          "size": 13,
+          "weight": 800,
+          "color": "rgb(101, 82, 199)",
+          "behind": "rgb(35,34,52)"
+        },
+        {
+          "node": "b",
+          "text": "2",
+          "ratio": 2.66,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(237,240,245)"
+        },
+        {
+          "node": "b",
+          "text": "1",
+          "ratio": 2.66,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(237,240,245)"
+        },
+        {
+          "node": "b",
+          "text": "1",
+          "ratio": 2.66,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(237,240,245)"
+        },
+        {
+          "node": "b",
+          "text": "2",
+          "ratio": 2.66,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(237,240,245)"
+        },
+        {
+          "node": "b",
+          "text": "1",
+          "ratio": 2.66,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(135, 149, 169)",
+          "behind": "rgb(237,240,245)"
+        },
+        {
+          "node": "span",
+          "text": "Process exited with code 1",
+          "ratio": 2.77,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(189, 48, 59)",
+          "behind": "rgb(44,30,35)"
+        },
+        {
+          "node": "div.terminal-warning",
+          "text": "Terminal stream did not return an identifier",
+          "ratio": 2.83,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(42,42,40)"
+        },
+        {
+          "node": "div.terminal-warning",
+          "text": "Terminal stream did not return an identifier",
+          "ratio": 2.83,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(42,42,40)"
+        },
+        {
+          "node": "div.terminal-warning",
+          "text": "Terminal stream did not return an identifier",
+          "ratio": 2.83,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(42,42,40)"
+        },
+        {
+          "node": "span",
+          "text": "Tests: 1 failed, 84 passed, 85 total",
+          "ratio": 3.04,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(40,36,29)"
+        },
+        {
+          "node": "small",
+          "text": "Error: refusing to write src/auth/session.ts w",
+          "ratio": 3.85,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(227,223,219)"
+        },
+        {
+          "node": "span",
+          "text": "Worker is resting. Use Start when you are read",
+          "ratio": 3.85,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(103, 110, 105)",
+          "behind": "rgb(5,7,10)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "needs",
+      "contrast": [
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Needs You",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "b",
+          "text": "8",
+          "ratio": 1.43,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(169, 154, 125)",
+          "behind": "rgb(182,187,188)"
+        },
+        {
+          "node": "b",
+          "text": "1",
+          "ratio": 1.46,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(169, 154, 125)",
+          "behind": "rgb(186,188,192)"
+        },
+        {
+          "node": "b",
+          "text": "3",
+          "ratio": 1.46,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(169, 154, 125)",
+          "behind": "rgb(186,188,192)"
+        },
+        {
+          "node": "button",
+          "text": "Critical",
+          "ratio": 2.97,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(127, 137, 152)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "button",
+          "text": "Agents",
+          "ratio": 2.97,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(127, 137, 152)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "button.is-zero",
+          "text": "Resolved",
+          "ratio": 2.97,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(127, 137, 152)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "button",
+          "text": "Mark all seen",
+          "ratio": 2.97,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(127, 137, 152)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "b",
+          "text": "0",
+          "ratio": 3.18,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(210,225,223)"
+        },
+        {
+          "node": "button.is-current",
+          "text": "All",
+          "ratio": 4.01,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(47, 111, 208)",
+          "behind": "rgb(227,234,235)"
+        },
+        {
+          "node": "span",
+          "text": "Evidence → action → engine verification",
+          "ratio": 4.12,
+          "required": 4.5,
+          "size": 9,
+          "weight": 400,
+          "color": "rgb(104, 113, 129)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "small",
+          "text": "Notification policy is managed in Settings",
+          "ratio": 4.25,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(226,230,238)"
+        },
+        {
+          "node": "span",
+          "text": "Worker",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "MCP request",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Worker",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Mission Supervisor",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Terminal alert",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Terminal alert",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Terminal alert",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Worker",
+          "ratio": 4.26,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "M02",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "W03",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "S04",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "T05",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "T06",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "div.decision-item__index",
+          "text": "T07",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span.section-kicker",
+          "text": "NEEDS YOU",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 9.5,
+          "weight": 650,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Evidence and consequence come before every act",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "time",
+          "text": "Opened just now",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Evidence",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Impact",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Recommended",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Recovery",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "time",
+          "text": "Expires in 9m",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Evidence",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Impact",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dt",
+          "text": "Recommended",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "agents",
+      "contrast": [
+        {
+          "node": "button.danger",
+          "text": "Stop",
+          "ratio": 1.08,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(244,246,250)"
+        },
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Agents",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "span.agent-roster-summary",
+          "text": "Error: refusing to write src/auth/session.ts w",
+          "ratio": 4.18,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(227,226,244)"
+        },
+        {
+          "node": "b",
+          "text": "0m",
+          "ratio": 4.18,
+          "required": 4.5,
+          "size": 10,
+          "weight": 500,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(227,226,244)"
+        },
+        {
+          "node": "small",
+          "text": "CURRENT ACTION",
+          "ratio": 4.23,
+          "required": 4.5,
+          "size": 12,
+          "weight": 720,
+          "color": "rgb(47, 111, 208)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "span.agent-state.state-running",
+          "text": "Needs your review",
+          "ratio": 4.39,
+          "required": 4.5,
+          "size": 9,
+          "weight": 680,
+          "color": "rgb(47, 111, 208)",
+          "behind": "rgb(238,244,245)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "recipes",
+      "contrast": [
+        {
+          "node": "button.btn-danger",
+          "text": "Delete",
+          "ratio": 1.03,
+          "required": 4.5,
+          "size": 12,
+          "weight": 620,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(251,252,253)"
+        },
+        {
+          "node": "button.btn-danger",
+          "text": "Delete",
+          "ratio": 1.03,
+          "required": 4.5,
+          "size": 12,
+          "weight": 620,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(251,252,253)"
+        },
+        {
+          "node": "button.btn-danger",
+          "text": "Delete",
+          "ratio": 1.03,
+          "required": 4.5,
+          "size": 12,
+          "weight": 620,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(251,252,253)"
+        },
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Recipes",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "history",
+      "contrast": [
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "History",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "button",
+          "text": "View all 10",
+          "ratio": 1.54,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(155, 202, 255)",
+          "behind": "rgb(238,244,251)"
+        },
+        {
+          "node": "strong",
+          "text": "Queue worker",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Unit tests (watch)",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Web dev server",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "API gateway",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Unit tests (watch)",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Queue worker",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Claude - refactor auth",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Codex - migration review",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "strong",
+          "text": "Postgres tunnel",
+          "ratio": 1.6,
+          "required": 4.5,
+          "size": 9,
+          "weight": 700,
+          "color": "rgb(48, 55, 67)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "unresolved",
+          "ratio": 1.61,
+          "required": 4.5,
+          "size": 7,
+          "weight": 600,
+          "color": "rgb(239, 170, 164)",
+          "behind": "rgb(246,232,232)"
+        },
+        {
+          "node": "b",
+          "text": "recovered",
+          "ratio": 1.61,
+          "required": 4.5,
+          "size": 7,
+          "weight": 600,
+          "color": "rgb(239, 170, 164)",
+          "behind": "rgb(246,232,232)"
+        },
+        {
+          "node": "dd",
+          "text": "Mission Supervisor",
+          "ratio": 1.9,
+          "required": 4.5,
+          "size": 9,
+          "weight": 400,
+          "color": "rgb(163, 173, 188)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dd",
+          "text": "Verify the auth refactor with the existing sui",
+          "ratio": 1.9,
+          "required": 4.5,
+          "size": 9,
+          "weight": 400,
+          "color": "rgb(163, 173, 188)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dd",
+          "text": "pending",
+          "ratio": 1.9,
+          "required": 4.5,
+          "size": 9,
+          "weight": 400,
+          "color": "rgb(163, 173, 188)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "dd",
+          "text": "Not provided by engine",
+          "ratio": 1.9,
+          "required": 4.5,
+          "size": 9,
+          "weight": 400,
+          "color": "rgb(163, 173, 188)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "database",
+          "ratio": 2.21,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(127, 174, 220)",
+          "behind": "rgb(248,249,250)"
+        },
+        {
+          "node": "span",
+          "text": "tests",
+          "ratio": 2.21,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(127, 174, 220)",
+          "behind": "rgb(248,249,250)"
+        },
+        {
+          "node": "span",
+          "text": "tests",
+          "ratio": 2.21,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(127, 174, 220)",
+          "behind": "rgb(248,249,250)"
+        },
+        {
+          "node": "span",
+          "text": "tests",
+          "ratio": 2.21,
+          "required": 4.5,
+          "size": 8,
+          "weight": 400,
+          "color": "rgb(127, 174, 220)",
+          "behind": "rgb(248,249,250)"
+        },
+        {
+          "node": "strong",
+          "text": "Queue worker",
+          "ratio": 2.63,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(255, 91, 102)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "strong",
+          "text": "Unit tests (watch)",
+          "ratio": 2.63,
+          "required": 4.5,
+          "size": 8,
+          "weight": 700,
+          "color": "rgb(255, 91, 102)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "b",
+          "text": "running",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "running",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "running",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "failed",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "running",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "running",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "b",
+          "text": "idle",
+          "ratio": 2.8,
+          "required": 4.5,
+          "size": 7,
+          "weight": 700,
+          "color": "rgb(82, 91, 105)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "database connectivity failed",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "1 tests failed",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Running now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Running now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Needs attention now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Needs attention now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Needs attention now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Running now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        },
+        {
+          "node": "small",
+          "text": "Not running now",
+          "ratio": 3.61,
+          "required": 4.5,
+          "size": 12,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(11,15,20)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "settings",
+      "contrast": [
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span",
+          "text": "Settings",
+          "ratio": 1.38,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(210,220,236)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "span",
+          "text": "Integrations",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 12,
+          "weight": 580,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Choose a calm visual system for long developme",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 11,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Orbital Dark, a daylight surface, or maximum c",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Scale interface typography without changing te",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Choose how much breathing room controls and ro",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        },
+        {
+          "node": "p",
+          "text": "Reduce transitions while keeping state changes",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 13,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    },
+    {
+      "theme": "solar",
+      "route": "integrations",
+      "contrast": [
+        {
+          "node": "span",
+          "text": "AI",
+          "ratio": 1.28,
+          "required": 4.5,
+          "size": 10,
+          "weight": 800,
+          "color": "rgb(255, 255, 255)",
+          "behind": "rgb(225,226,241)"
+        },
+        {
+          "node": "span.status-chip.tone-ready",
+          "text": "Ready",
+          "ratio": 3.28,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(213,228,228)"
+        },
+        {
+          "node": "strong",
+          "text": "Mission AI",
+          "ratio": 3.73,
+          "required": 4.5,
+          "size": 12.5,
+          "weight": 620,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "span.status-chip.tone-warning",
+          "text": "Needs attention",
+          "ratio": 3.85,
+          "required": 4.5,
+          "size": 12,
+          "weight": 650,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(227,223,219)"
+        },
+        {
+          "node": "strong.tone-ready",
+          "text": "1",
+          "ratio": 4.3,
+          "required": 4.5,
+          "size": 13,
+          "weight": 660,
+          "color": "rgb(31, 139, 87)",
+          "behind": "rgb(255,255,255)"
+        },
+        {
+          "node": "strong",
+          "text": "Secure MCP",
+          "ratio": 4.42,
+          "required": 4.5,
+          "size": 12.5,
+          "weight": 620,
+          "color": "rgb(154, 98, 8)",
+          "behind": "rgb(236,239,245)"
+        },
+        {
+          "node": "small",
+          "text": "Developer cockpit",
+          "ratio": 4.45,
+          "required": 4.5,
+          "size": 10,
+          "weight": 400,
+          "color": "rgb(98, 108, 122)",
+          "behind": "rgb(232,235,240)"
+        }
+      ]
+    }
+  ]
+}

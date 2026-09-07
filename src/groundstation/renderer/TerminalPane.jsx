@@ -8,19 +8,24 @@ import {
   notificationType,
   streamIdentifier
 } from "./missionApi.js";
+import { CrashLens } from "./CrashLens.jsx";
+import { WorkerMetricStrip } from "./WorkerSparkline.jsx";
 
 const TERMINAL_THEMES = {
-  orbital: { background: "#080c0c", foreground: "#d7dcd7", cursor: "#8de0ba", cursorAccent: "#101313", selectionBackground: "#2b3b31", black: "#111413", red: "#f09090", green: "#8de0ba", yellow: "#f0c060", blue: "#7eb8f7", magenta: "#b8a8f8", cyan: "#5cd8e8", white: "#edf2ef", brightBlack: "#5a6460" },
+  // ANSI has sixteen slots and a program picks whichever it likes, so the
+  // bright half is stated too: leaving it to xterm's defaults let a `FAIL`
+  // line paint its own red next to the palette's.
+  orbital: { background: "#000000", foreground: "#fafafa", cursor: "#0070f3", cursorAccent: "#000000", selectionBackground: "#1f3a5f", black: "#171717", red: "#ff5f5f", green: "#32d583", yellow: "#f5b942", blue: "#3291ff", magenta: "#6cb2ff", cyan: "#32d583", white: "#fafafa", brightBlack: "#a1a1a1", brightRed: "#ff8a8a", brightGreen: "#5ce8a3", brightYellow: "#ffcf5c", brightBlue: "#6cb2ff", brightMagenta: "#8cc6ff", brightCyan: "#5ce8a3", brightWhite: "#ffffff" },
   solar: { background: "#f7f5ed", foreground: "#27352d", cursor: "#347849", cursorAccent: "#f7f5ed", selectionBackground: "#c9dfcf", black: "#26312b", red: "#a23d38", green: "#347849", yellow: "#986719", blue: "#32699d", magenta: "#6653a8", cyan: "#277a75", white: "#fffdf8", brightBlack: "#788078" },
   contrast: { background: "#000000", foreground: "#ffffff", cursor: "#75ff9a", cursorAccent: "#000000", selectionBackground: "#31513a", black: "#000000", red: "#ff7d73", green: "#75ff9a", yellow: "#ffd45e", blue: "#7fc5ff", magenta: "#c7b5ff", cyan: "#70fff0", white: "#ffffff", brightBlack: "#b8b8b8" }
 };
 
-function PaneIcon({ name, size = 15 }) {
+function PaneIcon({ name, size = 14 }) {
   const paths = {
-    grip: <><circle cx="8" cy="7" r="1"/><circle cx="16" cy="7" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="17" r="1"/><circle cx="16" cy="17" r="1"/></>,
+    grip: <><circle cx="8" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.3" fill="currentColor" stroke="none"/></>,
     expand: <><path d="M14 5h5v5"/><path d="m19 5-7 7"/><path d="M10 19H5v-5"/><path d="m5 19 7-7"/></>,
     restore: <><rect x="5" y="7" width="12" height="12" rx="2"/><path d="M8 7V5h11v11h-2"/></>,
-    more: <><circle cx="6" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18" cy="12" r="1"/></>
+    more: <><circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></>
   };
   return <svg className="pane-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }
@@ -63,7 +68,7 @@ function activity(session, connection) {
   return line ? line.slice(0, 140) : "Running · no output reported yet";
 }
 
-export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onTerminalError, onTerminalRecovered }) {
+export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI }) {
   const hostRef = React.useRef(null);
   const terminalRef = React.useRef(null);
   const fitRef = React.useRef(null);
@@ -80,7 +85,12 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   const [connection, setConnection] = React.useState(session?.isAlive ? "connecting" : "offline");
   const [message, setMessage] = React.useState("");
   const [chooserOpen, setChooserOpen] = React.useState(false);
+  const chooserRef = React.useRef(null);
+  const chooserTriggerRef = React.useRef(null);
   const [actionMenuOpen, setActionMenuOpen] = React.useState(false);
+  const [renaming, setRenaming] = React.useState(false);
+  const [renameValue, setRenameValue] = React.useState("");
+  React.useEffect(() => { if (renaming) setRenameValue(session.name || ""); }, [renaming, session.name]);
   const [dragOver, setDragOver] = React.useState(false);
   const [findOpen, setFindOpen] = React.useState(false);
   const [findQuery, setFindQuery] = React.useState("");
@@ -90,6 +100,41 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   React.useLayoutEffect(() => {
     minimizedRef.current = Boolean(minimized);
   }, [minimized]);
+
+  // Session chooser keyboard + dismissal contract: focus the first item on open,
+  // Arrow keys roam, Escape and an outside pointer close it and return focus to
+  // the trigger.
+  React.useEffect(() => {
+    if (!chooserOpen) return undefined;
+    const menu = chooserRef.current;
+    const items = () => (menu ? [...menu.querySelectorAll('[role="menuitem"]')] : []);
+    const list = items();
+    (list.find(node => node.classList.contains("is-current")) || list[0])?.focus();
+    const restore = () => { setChooserOpen(false); chooserTriggerRef.current?.focus(); };
+    const onKey = event => {
+      if (event.key === "Escape") { event.preventDefault(); restore(); return; }
+      if (event.key === "Tab") { restore(); return; }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        const nodes = items();
+        const index = nodes.indexOf(document.activeElement);
+        const target = event.key === "Home" ? 0
+          : event.key === "End" ? nodes.length - 1
+          : event.key === "ArrowDown" ? (index + 1) % nodes.length
+          : (index - 1 + nodes.length) % nodes.length;
+        nodes[target]?.focus();
+      }
+    };
+    const onPointerDown = event => {
+      if (menu && !menu.contains(event.target) && event.target !== chooserTriggerRef.current) setChooserOpen(false);
+    };
+    menu?.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      menu?.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [chooserOpen]);
 
   const find = React.useCallback(direction => {
     const terminal = terminalRef.current;
@@ -122,6 +167,11 @@ export default function TerminalPane({ session, sessions, profile, active, expan
       convertEol: false,
       cursorBlink: active,
       cursorStyle: terminalCursor,
+      // xterm exposes an aria-live mirror of the viewport for NVDA (Windows) and
+      // VoiceOver (macOS). Limitation: it announces newly printed rows and cursor
+      // movement, not arbitrary scrollback review — use Ctrl+F search / "Copy all"
+      // for a full transcript with assistive tech.
+      screenReaderMode: true,
       fontFamily: "'Cascadia Code', 'JetBrains Mono', Consolas, monospace",
       fontSize: terminalFontSize,
       fontWeight: "400",
@@ -176,7 +226,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
 
     const open = async () => {
       if (!session.isAlive) {
-        terminal.writeln("\x1b[38;2;103;110;105mWorker is resting. Use Start when you are ready.\x1b[0m");
+        terminal.writeln("\x1b[38;2;161;161;161mWorker is resting. Use Start when you are ready.\x1b[0m");
         setConnection("offline");
         return;
       }
@@ -194,7 +244,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
           } else if (type === "terminal:exit" || type === "terminal.exit") {
             aliveRef.current = false;
             setConnection("exited");
-            terminal.writeln("\r\n\x1b[38;2;100;114;125m[worker exited]\x1b[0m");
+            terminal.writeln("\r\n\x1b[38;2;161;161;161m[worker exited]\x1b[0m");
           } else {
             setConnection("overflow");
             reportOperationalError("Output exceeded the desktop stream buffer. Reopen this pane to resync.");
@@ -242,7 +292,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         if (!disposed) {
           setConnection("error");
           const reason = reportOperationalError(openError);
-          terminal.writeln(`\x1b[38;2;255;123;114m[terminal unavailable: ${reason}]\x1b[0m`);
+          terminal.writeln(`\x1b[38;2;255;95;95m[terminal unavailable: ${reason}]\x1b[0m`);
         }
       }
     };
@@ -344,42 +394,71 @@ export default function TerminalPane({ session, sessions, profile, active, expan
     >
       {minimized ? <header className="terminal-pane__header terminal-pane__header--minimized" onClick={onToggleExpanded}>
         <div className="terminal-pane__identity">
-          <span className={`status-dot status-${session.status}`}/>
-          <div><strong>{session.name}</strong><span className={`terminal-role-tag role-${profile?.key || "terminal"}`}>{profile?.label || "Terminal"}</span></div>
+          <span className={`status-dot status-${session.status} role-${profile?.key || "terminal"}`}/>
+          <div><strong>{session.name}</strong><span className={`terminal-role-tag role-${profile?.key || "terminal"}`} title="Role inferred from the command — not an engine-reported fact">{profile?.label || "Terminal"}</span></div>
         </div>
         <span className="terminal-minimized-state">{session.isAlive ? "Live" : session.status}</span>
         <button type="button" className="icon-button terminal-restore" title={`Maximize ${session.name}`} aria-label={`Maximize ${session.name}`} onClick={event => { event.stopPropagation(); onToggleExpanded?.(); }}><PaneIcon name="restore"/></button>
       </header> : <>
       <header className="terminal-pane__header">
         <div className="terminal-pane__identity">
-          <span className={`status-dot status-${session.status}`} />
+          <span className={`status-dot status-${session.status} role-${profile?.key || "terminal"}`} />
           <div>
             <button
+              ref={chooserTriggerRef}
               type="button"
               className="terminal-session-trigger"
               onClick={event => { event.stopPropagation(); setChooserOpen(value => !value); }}
+              onKeyDown={event => { if ((event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") && !chooserOpen) { event.preventDefault(); setChooserOpen(true); } }}
               aria-expanded={chooserOpen}
               aria-haspopup="menu"
-              title={`Switch pane · ${session.command}`}
+              title={`${session.name} · ${session.command}
+${ownership(session)} · ${session.cwd || "."}
+Switch pane`}
             >
               <strong>{session.name}</strong><span aria-hidden="true">⌄</span>
             </button>
-            {chooserOpen && <div className="terminal-session-menu" role="menu" onMouseDown={event => event.stopPropagation()}>
+            {chooserOpen && <div ref={chooserRef} className="terminal-session-menu" role="menu" onMouseDown={event => event.stopPropagation()}>
               <div className="terminal-session-menu__label">SHOW IN THIS PANE</div>
               {sessions.map(option => <button type="button" role="menuitem" className={option.id === session.id ? "is-current" : ""} key={option.id} onClick={() => { onSelectSession(option.id); setChooserOpen(false); }}><i className={`status-${option.status}`}/><span><strong>{option.name}</strong><small>{option.command}</small></span>{option.id === session.id && <b>Current</b>}</button>)}
               <button type="button" role="menuitem" onClick={() => { onSelectSession(""); setChooserOpen(false); }}><i/><span><strong>Empty pane</strong><small>Free this position</small></span></button>
             </div>}
-            {/* Engine-reported facts only: role, state, uptime, ownership, cwd. */}
+            {/* T086/T087 — progressive disclosure. State is the one fact that is
+                always visible, because it is the reason you would look at a pane
+                header at all. Role and uptime are useful when there is room and
+                are dropped by container query as panes narrow. Ownership and cwd
+                are reference detail: they stay reachable on the identity tooltip
+                and in the inspector, but they no longer compete with the state
+                of six panes at once. Engine-reported facts only. */}
             <span className="terminal-pane__facts">
-              {profile?.label && <b className={`terminal-role-tag role-${profile.key}`}>{profile.label}</b>}
-              <em>{session.status}</em>
-              {uptimeLabel && <em title="Uptime since the engine started this worker">{uptimeLabel}</em>}
-              <em title="PTY ownership">{ownership(session)}</em>
-              <em className="terminal-pane__cwd" title={session.cwd || "."}>{session.cwd || "."}</em>
+              {profile?.label && <b className={`terminal-role-tag role-${profile.key}`} title="Role inferred from the command — not an engine-reported fact">{profile.label}</b>}
+              <em className="terminal-pane__state">{session.status}</em>
+              {uptimeLabel && <em className="terminal-pane__uptime" title="Uptime since the engine started this worker">{uptimeLabel}</em>}
             </span>
           </div>
         </div>
-        <div className={`terminal-pane__telemetry connection-${connection}`} title={profile?.detail || connection}><i/><span>{connection === "live" ? "Live" : connection}</span></div>
+        {renaming && <form className="terminal-rename" onSubmit={event => {
+        event.preventDefault();
+        const next = renameValue.trim();
+        setRenaming(false);
+        if (!next || next === session.name) return;
+        // T093 — a label change is a `rename` action, which the command router
+        // classifies as safe. It never touches the command, the cwd or the PTY.
+        onAction?.("rename", session.id, { name: next });
+      }}>
+        <input
+          autoFocus
+          value={renameValue}
+          maxLength={60}
+          aria-label={`Rename ${session.name}`}
+          onChange={event => setRenameValue(event.target.value)}
+          onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setRenaming(false); } }}
+        />
+        <button type="submit" disabled={!renameValue.trim()}>Rename</button>
+        <button type="button" onClick={() => setRenaming(false)}>Cancel</button>
+      </form>}
+      <div className={`terminal-pane__telemetry connection-${connection}`} title={profile?.detail || connection}><i/><span>{connection === "live" ? "Live" : connection}</span></div>
+        <WorkerMetricStrip session={session} compact />
         <div className="terminal-pane__actions">
           {shortcut && <kbd className="terminal-shortcut" title={`Focus pane · Alt ${shortcut}`}>Alt {shortcut}</kbd>}
           <button type="button" className="terminal-drag-handle" draggable title="Drag terminal to another pane" aria-label={`Move ${session.name} to another terminal pane`} onMouseDown={event => event.stopPropagation()} onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-mission-worker", session.id); event.dataTransfer.setData("text/plain", session.id); }}>
@@ -397,7 +476,9 @@ export default function TerminalPane({ session, sessions, profile, active, expan
               <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => void copySelection()}><span>Copy selection</span></DropdownMenu.Item>
               <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={clearDisplay}><span>Clear display</span></DropdownMenu.Item>
               <DropdownMenu.Separator className="terminal-action-separator"/>
+              <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); setRenaming(true); }}><span>Rename</span><small>Change the display label only — the command and process are untouched</small></DropdownMenu.Item>
               {onReconfigure && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onReconfigure(session); }}><span>Reconfigure worker</span><small>Edit command, arguments, directory and restore policy</small></DropdownMenu.Item>}
+              {onDuplicate && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onDuplicate(session); }}><span>Duplicate worker</span><small>Opens a new worker pre-filled from this one — review the command and directory before it is created</small></DropdownMenu.Item>}
               <DropdownMenu.Separator className="terminal-action-separator"/>
               {session.isAlive && <DropdownMenu.Item className="terminal-action-item is-warning" onSelect={() => requestAction("kill")}><span>Stop worker</span><small>Stop the active engine-owned PTY</small></DropdownMenu.Item>}
               <DropdownMenu.Item className="terminal-action-item is-danger" onSelect={() => requestAction("remove")}><span>Delete terminal</span><small>Remove this worker definition after confirmation</small></DropdownMenu.Item>
@@ -422,6 +503,13 @@ export default function TerminalPane({ session, sessions, profile, active, expan
       </div>
       </>}
       <div className="terminal-host" ref={hostRef} aria-hidden={minimized || undefined} inert={minimized ? "" : undefined}/>
+      {session?.status === "failed" && (
+        <CrashLens
+          session={session}
+          onAction={onAction}
+          onAskAI={prompt => onAskAI?.(prompt)}
+        />
+      )}
     </article>
   );
 }

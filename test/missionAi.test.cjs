@@ -52,7 +52,7 @@ test("Mission AI sends one stateless observe-only Gemini request grounded in Mis
         status: 200,
         headers: { get: () => null },
         text: async () => JSON.stringify({
-          steps: [{ type: "model_output", content: [{ type: "text", text: "Backend failed from recorded lifecycle evidence." }] }]
+          candidates: [{ content: { parts: [{ text: "Backend failed from recorded lifecycle evidence." }] } }]
         })
       };
     }
@@ -65,13 +65,11 @@ test("Mission AI sends one stateless observe-only Gemini request grounded in Mis
   assert.equal(result.context.terminalEvidence, "sanitized-bounded");
   assert.deepEqual(contextCalls, [{ afterSequence: 0, includeOutput: true }]);
   assert.equal(fetchCalls.length, 1);
-  assert.equal(fetchCalls[0].url, GEMINI_INTERACTIONS_ENDPOINT);
+  assert.equal(fetchCalls[0].url, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
   assert.equal(fetchCalls[0].options.headers["x-goog-api-key"], "AIzaSyExampleMissionControlKey123456789");
   const body = JSON.parse(fetchCalls[0].options.body);
-  assert.equal(body.store, false);
-  assert.equal(body.model, "gemini-2.5-flash");
-  assert.equal(body.system_instruction, SYSTEM_INSTRUCTION);
-  assert.equal(body.input.includes("do-not-send"), false);
+  assert.equal(body.systemInstruction.parts[0].text, SYSTEM_INSTRUCTION);
+  assert.equal(body.contents[0].parts[0].text.includes("do-not-send"), false);
   assert.equal(fetchCalls[0].options.body.includes("AIzaSyExampleMissionControlKey"), false);
 });
 
@@ -80,9 +78,8 @@ test("Mission AI bounds questions and extracts only model text", () => {
   assert.throws(() => questionText(""), /cannot be empty/);
   assert.throws(() => questionText("x".repeat(1201)), /cannot exceed/);
   assert.equal(responseText({
-    steps: [
-      { type: "thought", summary: [{ text: "private reasoning" }] },
-      { type: "model_output", content: [{ type: "text", text: "Grounded answer" }] }
+    candidates: [
+      { content: { parts: [{ text: "Grounded answer" }] } }
     ]
   }), "Grounded answer");
 });
@@ -95,22 +92,68 @@ test("Mission AI validates evidence citations and returns estimate ranges with u
     projectSupervision: { snapshot: options => ({ supervisionVersion: 1, contextVersion: 1, generatedAt: 100, project: { workerCount: 1 }, overview: {}, facts: {}, inferences: [], evidenceIndex: [{ id: "worker:api", kind: "fact", source: "EngineAPI", label: "API running" }], visibility: { terminalEvidence: options.includeOutput ? "sanitized-bounded" : "omitted" }, privacy: { redactionCount: 0 } }) },
     fetch: async (_url, options) => {
       sent = JSON.parse(options.body);
-      return { ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ output_text: JSON.stringify({ answer: "The remaining work may take 4–8 hours.", citations: ["worker:api", "worker:invented"], estimate: { minimumHours: 4, maximumHours: 8, confidence: "low", assumptions: ["Scope remains stable"], missingEvidence: ["No comparable completed run"] } }) }) };
+      const answerPayload = JSON.stringify({
+        answer: "The remaining work may take 4–8 hours.",
+        citations: ["worker:api", "worker:invented"],
+        estimate: {
+          minimumHours: 4,
+          maximumHours: 8,
+          confidence: "low",
+          assumptions: ["Scope remains stable"],
+          missingEvidence: ["No comparable completed run"]
+        }
+      });
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        text: async () => JSON.stringify({
+          candidates: [{
+            content: {
+              parts: [{ text: answerPayload }]
+            }
+          }]
+        })
+      };
     }
   });
   const result = await service.ask({ question: "How long may this take?" });
   assert.deepEqual(result.citations, ["worker:api"]);
   assert.deepEqual(result.estimate, { minimumHours: 4, maximumHours: 8, confidence: "low", assumptions: ["Scope remains stable"], missingEvidence: ["No comparable completed run"] });
   assert.equal(result.structured, true);
-  assert.match(sent.input, /projectSupervision/);
-  assert.equal(sent.input.includes("worker:invented"), false);
+  const promptText = sent.contents[0].parts[0].text;
+  assert.match(promptText, /projectSupervision/);
+  assert.equal(promptText.includes("worker:invented"), false);
 });
 
 test("Mission AI discards unsolicited estimate data for a non-time question", async () => {
   const service = new MissionAIService({
     credentialStore: credentialStore(),
     missionContext: missionContext([]),
-    fetch: async () => ({ ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ output_text: JSON.stringify({ answer: "The API is running.", citations: [], estimate: { minimumHours: 1, maximumHours: 2, confidence: "high", assumptions: [], missingEvidence: [] } }) }) })
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: async () => JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify({
+                answer: "The API is running.",
+                citations: [],
+                estimate: {
+                  minimumHours: 1,
+                  maximumHours: 2,
+                  confidence: "high",
+                  assumptions: [],
+                  missingEvidence: []
+                }
+              })
+            }]
+          }
+        }]
+      })
+    })
   });
   const result = await service.ask({ question: "What is happening?" });
   assert.equal(result.estimate, null);
@@ -127,14 +170,15 @@ test("Mission AI redacts a bare Gemini API key from the question", async () => {
         ok: true,
         status: 200,
         headers: { get: () => null },
-        text: async () => JSON.stringify({ steps: [{ type: "model_output", content: [{ type: "text", text: "Redacted." }] }] })
+        text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "Redacted." }] } }] })
       };
     }
   });
   const key = "AIzaSyExampleMissionControlKey123456789";
   await service.ask({ question: `Check ${key} without revealing it` });
-  assert.equal(sent.input.includes(key), false);
-  assert.match(sent.input, /\[REDACTED:token\]/);
+  const promptText = sent.contents[0].parts[0].text;
+  assert.equal(promptText.includes(key), false);
+  assert.match(promptText, /\[REDACTED:token\]/);
 });
 
 test("Mission AI exposes safe provider errors and serializes concurrent questions", async () => {
@@ -163,6 +207,51 @@ test("Mission AI configuration and clear never return credentials", () => {
   assert.equal(service.clear().removed, true);
 });
 
+test("Mission AI automatically fails over to secondary key when primary returns 429 quota exhausted", async () => {
+  const primaryKey = "AIzaSyPrimaryFailKey123456789012345";
+  const secondaryKey = "AIzaSySecondaryPassKey9876543210123";
+  const attempts = [];
+
+  const store = {
+    status: () => ({ configured: true, model: "gemini-2.5-flash", includeTerminalEvidence: false, available: true, keyState: { primary: { configured: true }, secondary: { configured: true } }, activeSlot: "primary" }),
+    preferences: () => ({ model: "gemini-2.5-flash", includeTerminalEvidence: false }),
+    apiKey: (slot = "primary") => slot === "secondary" ? secondaryKey : primaryKey,
+    getSlotApiKey: slot => ({ slot, apiKey: slot === "secondary" ? secondaryKey : primaryKey }),
+    configure: () => {},
+    clear: () => true
+  };
+
+  const service = new MissionAIService({
+    credentialStore: store,
+    missionContext: missionContext([]),
+    fetch: async (_url, options) => {
+      const usedKey = options.headers["x-goog-api-key"];
+      attempts.push(usedKey);
+      if (usedKey === primaryKey) {
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: () => null },
+          text: async () => JSON.stringify({ error: { code: 429, message: "RESOURCE_EXHAUSTED: quota exceeded" } })
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        text: async () => JSON.stringify({
+          candidates: [{ content: { parts: [{ text: "Answered via failover secondary key." }] } }]
+        })
+      };
+    }
+  });
+
+  const result = await service.ask({ question: "Will failover work?" });
+  assert.equal(result.text, "Answered via failover secondary key.");
+  assert.deepEqual(attempts, [primaryKey, secondaryKey]);
+  assert.equal(service.status().activeSlot, "secondary");
+});
+
 test("Mission AI produces JSON-only proposal plans without execution authority", async () => {
   const contextCalls = [];
   let requestBody;
@@ -177,11 +266,17 @@ test("Mission AI produces JSON-only proposal plans without execution authority",
         status: 200,
         headers: { get: () => null },
         text: async () => JSON.stringify({
-          output_text: JSON.stringify({
-            summary: "Create a backend worker",
-            assumptions: ["npm script exists"],
-            actions: [{ type: "create-worker", id: "backend", command: "npm", args: ["run", "dev"], reason: "Requested workspace role" }]
-          })
+          candidates: [{
+            content: {
+              parts: [{
+                text: JSON.stringify({
+                  summary: "Create a backend worker",
+                  assumptions: ["npm script exists"],
+                  actions: [{ type: "create-worker", id: "backend", command: "npm", args: ["run", "dev"], reason: "Requested workspace role" }]
+                })
+              }]
+            }
+          }]
         })
       };
     }
@@ -190,7 +285,6 @@ test("Mission AI produces JSON-only proposal plans without execution authority",
   const result = await service.plan({ instruction: "Create a backend worker" });
   assert.equal(result.authority, "proposal-only");
   assert.equal(result.plan.actions[0].type, "create-worker");
-  assert.equal(requestBody.system_instruction, PLAN_SYSTEM_INSTRUCTION);
-  assert.equal(requestBody.store, false);
+  assert.equal(requestBody.systemInstruction.parts[0].text, PLAN_SYSTEM_INSTRUCTION);
   assert.deepEqual(contextCalls, [{ afterSequence: 0, includeOutput: true }]);
 });

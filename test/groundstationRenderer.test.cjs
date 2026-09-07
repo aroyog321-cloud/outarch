@@ -14,6 +14,16 @@ const terminalLayoutUrl = pathToFileURL(
   path.resolve(__dirname, "../src/groundstation/renderer/useTerminalLayout.js")
 ).href;
 
+
+// T154 — reduced motion is owned by one layer, not repeated per stylesheet.
+// Any component test that used to assert its own copy now asserts the owner.
+function assertReducedMotionIsCentral() {
+  const owner = fs.readFileSync(path.resolve(__dirname, "..", "src", "groundstation", "renderer", "redesign", "surfaces.css"), "utf8");
+  assert.match(owner, /@media \(prefers-reduced-motion: reduce\)/, "the redesign surface layer owns the OS preference");
+  assert.match(owner, /\.shell\.motion-reduced,/, "and the in-app Motion setting resolves to the same rule");
+  assert.match(owner, /--mc-duration-fast: 0ms;/, "stilling the duration tokens is what stops token-driven motion");
+}
+
 test("Groundstation product experience keeps the intentional navigation and Mission Command", () => {
   const appSource = require("node:fs").readFileSync(
     path.resolve(__dirname, "../src/groundstation/renderer/App.jsx"),
@@ -46,21 +56,23 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(workerDialogSource, /Frontend dev/);
   assert.match(workerDialogSource, /Docker stack/);
   assert.match(workerDialogSource, /Git status/);
-  assert.match(appSource, /PROJECT PULSE/);
-  assert.match(appSource, /AttentionShelf/);
+  assert.match(appSource, /mc-ref-groundstation/);
+  assert.match(appSource, /AttentionInbox/);
   assert.match(appSource, /decisionFor/);
   assert.match(appSource, /Evidence/);
-  assert.match(appSource, /Restart & verify/);
-  assert.match(appSource, /LIVE PROJECT SCENE/);
-  assert.match(appSource, /LIVE PROJECT ENVIRONMENT/);
-  assert.match(appSource, /GroundstationRecipeLauncher/);
-  assert.match(appSource, /Start a saved working set/);
-  assert.match(appSource, /MISSION COMMAND/);
+  assert.match(
+    fs.readFileSync(path.resolve(__dirname, "../src/protocol/decisionBroker.cjs"), "utf8"),
+    /Restart worker/
+  );
+  assert.match(appSource, /function GroundstationOnboarding/);
+  assert.match(appSource, /Build your supervised project/);
+  assert.match(appSource, /ReferenceRecipePanel/);
+  assert.match(appSource, /Command\.Group/);
   assert.match(appSource, /WORKER INTELLIGENCE/);
   assert.match(appSource, /SOURCE CONTROL/);
   assert.match(appSource, /working tree clean/);
   assert.match(appSource, /gitChanges/);
-  assert.match(appSource, /LIVE AGENTS/);
+  assert.match(appSource, /AI crew/);
   assert.match(appSource, /WORKER FOCUS/);
   assert.match(appSource, /QUICK LOOK · HOLD SPACE/);
   assert.match(appSource, /event\.code !== "Space"/);
@@ -77,17 +89,19 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(appSource, /executeBulk/);
   assert.match(appSource, /Selected worker/);
   assert.match(appSource, /Choose existing/);
-  assert.match(appSource, /Restarting…/);
+  assert.match(appSource, /Restart worker/);
   assert.doesNotMatch(appSource, /<select/);
   assert.match(appSource, /What is happening/);
-  assert.match(appSource, /function nowSummary/);
-  assert.match(appSource, /className="now-summary pm-card"/);
+  assert.match(appSource, /function sessionSummary/);
+  assert.match(appSource, /ActivityWaterline/);
   assert.match(appSource, /Terminal history/);
   assert.match(appSource, /Review agent/);
-  assert.match(appSource, /Add Worker/);
+  assert.match(workerDialogSource, /Add worker/);
   assert.match(appSource, /onNavigate\("agents"\)/);
-  assert.match(appSource, /ACTIVE CREW/);
-  assert.match(appSource, /agent-command-deck/);
+  // The Agents route renders AgentWorkspace; the old inline AgentsView is deleted (T180).
+  assert.match(appSource, /<AgentWorkspace sessions=/);
+  assert.doesNotMatch(appSource, /function AgentsView\(/);
+  assert.doesNotMatch(appSource, /function IntegrationsView\(\)/);
   assert.match(appSource, /Risks & attention/);
   assert.match(appSource, /function needsAttention\(session\)/);
   assert.match(appSource, /No matching history/);
@@ -98,10 +112,19 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(appSource, /Search event, actor, reason/);
   assert.match(appSource, /RECORDED EVIDENCE/);
   assert.match(appSource, /durable timeline of worker changes and verified operational facts/);
+  // T049 — a failed project-memory load must render a distinct notice, not read as "no memory yet".
+  assert.match(appSource, /setMemoryError/);
+  assert.match(appSource, /history-memory-error/);
+  assert.match(appSource, /Project memory could not be loaded/);
+  assert.doesNotMatch(
+    appSource,
+    /request\("memory\.summary"[^;]*\.catch\(\(\) => \{\}\)/,
+    "memory.summary load failure must not be swallowed"
+  );
   assert.match(appSource, /SINCE YOU LAST CHECKED/);
   assert.match(appSource, /mission-control\.history-cursor\.v1/);
   assert.match(appSource, /Mark reviewed/);
-  assert.match(appSource, /Add & start/);
+  // Agent creation flow (the inline AgentsView is gone — T180 — but App still owns createAgent).
   assert.match(appSource, /request\("agent\.create", \{ adapterId \}\)/);
   assert.match(appSource, /sessionId: createdSessionId, action: \{ type: "start" \}/);
   assert.match(appSource, /progress not reported/);
@@ -127,18 +150,19 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(appSource, /Open workspace recipes/);
   assert.match(appSource, /Launching \$\{recipe\.name\}/);
   assert.match(appSource, /terminalLayout\.applyLayout/);
-  assert.match(appSource, /VS Code-owned terminals are observe-only/);
+  assert.match(appSource, /Editor ownership stays explicit/);
+  assert.match(appSource, /Mission Control-managed terminals only/);
   assert.match(appSource, /Approve & create/);
   assert.match(appSource, /Approve & send/);
   assert.match(appSource, /vscode\.terminal\.write/);
-  assert.match(appSource, /confirm:vscode\.terminal\.write:/);
+  assert.match(appSource, /confirmedRequest\(method, params\)/);
+  assert.match(appSource, /title: `Send command to/);
   assert.match(appSource, /raw output never crosses the bridge/);
-  assert.match(appSource, /function SupervisionBriefing/);
-  assert.match(appSource, /request\("supervision\.get"/);
-  assert.match(appSource, /WHAT IS RUNNING/);
-  assert.match(appSource, /WHAT CHANGED/);
-  assert.match(appSource, /WHAT NEEDS YOU/);
-  assert.match(appSource, /FACTS AND INFERENCES SEPARATED/);
+  assert.doesNotMatch(appSource, /function SupervisionBriefing/);
+  assert.doesNotMatch(appSource, /function LegacyGroundstationView/);
+  assert.doesNotMatch(appSource, /function GroundstationView/);
+  assert.match(appSource, /Observed facts, not inferred failures/);
+  assert.match(appSource, /surface="health\.status"/);
 
   const recipesSource = require("node:fs").readFileSync(
     path.resolve(__dirname, "../src/groundstation/renderer/WorkspaceRecipes.jsx"),
@@ -148,21 +172,32 @@ test("Groundstation product experience keeps the intentional navigation and Miss
     path.resolve(__dirname, "../src/groundstation/renderer/recipeBuilderModel.js"),
     "utf8"
   );
-  assert.match(recipesSource, /DAILY WORKSPACES/);
+  const recipesPageSource = require("node:fs").readFileSync(
+    path.resolve(__dirname, "../src/groundstation/renderer/RecipesView.jsx"),
+    "utf8"
+  );
+  // WorkspaceRecipes.jsx is builder-only now (Audit B §F): create/edit/duplicate one recipe.
+  assert.match(recipesSource, /RECIPE BUILDER/);
   assert.match(recipesSource, /Select terminals and arrange the launch order/);
-  assert.match(recipesSource, /Launch recipe/);
   assert.match(recipesSource, /recipe\.save/);
-  assert.match(recipesSource, /recipe\.pause/);
-  assert.match(recipesSource, /SAVED DAILY WORKSPACES/);
+  assert.match(recipesSource, /mode === "edit"/);
+  assert.match(recipesSource, /Discard unsaved changes/);
   assert.match(recipesSource, /dependency graph/);
   assert.match(recipesSource, /Advanced startup controls/);
   assert.match(recipesSource, /Explain recipes/);
   assert.match(recipeBuilderSource, /Parallel services/);
   assert.match(recipesSource, /parallel dependency graph editor/i);
-  assert.match(recipesSource, /recipe\.cancel/);
-  assert.match(recipesSource, /Recover failed run/);
   assert.match(recipesSource, /rollback-started/);
   assert.match(recipesSource, /git-clean/);
+  // The saved-recipe library — launch, pause, cancel, recover, delete — lives on the Recipes page.
+  assert.match(recipesPageSource, /SAVED RECIPES/);
+  assert.match(recipesPageSource, /Launch workspace/);
+  assert.match(recipesPageSource, /recipe\.pause/);
+  assert.match(recipesPageSource, /recipe\.cancel/);
+  assert.match(recipesPageSource, /Recover failed run/);
+  assert.match(recipesPageSource, /onManage\(recipe, "edit"\)/);
+  assert.match(recipesPageSource, /onManage\(recipe, "duplicate"\)/);
+  assert.match(recipesPageSource, /onDelete\?\.\(recipe\)/);
 
   const agentSource = require("node:fs").readFileSync(
     path.resolve(__dirname, "../src/groundstation/renderer/AgentWorkspace.jsx"),
@@ -245,15 +280,19 @@ test("Groundstation 2.19 uses the live supervision composition and consolidated 
   assert.match(premium, /--surface-canvas:\s*var\(--theme-canvas\)/);
   assert.match(premium, /--status-needs-you:\s*var\(--accent-attention\)/);
   assert.match(bridge, /--font-family-ui/);
-  assert.match(bridge, /--mc-text-dim:\s*#747b88/);
-  assert.match(base, /2\.19 shell contract/);
-  assert.match(base, /grid-template-columns: 212px minmax\(0, 1fr\)/);
+  // The dim text role must exist in the bridge; its value belongs to the
+  // palette, and accessibilityMeasured.test.cjs is what holds it to contrast.
+  assert.match(bridge, /--mc-text-dim:\s*#[0-9a-f]{3,8};/i);
+  assert.match(base, /Mission Control .* base layer/);
+  assert.match(base, /grid-template-columns: 64px minmax\(0, 1fr\)/);
   assert.match(base, /\.mission-status-bar/);
-  assert.match(base, /prefers-reduced-motion: reduce/);
+  assertReducedMotionIsCentral();
   assert.match(workspace, /container: workspace-stage \/ inline-size/);
   assert.match(workspace, /@container workspace-stage/);
   assert.match(screens, /2\.19 Groundstation contract/);
-  assert.match(screens, /position: fixed;[\s\S]*width: min\(360px/);
+  // T101 — the inspector is a sticky overlay, not a fixed drawer; `fixed` was
+  // never viewport-relative here (two ancestors establish a containing block).
+  assert.match(screens, /position: sticky;[\s\S]*width: min\(360px/);
 });
 
 test("Groundstation premium shell uses one responsive sidebar with intentional primary tabs", () => {
@@ -272,11 +311,19 @@ test("Groundstation premium shell uses one responsive sidebar with intentional p
   assert.match(app, /\["recipes", "Recipes", "grid"\]/);
   assert.match(app, /\["settings", "Settings", "settings"\]/);
   const primaryNavigation = app.slice(app.indexOf("const NAVIGATION"), app.indexOf("const SECONDARY_DESTINATIONS"));
-  // Integrations is a primary destination as of the Settings/Integrations
-  // split: Settings keeps only application preferences, and every connected
-  // bridge (Mission AI, VS Code, MCP, Automation, Mobile, Plugins) lives in
-  // the Integrations hub, which needs a reachable sidebar entry of its own.
+  const coreDestinations = ["groundstation", "workspace", "needs", "agents", "recipes", "history", "settings"];
+  let previousIndex = -1;
+  for (const id of coreDestinations) {
+    const index = primaryNavigation.indexOf(`["${id}",`);
+    assert.ok(index > previousIndex, `${id} must retain its position in the seven-route core order`);
+    previousIndex = index;
+  }
+  assert.match(primaryNavigation, /const PRIMARY_NAV_COUNT = 7/);
+  assert.match(app, /NAVIGATION\.slice\(0, PRIMARY_NAV_COUNT\)\.map/);
+  // Integrations is reachable but visually contextual: Settings keeps local
+  // preferences while connected bridges live after the seven core routes.
   assert.match(primaryNavigation, /\["integrations", "Integrations", "expand"\]/);
+  assert.match(app, /className="top-navigation__contextual"[\s\S]{0,160}NAVIGATION\.slice\(PRIMARY_NAV_COUNT\)\.map/);
   // The sidebar still has to stay a short, intentional list rather than a
   // dumping ground for every surface.
   assert.ok(
@@ -314,13 +361,14 @@ test("Mission Graph stays contextual and renders only configured recipe relation
   assert.match(main, /import "\.\/styles\.css";[\s\S]*import "\.\/uiFoundation\.css";[\s\S]*import "\.\/groundstation21\.css";[\s\S]*import "\.\/missionGraph\.css";/);
   assert.match(graph, /request\("recipe\.list"\)/);
   assert.match(graph, /buildMissionGraph/);
-  assert.match(graph, /Configured relationships only/);
+  assert.match(graph, /function Cable/);
+  assert.match(graph, /node\.dependsOn\.forEach/);
   assert.match(graph, /engineEventFrom/);
   assert.match(graph, /startsWith\("recipe:"\)/);
   assert.doesNotMatch(graph, /setInterval|setTimeout/);
   assert.match(graphStyle, /\.mission-graph-dialog/);
   assert.match(graphStyle, /@media \(max-width: 980px\)/);
-  assert.match(graphStyle, /prefers-reduced-motion: reduce/);
+  assertReducedMotionIsCentral();
 });
 
 test("Worker Intelligence renders engine-owned resources, health, and configured dependency impact", () => {
@@ -328,7 +376,7 @@ test("Worker Intelligence renders engine-owned resources, health, and configured
   const app = fs.readFileSync(path.join(rendererRoot, "App.jsx"), "utf8");
   const graph = fs.readFileSync(path.join(rendererRoot, "MissionGraph.jsx"), "utf8");
   const main = fs.readFileSync(path.join(rendererRoot, "main.jsx"), "utf8");
-  const intelligenceStyle = fs.readFileSync(path.join(rendererRoot, "workerIntelligence.css"), "utf8");
+  const intelligenceStyle = fs.readFileSync(path.join(rendererRoot, "redesign", "surfaces.css"), "utf8");
 
   assert.match(app, /function WorkerResourceIntelligence/);
   assert.match(app, /ENGINE HEALTH ANALYSIS/);
@@ -336,14 +384,16 @@ test("Worker Intelligence renders engine-owned resources, health, and configured
   assert.match(app, /session\.resources/);
   assert.match(app, /session\.health/);
   assert.match(app, /session\.dependencyImpact/);
-  assert.match(app, /high usage is observation, not a fabricated failure/);
-  assert.match(graph, /dependencyImpact/);
-  assert.match(graph, /CPU \/ memory/);
-  assert.match(main, /import "\.\/missionGraph\.css";[\s\S]*import "\.\/workerIntelligence\.css";/);
+  assert.match(app, /Observed facts, not inferred failures/);
+  assert.match(app, /High usage remains an observation/);
+  assert.match(graph, /node\.downstream/);
+  assert.match(graph, /Resources/);
+  assert.doesNotMatch(main, /import "\.\/workerIntelligence\.css";/);
+  assert.match(main, /import "\.\/redesign\/surfaces\.css";/);
   assert.match(intelligenceStyle, /\.worker-resource-intelligence/);
   assert.match(intelligenceStyle, /\.worker-health\.tone-pressure/);
   assert.match(intelligenceStyle, /@media \(max-width: 760px\)/);
-  assert.match(intelligenceStyle, /prefers-reduced-motion: reduce/);
+  assertReducedMotionIsCentral();
 });
 
 test("Project Memory 2 renders resumable engine chapters without inventing causality", () => {
@@ -366,10 +416,10 @@ test("Project Memory 2 renders resumable engine chapters without inventing causa
   assert.match(app, /success requires verification/);
   assert.match(app, /<HistoryView events=\{activity\} onFocus=\{inspectWorker\}/);
   assert.doesNotMatch(app, /const chapters = \[\.\.\.ordered\.reduce/);
-  assert.match(main, /import "\.\/workerIntelligence\.css";[\s\S]*import "\.\/projectMemory\.css";/);
+  assert.match(main, /import "\.\/projectMemory\.css";[\s\S]*import "\.\/redesign\/surfaces\.css";/);
   assert.match(memoryStyle, /\.memory-resume/);
   assert.match(memoryStyle, /@media \(max-width: 760px\)/);
-  assert.match(memoryStyle, /prefers-reduced-motion: reduce/);
+  assertReducedMotionIsCentral();
 });
 
 test("VS Code Bridge stays contextual in Settings and uses Protocol-owned synchronization", () => {
@@ -387,7 +437,8 @@ test("VS Code Bridge stays contextual in Settings and uses Protocol-owned synchr
   assert.match(app, /"vscode\.launch"/);
   assert.match(app, /"vscode\.openFile"/);
   assert.match(app, /notification\?\.type === "integration:event"/);
-  assert.match(app, /VS Code-owned terminals are observe-only/);
+  assert.match(app, /Editor ownership stays explicit/);
+  assert.match(app, /Mission Control-managed terminals only/);
   assert.match(app, /raw output never crosses the bridge/);
   assert.match(app, /"vscode\.terminal\.create"/);
   assert.match(app, /"vscode\.terminal\.write"/);
@@ -401,24 +452,29 @@ test("VS Code Bridge stays contextual in Settings and uses Protocol-owned synchr
   assert.match(style, /\.vscode-bridge-settings/);
   assert.doesNotMatch(style, /backdrop-filter/);
   assert.match(style, /@media \(max-width: 620px\)/);
-  assert.match(style, /prefers-reduced-motion: reduce/);
+  assertReducedMotionIsCentral();
 });
 
 test("Secure MCP stays contextual in Settings and routes mutation requests through Needs You", () => {
   const app = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/App.jsx"), "utf8");
   const component = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/McpGateway.jsx"), "utf8");
   const css = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/mcpGateway.css"), "utf8");
+  const protocol = fs.readFileSync(path.resolve(__dirname, "../src/protocol/index.cjs"), "utf8");
   assert.match(app, /<McpGatewaySettings workspace=\{workspace\}/);
-  assert.match(app, /<McpApprovalQueue visible=/);
+  // MCP approvals reach the operator through the unified decision queue, not a
+  // per-integration component mounted in Needs You. The old McpApprovalQueue
+  // was dead code and is removed.
+  assert.match(app, /decisionRecords=\{decisions\.records\}/);
+  assert.match(app, /"mcp"/, "resolveDecision routes MCP through decisions.resolve");
+  assert.doesNotMatch(component, /McpApprovalQueue|mcp\.approval\.resolve|<DecisionItem/);
   assert.match(component, /mcp\.configure/);
   assert.match(component, /mcp\.rotateToken/);
-  assert.match(component, /mcp\.approval\.resolve/);
-  assert.match(component, /confirm:mcp\.approval:/);
-  assert.match(component, /No action has executed/);
+  // decisions.resolve routes an MCP decision to the gateway with the ceremony intact.
+  assert.match(protocol, /callMcp\("resolveApproval", resolveApproval => resolveApproval\(nativeId, actionId\)\)/);
+  assert.match(protocol, /requireConfirmation\("decisions\.resolve", params\)/);
   assert.match(component, /Terminal evidence/);
   assert.match(component, /Off by default/i);
   assert.match(css, /\.mcp-gateway-settings/);
-  assert.match(css, /\.mcp-approval-queue/);
   const primaryNavigation = app.slice(app.indexOf("const NAVIGATION"), app.indexOf("const ICON_PATHS"));
   assert.doesNotMatch(primaryNavigation, /\["mcp",\s*"MCP"/i, "MCP must not become primary navigation");
 });
@@ -433,10 +489,13 @@ test("deeper AI supervision remains contextual, evidence-backed, and chat-free",
   assert.match(component, /CURRENT ACTION/);
   assert.match(component, /CURRENT FILES/);
   assert.match(component, /MISSION AUTHORITY/);
-  assert.match(component, /MissionApprovalQueue/);
   assert.match(component, /mission\.checkpoint\.verify/);
-  assert.match(component, /mission\.approval\.resolve/);
-  assert.match(app, /<MissionApprovalQueue visible=/);
+  // Mission approvals flow through the unified decision queue in Needs You — the
+  // standalone MissionApprovalQueue was dead code and is removed.
+  assert.doesNotMatch(component, /MissionApprovalQueue/);
+  assert.doesNotMatch(component, /mission\.approval\.resolve/);
+  assert.match(app, /decisionRecords=\{decisions\.records\}/);
+  assert.match(app, /record\.source === "mission"/);
   assert.match(engine, /observable-checkpoints/);
   assert.doesNotMatch(component, /<textarea|agent-chat|Send an instruction/);
   assert.doesNotMatch(app, /\["supervision",\s*"Supervision"/i, "AI supervision must not become primary navigation");
@@ -447,14 +506,17 @@ test("Mobile Companion stays contextual, encrypted, revocable, and approval-gate
   const rendererRoot = path.join(__dirname, "..", "src", "groundstation", "renderer");
   const app = fs.readFileSync(path.join(rendererRoot, "App.jsx"), "utf8");
   const mobile = fs.readFileSync(path.join(rendererRoot, "MobileCompanion.jsx"), "utf8");
+  const protocol = fs.readFileSync(path.resolve(__dirname, "../src/protocol/index.cjs"), "utf8");
   assert.match(app, /<MobileCompanionSettings workspace=\{workspace\}/);
-  assert.match(app, /<MobileApprovalQueue/);
+  // Mobile approvals reach Needs You through the unified decision queue; the old
+  // standalone queue component was dead code and is removed.
+  assert.match(app, /decisionRecords=\{decisions\.records\}/);
   assert.doesNotMatch(app, /\["mobile",\s*"Mobile/);
   assert.match(mobile, /not a remote shell or mobile IDE/i);
   assert.match(mobile, /mobile\.invite/);
   assert.match(mobile, /mobile\.device\.revoke/);
-  assert.match(mobile, /mobile\.approval\.resolve/);
-  assert.match(mobile, /No action has executed/);
+  assert.doesNotMatch(mobile, /mobile\.approval\.resolve|<DecisionItem/);
+  assert.match(protocol, /callMobile\("resolveApproval", resolveApproval => resolveApproval\(nativeId, actionId\)\)/);
   assert.doesNotMatch(mobile, /terminal\.write|terminal\.open|action\.dispatch/);
 });
 
@@ -462,12 +524,16 @@ test("Plugin Platform stays contextual, declarative, permissioned, and approval-
   const rendererRoot = path.join(__dirname, "..", "src", "groundstation", "renderer");
   const app = fs.readFileSync(path.join(rendererRoot, "App.jsx"), "utf8");
   const plugins = fs.readFileSync(path.join(rendererRoot, "PluginPlatform.jsx"), "utf8");
+  const protocol = fs.readFileSync(path.resolve(__dirname, "../src/protocol/index.cjs"), "utf8");
   assert.match(app, /<PluginPlatformSettings/);
-  assert.match(app, /<PluginApprovalQueue/);
+  // Plugin approvals reach Needs You through the unified decision queue; the old
+  // standalone queue component was dead code and is removed.
+  assert.match(app, /decisionRecords=\{decisions\.records\}/);
   assert.doesNotMatch(app, /\["plugins",\s*"Plugins/);
-  assert.match(plugins, /No code execution/);
-  assert.match(plugins, /Files · process · network · secrets/);
-  assert.match(plugins, /plugin\.approval\.resolve/);
+  assert.match(plugins, /Mission Control renders every contribution/);
+  assert.match(plugins, /Files, process, network, secrets, JSX, CSS, and handlers/);
+  assert.doesNotMatch(plugins, /plugin\.approval\.resolve|<DecisionItem/);
+  assert.match(protocol, /callPlugin\("resolveApproval", resolveApproval => resolveApproval\(nativeId, actionId\)\)/);
   assert.doesNotMatch(plugins, /terminal\.write|action\.dispatch/);
 });
 
@@ -578,6 +644,26 @@ test("worker form builds validated create definitions without weakening engine l
   );
 });
 
+test("Add Worker default template submits without an intermediate click and stays duplicate-safe", async () => {
+  const { buildWorkerDefinition, initialWorkerDraft, nextAvailableWorkerId } = await import(
+    `${workerFormUrl}?default=${Date.now()}`
+  );
+
+  // The dialog preselects the Project shell template; its draft must already be a
+  // valid definition so the first submit does not fail on a blank required ID.
+  const untouched = buildWorkerDefinition(initialWorkerDraft());
+  assert.equal(untouched.id, "terminal");
+  assert.equal(untouched.command, "powershell.exe");
+  assert.equal(untouched.autoStart, true);
+
+  // Duplicate-safe ID generation mirrors the engine's "id already in use" rejection.
+  assert.equal(nextAvailableWorkerId("terminal", []), "terminal");
+  assert.equal(nextAvailableWorkerId("terminal", ["terminal"]), "terminal-2");
+  assert.equal(nextAvailableWorkerId("terminal", ["terminal", "terminal-2"]), "terminal-3");
+  assert.equal(nextAvailableWorkerId("terminal", ["TERMINAL"]), "terminal-2");
+  assert.equal(nextAvailableWorkerId("frontend", ["terminal"]), "frontend");
+});
+
 test("worker edit patches preserve secret environment values unless replacement is explicit", async () => {
   const { buildWorkerPatch, initialWorkerDraft } = await import(`${workerFormUrl}?edit=${Date.now()}`);
   const draft = initialWorkerDraft({
@@ -641,4 +727,29 @@ test("terminal layouts support unique persisted 1, 2, 4, and 6-pane assignments"
   assert.match(appSource, /AI agents/);
   assert.match(appSource, /New folder/);
   assert.match(appSource, /mission-control\.worker-folders\.v1/);
+});
+
+test("Settings exclusive choices, the terminal range, and quiet hours are properly labelled (T124-T126)", () => {
+  const app = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/App.jsx"), "utf8");
+  const segmented = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/Segmented.jsx"), "utf8");
+  // T124 — SettingChoice and the severity choice are real radiogroups.
+  assert.match(app, /const SettingChoice = SegmentedChoice;/);
+  assert.match(segmented, /role="radiogroup" aria-label=\{label\}/);
+  assert.match(segmented, /role="radio"[\s\S]*?aria-checked=\{isSelected\}/);
+  assert.match(app, /<div role="radiogroup" aria-labelledby="notify-from-label"/);
+  // T125 — the terminal font-size range has an accessible name and an announced value.
+  assert.match(app, /id="terminal-font-size-range" type="range"[\s\S]{0,160}aria-label="Terminal font size in pixels"/);
+  assert.match(app, /aria-valuetext=\{`\$\{preferences\.terminalFontSize\} pixels`\}/);
+  // T126 — quiet-hours inputs have independent Start / End labels.
+  assert.match(app, /role="group" aria-label="Quiet hours window"/);
+  assert.match(app, /aria-label="Quiet hours start time"/);
+  assert.match(app, /aria-label="Quiet hours end time"/);
+});
+
+test("notification preference saves roll back and surface a persistent error on failure (T052)", () => {
+  const app = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/App.jsx"), "utf8");
+  assert.match(app, /const previous = policyRef\.current;/);
+  assert.match(app, /catch \(value\) \{\s*setPolicy\(previous\);\s*setError\(/);
+  assert.match(app, /notification preferences were not changed/);
+  assert.match(app, /className="settings-save-error" role="alert"/);
 });

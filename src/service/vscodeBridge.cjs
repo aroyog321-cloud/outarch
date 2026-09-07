@@ -9,6 +9,7 @@ const MAX_BRIDGE_MESSAGE_BYTES = 64 * 1024;
 const MAX_DIAGNOSTICS = 50;
 const MAX_TASKS = 20;
 const MAX_TERMINALS = 32;
+const VSCODE_AUDIT_LIMIT = 50;
 const HANDSHAKE_TTL_MS = 60 * 1000;
 const SOCKET_HANDSHAKE_TIMEOUT_MS = 10 * 1000;
 const COMMAND_TIMEOUT_MS = 5 * 1000;
@@ -112,6 +113,27 @@ class VSCodeBridge extends EventEmitter {
     this.tasks = [];
     this.terminals = [];
     this.lastSyncAt = null;
+    // T115 - the same audit depth MCP, Mobile and Plugins already had.
+    // Connection metadata only: no file content, no terminal input, no editor
+    // text ever reaches this ring, and the recorded paths are the workspace's
+    // own relative ones the status already publishes.
+    this.audit = [];
+  }
+
+  record(kind, outcome, detail = {}) {
+    this.audit.push({
+      id: `vscode-audit-${this.audit.length + 1}-${this.now()}`,
+      kind,
+      outcome,
+      at: this.now(),
+      ...detail
+    });
+    if (this.audit.length > VSCODE_AUDIT_LIMIT) this.audit.splice(0, this.audit.length - VSCODE_AUDIT_LIMIT);
+  }
+
+  listAudit(limit = 50) {
+    const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, VSCODE_AUDIT_LIMIT) : VSCODE_AUDIT_LIMIT;
+    return this.audit.slice(-bounded).reverse().map(item => ({ ...item }));
   }
 
   subscribe(callback) {
@@ -131,6 +153,7 @@ class VSCodeBridge extends EventEmitter {
         this.server = null;
         this.port = null;
         this.lastError = publicError(error, "VS Code Bridge could not bind to loopback");
+        this.record("transport", "bind-failed");
         reject(error);
       };
       const onListening = () => {
@@ -139,6 +162,7 @@ class VSCodeBridge extends EventEmitter {
         this.port = typeof address === "object" && address ? address.port : null;
         server.on?.("error", error => {
           this.lastError = publicError(error, "VS Code Bridge transport error");
+          this.record("transport", "error");
           this.#emitStatus();
         });
         server.unref?.();
@@ -173,6 +197,7 @@ class VSCodeBridge extends EventEmitter {
     } catch (error) {
       this.pending = null;
       this.lastError = publicError(error, "VS Code could not be opened");
+      this.record("launch", "failed");
       this.#emitStatus();
       throw new Error(this.lastError);
     }
@@ -264,6 +289,7 @@ class VSCodeBridge extends EventEmitter {
     this.client = null;
     this.#rejectPendingCommands("VS Code Bridge disconnected before the command completed");
     if (!client) return false;
+    this.record("connection", "disconnected", { capability: boundedText(reason, 80) || "requested" });
     try { this.#send(client.socket, { type: "disconnect", reason: boundedText(reason, 80) || "requested" }); } catch { /* Best effort. */ }
     client.socket.destroy();
     this.#emitStatus();
@@ -274,6 +300,8 @@ class VSCodeBridge extends EventEmitter {
     const pending = this.pending && this.pending.expiresAt > this.now();
     return {
       id: "vscode",
+      endpoint: this.port ? `127.0.0.1:${this.port}` : null,
+      auditCount: this.audit.length,
       service: this.server?.listening ? "listening" : "stopped",
       connected: Boolean(this.client?.authenticated),
       awaitingHandshake: Boolean(pending),
@@ -425,6 +453,7 @@ class VSCodeBridge extends EventEmitter {
       : [];
     this.disconnect("replaced");
     this.pending = null;
+    this.record("handshake", "accepted", { capability: capabilities.join(",") || "none" });
     this.client = {
       socket,
       authenticated: true,

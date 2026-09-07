@@ -23,7 +23,10 @@ test("layout model exposes one resize handle per split with a stable axis + rati
   assert.deepEqual(layoutHandles("horizontal"), [{ id: "col", axis: "x", ratio: "col" }]);
   assert.deepEqual(layoutHandles("vertical"), [{ id: "row", axis: "y", ratio: "row" }]);
   assert.deepEqual(layoutHandles("grid-2x2").map(h => h.id), ["col", "row"]);
-  assert.deepEqual(layoutHandles("grid-3x2").map(h => h.id), ["col", "row"]);
+  // T096 — 3x2 exposes both column boundaries, so the middle column can be
+  // resized without disturbing the first.
+  assert.deepEqual(layoutHandles("grid-3x2").map(h => h.id), ["col", "col2", "row"]);
+  assert.deepEqual(layoutHandles("grid-3x2").map(h => h.axis), ["x", "x", "y"]);
   // 2x2 and 3x2 resize both a column and a row split.
   assert.deepEqual(layoutHandles("grid-2x2").map(h => h.axis), ["x", "y"]);
 });
@@ -48,23 +51,48 @@ test("column and row ratios are independent and survive a round-trip", async () 
   let pref = normalizeTerminalLayout({ layoutId: "grid-2x2" }, sessions);
   pref = setLayoutRatio(pref, "col", 40, sessions);
   pref = setLayoutRatio(pref, "row", 65, sessions);
-  assert.deepEqual(pref.ratios, { col: 40, row: 65 });
+  // T096 added `col2`; it is inert outside 3x2 but is always present so a
+  // stored layout has a complete shape.
+  assert.deepEqual(pref.ratios, { col: 40, row: 65, col2: 50 });
 
   const persisted = JSON.parse(JSON.stringify(pref));
   const restored = normalizeTerminalLayout(persisted, sessions);
-  assert.deepEqual(restored.ratios, { col: 40, row: 65 });
+  assert.deepEqual(restored.ratios, { col: 40, row: 65, col2: 50 });
   assert.equal(restored.paneRatio, 40, "paneRatio alias tracks the column split");
 });
 
 test("each layout remembers its own ratios and 3x2 starts balanced", async () => {
   const { normalizeTerminalLayout, setLayoutRatio } = await load();
   let pref = normalizeTerminalLayout({ layoutId: "grid-3x2" }, sessions);
-  assert.deepEqual(pref.ratios, { col: 34, row: 50 });
+  assert.deepEqual(pref.ratios, { col: 34, row: 50, col2: 33 }, "three columns start balanced");
   pref = setLayoutRatio(pref, "col", 40, sessions);
   const twoByTwo = normalizeTerminalLayout({ ...pref, layoutId: "grid-2x2" }, sessions);
-  assert.deepEqual(twoByTwo.ratios, { col: 50, row: 50 });
+  assert.deepEqual(twoByTwo.ratios, { col: 50, row: 50, col2: 50 });
   const restored = normalizeTerminalLayout({ ...twoByTwo, layoutId: "grid-3x2" }, sessions);
   assert.equal(restored.ratios.col, 40);
+});
+
+// T096 — the middle column is adjustable on its own, and the third can never be
+// squeezed out by dragging both handles the same way.
+test("the 3x2 middle column resizes independently and always leaves a third column", async () => {
+  const { normalizeTerminalLayout, setLayoutRatio, layoutStyle } = await load();
+  let pref = normalizeTerminalLayout({ layoutId: "grid-3x2" }, sessions);
+
+  pref = setLayoutRatio(pref, "col2", 44, sessions);
+  assert.equal(pref.ratios.col, 34, "moving the second boundary must not move the first");
+  assert.equal(pref.ratios.col2, 44);
+
+  // Both handles dragged wide: the pair is bounded so column three survives.
+  pref = setLayoutRatio(pref, "col", 44, sessions);
+  assert.ok(pref.ratios.col + pref.ratios.col2 <= 78, `columns must leave room for a third (got ${pref.ratios.col + pref.ratios.col2})`);
+  assert.ok(pref.ratios.col2 >= 28, "the middle column keeps a usable width");
+
+  // A layout stored before col2 existed still loads, and gains the default.
+  const legacy = normalizeTerminalLayout({ layoutId: "grid-3x2", ratios: { col: 34, row: 50 } }, sessions);
+  assert.equal(legacy.ratios.col, 34, "a persisted first column is preserved");
+  assert.equal(legacy.ratios.col2, 33, "and the missing second column falls back to the balanced default");
+
+  assert.equal(layoutStyle(legacy)["--col2-ratio"], "33%");
 });
 
 test("layoutStyle emits the exact custom properties the grid template consumes", async () => {
@@ -122,7 +150,7 @@ test("workspace CSS honours the drag ratio and enforces a minimum pane size", ()
 
 test("main.jsx loads the authoritative redesign layer last", () => {
   const main = read("main.jsx");
-  assert.match(main, /import "\.\/premiumDesign\.css";[\s\S]*import "\.\/redesign\/tokens-bridge\.css";[\s\S]*import "\.\/redesign\/base\.css";[\s\S]*import "\.\/redesign\/surfaces\.css";[\s\S]*import "\.\/redesign\/workspace\.css";[\s\S]*import "\.\/redesign\/screens\.css";/);
+  assert.match(main, /import "\.\/premiumDesign\.css";[\s\S]*import "\.\/redesign\/tokens-bridge\.css";[\s\S]*import "\.\/redesign\/base\.css";[\s\S]*import "\.\/redesign\/workspace\.css";[\s\S]*import "\.\/redesign\/screens\.css";[\s\S]*import "\.\/redesign\/cockpit\.css";[\s\S]*import "\.\/redesign\/surfaces\.css";/);
   assert.doesNotMatch(main, /import "\.\/theme-concept\.css"/);
 });
 
@@ -273,4 +301,59 @@ test("folder filters cannot move the workspace chrome with terminal intrinsic he
   assert.match(css, /\.workspace-stage > \.workspace-toolbar-v2 \{ order: 1; flex: 0 0 auto; \}/);
   assert.match(css, /\.workspace-stage > \.worker-folders \{ order: 2; flex: 0 0 auto; \}/);
   assert.match(css, /\.workspace-stage > \.terminal-grid \{ order: 3; \}/);
+});
+
+test("pane-resize window listeners are torn down if the view unmounts mid-drag (T095)", () => {
+  const app = read("App.jsx");
+  assert.match(app, /const resizeTeardownRef = React\.useRef\(null\);/);
+  assert.match(app, /React\.useEffect\(\(\) => \(\) => \{ resizeTeardownRef\.current\?\.\(\); \}, \[\]\);/);
+  assert.match(app, /resizeTeardownRef\.current = stop;/);
+  assert.match(app, /resizeTeardownRef\.current = null;.*removeEventListener\("pointermove"|removeEventListener\("pointermove"[\s\S]{0,200}resizeTeardownRef\.current = null/);
+});
+
+test("xterm is created with screen-reader support and its limitation is documented (T097)", () => {
+  const pane = read("TerminalPane.jsx");
+  assert.match(pane, /screenReaderMode: true/);
+  assert.match(pane, /NVDA[\s\S]{0,40}VoiceOver/i);
+  assert.match(pane, /not[\s\S]{0,20}scrollback review/);
+});
+
+test("the terminal session chooser has a complete keyboard + dismissal contract (T092)", () => {
+  const pane = read("TerminalPane.jsx");
+  assert.match(pane, /const chooserRef = React\.useRef\(null\);/);
+  assert.match(pane, /const chooserTriggerRef = React\.useRef\(null\);/);
+  // Escape / Tab close and restore focus to the trigger.
+  assert.match(pane, /event\.key === "Escape".*restore\(\)|restore = \(\) => \{ setChooserOpen\(false\); chooserTriggerRef\.current\?\.focus\(\); \}/);
+  // Arrow / Home / End roam the menu items.
+  assert.match(pane, /event\.key === "ArrowDown" \|\| event\.key === "ArrowUp" \|\| event\.key === "Home" \|\| event\.key === "End"/);
+  // An outside pointer closes it.
+  assert.match(pane, /document\.addEventListener\("pointerdown", onPointerDown, true\)/);
+  assert.match(pane, /<div ref=\{chooserRef\} className="terminal-session-menu" role="menu"/);
+  assert.match(pane, /ref=\{chooserTriggerRef\}/);
+});
+
+// T088/T091 — the mounted-terminal ceiling is the reason hibernation is not
+// needed. If someone raises it, this test is where they find out that the
+// deferred-mounting work in T091 becomes a prerequisite rather than a nicety.
+test("no layout mounts more than six live terminals", async () => {
+  const { TERMINAL_LAYOUTS } = await load();
+  const largest = Math.max(...TERMINAL_LAYOUTS.map(layout => layout.slots));
+  assert.ok(largest <= 6, `a layout offers ${largest} panes; hibernation (T091) must land before exceeding six`);
+  assert.deepEqual(TERMINAL_LAYOUTS.map(layout => layout.slots), [1, 2, 2, 4, 6]);
+});
+
+// T089 — an arrangement you built is worth keeping, per project and bounded.
+test("named pane sets are normalised, bounded, and scoped to their project", async () => {
+  const source = read("useTerminalLayout.js");
+  assert.match(source, /const PANE_SET_PREFIX = "mission-control:pane-sets:v1:";/);
+  assert.match(source, /const MAX_PANE_SETS = 12;/);
+  // The stored value is untrusted: it outlives releases and can name workers
+  // that no longer exist, so it is re-normalised on read.
+  assert.match(source, /function normalizePaneSets\(value\)/);
+  assert.match(source, /if \(sets\.length >= MAX_PANE_SETS\) break;/);
+  // Saving over a name replaces rather than accumulating duplicates.
+  assert.match(source, /paneSets\.filter\(item => item\.name\.toLowerCase\(\) !== label\.toLowerCase\(\)\)/);
+  // Applying a set goes back through the same normaliser as any other layout
+  // change, so a set naming a removed worker cannot corrupt the canvas.
+  assert.match(source, /applyPaneSet[\s\S]{0,320}normalizeTerminalLayout\(\{ \.\.\.current, layoutId: entry\.layoutId, sessionIds: entry\.sessionIds \}, sessions\)/);
 });

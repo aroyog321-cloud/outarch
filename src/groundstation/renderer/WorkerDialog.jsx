@@ -2,16 +2,18 @@ import React from "react";
 import {
   buildWorkerDefinition,
   buildWorkerPatch,
-  initialWorkerDraft
+  initialWorkerDraft,
+  nextAvailableWorkerId
 } from "./workerForm.js";
+import TabSet, { tabPanelProps } from "./TabSet.jsx";
 
 const WORKER_TEMPLATES = [
-  { id: "shell", badge: ">_", name: "Project shell", detail: "Interactive PowerShell rooted in this project", command: "powershell.exe", args: [], autoStart: true },
-  { id: "frontend", badge: "WEB", name: "Frontend dev", detail: "Start the package development server", command: "npm.cmd", args: ["run", "dev"], autoStart: true },
-  { id: "backend", badge: "API", name: "Backend service", detail: "Start the package service process", command: "npm.cmd", args: ["run", "start"], autoStart: true },
-  { id: "tests", badge: "✓", name: "Test watcher", detail: "Run package tests in watch mode", command: "npm.cmd", args: ["test", "--", "--watch"], autoStart: true },
-  { id: "docker", badge: "DO", name: "Docker stack", detail: "Launch the project Compose services", command: "docker", args: ["compose", "up"], autoStart: false },
-  { id: "git", badge: "BR", name: "Git status", detail: "Inspect branch and working-tree evidence", command: "git", args: ["status", "--short", "--branch"], autoStart: false }
+  { id: "shell", role: "terminal", badge: ">_", name: "Project shell", detail: "Interactive PowerShell rooted in this project", command: "powershell.exe", args: [], autoStart: true },
+  { id: "frontend", role: "service", badge: "WEB", name: "Frontend dev", detail: "Start the package development server", command: "npm.cmd", args: ["run", "dev"], autoStart: true },
+  { id: "backend", role: "agent", badge: "API", name: "Backend service", detail: "Start the package service process", command: "npm.cmd", args: ["run", "start"], autoStart: true },
+  { id: "tests", role: "test", badge: "✓", name: "Test watcher", detail: "Run package tests in watch mode", command: "npm.cmd", args: ["test", "--", "--watch"], autoStart: true },
+  { id: "docker", role: "container", badge: "DO", name: "Docker stack", detail: "Launch the project Compose services", command: "docker", args: ["compose", "up"], autoStart: false },
+  { id: "git", role: "git", badge: "BR", name: "Git status", detail: "Inspect branch and working-tree evidence", command: "git", args: ["status", "--short", "--branch"], autoStart: false }
 ];
 
 const WORKER_DIALOG_AI_PROMPT = "Explain Mission Control's Add Worker dialog to a beginner. Cover Worker ID, Display name, Command, JSON Arguments, project-relative Working directory, Environment, Start automatically, PowerShell compatibility, templates, saved presets, and what Add worker does. Explain that one EngineAPI-owned PTY is created, Full Attach never duplicates it, and no mutation occurs without the user pressing Add worker. Then help me choose settings for my current project.";
@@ -58,13 +60,21 @@ function PresetList({ commands, busy, onInstantiate }) {
   );
 }
 
-export default function WorkerDialog({ initialMode = "create", configuration, savedCommands, onClose, onSave, onInstantiate, onAskAI }) {
+export default function WorkerDialog({ initialMode = "create", configuration, seed = null, savedCommands, existingIds = [], onClose, onSave, onInstantiate, onAskAI }) {
   const editing = Boolean(configuration);
   const [mode, setMode] = React.useState(editing ? "edit" : initialMode);
-  const [draft, setDraft] = React.useState(() => initialWorkerDraft(configuration));
+  const [draft, setDraft] = React.useState(() => {
+    // T094 — a duplicate is a create, pre-filled from the worker it copies and
+    // given a fresh id. It deliberately stops at the form rather than creating
+    // anything: the command and directory are exactly what needs reviewing
+    // before a second copy of a process starts.
+    const initial = initialWorkerDraft(configuration || seed);
+    if (!configuration) initial.id = nextAvailableWorkerId(initial.id, existingIds);
+    return initial;
+  });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [templateId, setTemplateId] = React.useState(configuration ? "custom" : "shell");
+  const [templateId, setTemplateId] = React.useState(configuration || seed ? "custom" : "shell");
   const titleId = React.useId();
   const dialogRef = React.useRef(null);
   const closeRef = React.useRef(onClose);
@@ -73,26 +83,42 @@ export default function WorkerDialog({ initialMode = "create", configuration, sa
   busyRef.current = busy;
 
   React.useEffect(() => {
+    // T127: a complete focus trap — Tab wraps at the boundaries AND focus that
+    // escapes the dialog (backdrop click, browser chrome) is pulled back in.
+    // On close, focus returns to the invoking control, or #main-content if it
+    // no longer exists.
     const previousFocus = document.activeElement;
+    const focusablesIn = node => [...(node?.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])') || [])];
     const onKeyDown = event => {
-      if (event.key === "Escape" && !busyRef.current) closeRef.current();
+      if (event.key === "Escape" && !busyRef.current) { closeRef.current(); return; }
       if (event.key !== "Tab") return;
-      const focusable = [...(dialogRef.current?.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])') || [])];
+      const focusable = focusablesIn(dialogRef.current);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    requestAnimationFrame(() => dialogRef.current?.querySelector("[autofocus], input, button")?.focus({ preventScroll: true }));
+    const onFocusIn = event => {
+      if (dialogRef.current && !dialogRef.current.contains(event.target)) {
+        (focusablesIn(dialogRef.current)[0] || dialogRef.current).focus({ preventScroll: true });
+      }
+    };
+    requestAnimationFrame(() => (focusablesIn(dialogRef.current)[0] || dialogRef.current)?.focus({ preventScroll: true }));
     window.addEventListener("keydown", onKeyDown);
-    return () => { window.removeEventListener("keydown", onKeyDown); previousFocus?.focus?.({ preventScroll: true }); };
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
+      const target = previousFocus && document.contains(previousFocus) ? previousFocus : document.getElementById("main-content");
+      target?.focus?.({ preventScroll: true });
+    };
   }, []);
 
   const update = (field, value) => { setTemplateId("custom"); setDraft(current => ({ ...current, [field]: value })); };
   const applyTemplate = template => {
     setTemplateId(template.id);
-    setDraft(current => ({ ...current, id: template.id === "shell" ? "terminal" : template.id, name: template.name, command: template.command, argsText: JSON.stringify(template.args, null, 2), cwd: ".", autoStart: template.autoStart, powershellCompatibility: false }));
+    setDraft(current => ({ ...current, id: nextAvailableWorkerId(template.id === "shell" ? "terminal" : template.id, existingIds), name: template.name, command: template.command, argsText: JSON.stringify(template.args, null, 2), cwd: ".", autoStart: template.autoStart, powershellCompatibility: false }));
     setError("");
   };
 
@@ -128,7 +154,7 @@ export default function WorkerDialog({ initialMode = "create", configuration, sa
     <div className="palette-backdrop" role="presentation" onMouseDown={event => {
       if (event.target === event.currentTarget && !busy) onClose();
     }}>
-      <section ref={dialogRef} className="worker-dialog command-palette pm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={dialogRef} tabIndex={-1} className="worker-dialog command-palette pm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="dialog-header">
           <div>
             <span className="eyebrow">TERMINAL WORKSPACE</span>
@@ -138,10 +164,17 @@ export default function WorkerDialog({ initialMode = "create", configuration, sa
         </header>
 
         {!editing && (
-          <div className="dialog-tabs" role="tablist" aria-label="Worker source">
-            <button type="button" role="tab" aria-selected={mode === "create"} className={mode === "create" ? "is-current" : ""} onClick={() => setMode("create")}>New terminal worker</button>
-            <button type="button" role="tab" aria-selected={mode === "presets"} className={mode === "presets" ? "is-current" : ""} onClick={() => setMode("presets")}>Saved presets <span>{savedCommands.length}</span></button>
-          </div>
+          <TabSet
+            group="worker-source"
+            className="dialog-tabs"
+            label="Worker source"
+            value={mode}
+            onChange={setMode}
+            tabs={[
+              { value: "create", label: "New terminal worker" },
+              { value: "presets", label: "Saved presets", badge: savedCommands.length }
+            ]}
+          />
         )}
 
         {!editing && mode === "create" && <section className="worker-dialog-guide" aria-label="How adding a worker works"><div><b>1</b><span><strong>Choose a purpose</strong><small>Start from a template or enter your own command.</small></span></div><div><b>2</b><span><strong>Review the definition</strong><small>Name, command and folder stay visible before creation.</small></span></div><div><b>3</b><span><strong>Add one worker</strong><small>Mission Control registers one engine-owned terminal; auto-start is your choice.</small></span></div></section>}
@@ -149,13 +182,13 @@ export default function WorkerDialog({ initialMode = "create", configuration, sa
         {error && <div className="dialog-error" role="alert">{error}</div>}
 
         {mode === "presets" && !editing ? (
-          <div className="dialog-body preset-body">
+          <div className="dialog-body preset-body" {...tabPanelProps("worker-source", "presets")}>
             <PresetList commands={savedCommands} busy={busy} onInstantiate={instantiate} />
           </div>
         ) : (
-          <form onSubmit={submit}>
+          <form onSubmit={submit} {...(editing ? {} : tabPanelProps("worker-source", "create"))}>
             <div className="dialog-body worker-form">
-              {!editing && <section className="worker-template-section"><header><div><span className="section-kicker">QUICK START</span><strong>Choose what this terminal should do</strong></div><small>Templates only fill the form. Review every command before adding it.</small></header><div className="worker-template-grid">{WORKER_TEMPLATES.map(template => <button type="button" className={`pm-card pm-card--interactive worker-template-card ${templateId === template.id ? "pm-card--selected is-selected" : ""}`} key={template.id} onClick={() => applyTemplate(template)}><span className="worker-template-card__badge">{template.badge}</span><span><strong>{template.name}</strong><small>{template.detail}</small></span><code>{template.command}</code></button>)}</div></section>}
+              {!editing && <section className="worker-template-section"><header><div><span className="section-kicker">QUICK START</span><strong>Choose what this terminal should do</strong></div><small>Templates only fill the form. Review every command before adding it.</small></header><div className="worker-template-grid">{WORKER_TEMPLATES.map(template => <button type="button" className={`pm-card pm-card--interactive worker-template-card role-${template.role || template.id} ${templateId === template.id ? "pm-card--selected is-selected" : ""}`} key={template.id} onClick={() => applyTemplate(template)}><span className={`worker-template-card__badge role-${template.role || template.id}`}>{template.badge}</span><span><strong>{template.name}</strong><small>{template.detail}</small></span><code>{template.command}</code></button>)}</div></section>}
               <div className="worker-form-heading"><div><span>WORKER DEFINITION</span><strong>{editing ? "Update the supervised command" : `${WORKER_TEMPLATES.find(item => item.id === templateId)?.name || "Custom worker"} configuration`}</strong></div><span>{draft.autoStart ? "Starts immediately" : "Creates idle"} · project-relative</span></div>
               <Field label="Worker ID" detail="Stable identifier; it cannot be changed later.">
                 <input value={draft.id} disabled={editing || busy} onChange={event => update("id", event.target.value)} placeholder="backend" autoFocus={!editing} />

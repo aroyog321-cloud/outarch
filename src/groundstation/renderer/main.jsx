@@ -1,5 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@xterm/xterm/css/xterm.css";
 import App from "./App.jsx";
 import "./tokens.css";
@@ -7,7 +9,6 @@ import "./styles.css";
 import "./uiFoundation.css";
 import "./groundstation21.css";
 import "./missionGraph.css";
-import "./workerIntelligence.css";
 import "./projectMemory.css";
 import "./vscodeBridge.css";
 import "./mcpGateway.css";
@@ -25,12 +26,14 @@ import "./premiumV3.css";
 // See src/groundstation/renderer/redesign/README.md.
 import "./redesign/tokens-bridge.css";
 import "./redesign/base.css";
-import "./redesign/surfaces.css";
 import "./redesign/workspace.css";
 import "./redesign/screens.css";
 // Density pass: page headers, meter strips, accent discipline, deck + pane
 // header overflow, empty states. See redesign/README.md.
 import "./redesign/cockpit.css";
+// Shared primitives resolve last: trust, decisions, skeletons, live telemetry,
+// status chips and desktop feedback all have one renderer-owned grammar.
+import "./redesign/surfaces.css";
 
 document.documentElement.lang = navigator.language || "en";
 

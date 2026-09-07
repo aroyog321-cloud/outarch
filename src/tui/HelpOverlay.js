@@ -1,7 +1,6 @@
 import React from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
 import { colors } from "./theme.js";
-import { isEscapeInput } from "./input.js";
 
 const e = React.createElement;
 
@@ -11,11 +10,7 @@ const GROUPS = [
   ["Protect", ["x", "Kill with confirmation"], ["d", "Remove with confirmation"], ["q", "Quit Mission Control"]]
 ];
 
-export default function HelpOverlay({ onClose }) {
-  useInput((input, key) => {
-    if (isEscapeInput(input, key) || input === "?" || input === "h") onClose();
-  });
-
+export default function HelpOverlay() {
   return e(
     Box,
     { flexDirection: "column", borderStyle: "round", borderColor: "cyan", padding: 1 },

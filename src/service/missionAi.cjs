@@ -2,8 +2,10 @@
 
 const { redactText } = require("./contextSanitizer.cjs");
 
-const GEMINI_INTERACTIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_INTERACTIONS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 const MISSION_AI_TIMEOUT_MS = 30 * 1000;
+const MISSION_AI_AUDIT_LIMIT = 50;
 const MAX_MISSION_QUESTION_LENGTH = 1200;
 const MAX_MISSION_AI_RESPONSE_BYTES = 1024 * 1024;
 const MAX_MISSION_AI_ANSWER_LENGTH = 12 * 1024;
@@ -47,6 +49,12 @@ function questionText(value) {
 }
 
 function responseText(value) {
+  if (typeof value === "string") return value.slice(0, MAX_MISSION_AI_ANSWER_LENGTH);
+  // Real Google Gemini API shape: candidates[0].content.parts[0].text
+  const candidate = value?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof candidate === "string") return candidate.slice(0, MAX_MISSION_AI_ANSWER_LENGTH);
+
+  // Backward-compatible provider fallbacks
   const texts = [];
   if (typeof value?.output_text === "string") texts.push(value.output_text);
   for (const step of Array.isArray(value?.steps) ? value.steps : []) {
@@ -154,10 +162,37 @@ class MissionAIService {
     this.lastRequestAt = null;
     this.lastCompletedAt = null;
     this.lastError = null;
+    this.keyState = { primary: "ok", secondary: "ok", activeSlot: "primary" };
+    // T115 - the same audit depth MCP, Mobile and Plugins already had.
+    // METADATA ONLY, and that is a rule rather than an omission: the question,
+    // the answer, the model input and the API key must never reach this ring,
+    // so nothing recorded below is derived from any of them.
+    this.audit = [];
+  }
+
+  record(kind, outcome, detail = {}) {
+    this.audit.push({
+      id: `mission-ai-audit-${this.audit.length + 1}-${this.now()}`,
+      kind,
+      outcome,
+      at: this.now(),
+      capability: "observe",
+      ...detail
+    });
+    if (this.audit.length > MISSION_AI_AUDIT_LIMIT) this.audit.splice(0, this.audit.length - MISSION_AI_AUDIT_LIMIT);
+  }
+
+  listAudit(limit = 50) {
+    const bounded = Number.isInteger(limit) && limit > 0 ? Math.min(limit, MISSION_AI_AUDIT_LIMIT) : MISSION_AI_AUDIT_LIMIT;
+    return this.audit.slice(-bounded).reverse().map(item => ({ ...item }));
   }
 
   status() {
+    const credStatus = this.credentialStore.status();
+    const model = credStatus.model || "gemini-2.5-flash";
+    const activeSlot = this.keyState.activeSlot || credStatus.activeSlot || "primary";
     return {
+      ...credStatus,
       id: "mission-ai",
       provider: "gemini",
       authority: "observe",
@@ -165,21 +200,109 @@ class MissionAIService {
       lastRequestAt: this.lastRequestAt,
       lastCompletedAt: this.lastCompletedAt,
       lastError: this.lastError,
-      ...this.credentialStore.status()
+      endpoint: `${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`,
+      auditCount: this.audit.length,
+      activeSlot,
+      keyState: {
+        primary: { configured: credStatus.keyState?.primary?.configured ?? credStatus.configured ?? false, state: this.keyState.primary },
+        secondary: { configured: credStatus.keyState?.secondary?.configured ?? credStatus.secondaryConfigured ?? false, state: this.keyState.secondary },
+        activeSlot
+      }
     };
   }
 
   configure(value) {
     const status = this.credentialStore.configure(value);
     this.lastError = null;
-    return { ...status, authority: "observe", provider: "gemini" };
+    this.keyState = { primary: "ok", secondary: "ok", activeSlot: "primary" };
+    // The model is a preference, not a secret. Whether a key is now present is
+    // recorded; the key itself is never read here.
+    this.record("configuration", status.configured ? "configured" : "cleared", { model: status.model || null });
+    return { ...status, authority: "observe", provider: "gemini", keyState: { ...this.keyState } };
   }
 
   clear() {
     if (this.activeController) throw new Error("Mission AI is answering a question; wait before removing its credential");
     const removed = this.credentialStore.clear();
     this.lastError = null;
+    this.keyState = { primary: "ok", secondary: "ok", activeSlot: "primary" };
+    this.record("credential", removed ? "removed" : "absent");
     return { removed, status: this.status() };
+  }
+
+  async #callGemini({ model, input, systemInstruction, signal }) {
+    const credStatus = this.credentialStore.status();
+    const hasSecondary = credStatus.secondaryConfigured || credStatus.keyState?.secondary?.configured || false;
+    const order = hasSecondary ? ["primary", "secondary"] : ["primary"];
+    let lastError = null;
+
+    for (const slot of order) {
+      let key;
+      try {
+        key = this.credentialStore.apiKey(slot);
+      } catch (err) {
+        this.keyState[slot] = "missing";
+        lastError = err;
+        continue;
+      }
+
+      const url = `${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`;
+      const body = JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: input }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: { responseMimeType: "application/json" }
+      });
+
+      try {
+        const response = await this.fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key
+          },
+          body,
+          signal
+        });
+
+        const declaredLength = Number(response.headers?.get?.("content-length"));
+        if (Number.isFinite(declaredLength) && declaredLength > MAX_MISSION_AI_RESPONSE_BYTES) {
+          throw new Error("Gemini response exceeded the Mission AI safety limit");
+        }
+        const raw = await response.text();
+        if (Buffer.byteLength(raw, "utf8") > MAX_MISSION_AI_RESPONSE_BYTES) {
+          throw new Error("Gemini response exceeded the Mission AI safety limit");
+        }
+
+        let data;
+        try { data = JSON.parse(raw); }
+        catch { throw new Error("Gemini returned an invalid response"); }
+
+        if (!response.ok) {
+          const errMsg = safeApiError(data, response.status);
+          const isQuotaOrKeyError = response.status === 429 || response.status === 403 || response.status === 400 || /RESOURCE_EXHAUSTED|API_KEY_INVALID|quota|key/i.test(errMsg);
+          if (isQuotaOrKeyError && slot === "primary" && order.includes("secondary")) {
+            this.keyState.primary = response.status === 429 ? "exhausted" : "rejected";
+            lastError = new Error(errMsg);
+            continue;
+          }
+          throw new Error(errMsg);
+        }
+
+        this.keyState[slot] = "ok";
+        this.keyState.activeSlot = slot;
+        return { data, slot };
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        lastError = error;
+        if (slot === "primary" && order.includes("secondary")) {
+          this.keyState.primary = "exhausted";
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError || new Error("All configured Gemini API keys failed");
   }
 
   async ask(value = {}) {
@@ -207,29 +330,22 @@ class MissionAIService {
     this.lastRequestAt = this.now();
     this.lastError = null;
     try {
-      const response = await this.fetch(GEMINI_INTERACTIONS_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": this.credentialStore.apiKey()
-        },
-        body: JSON.stringify({
-          model: preferences.model,
-          input,
-          system_instruction: SYSTEM_INSTRUCTION,
-          store: false
-        }),
+      const { data, slot } = await this.#callGemini({
+        model: preferences.model,
+        input,
+        systemInstruction: SYSTEM_INSTRUCTION,
         signal: controller.signal
       });
-      const declaredLength = Number(response.headers?.get?.("content-length"));
-      if (Number.isFinite(declaredLength) && declaredLength > MAX_MISSION_AI_RESPONSE_BYTES) throw new Error("Gemini response exceeded the Mission AI safety limit");
-      const raw = await response.text();
-      if (Buffer.byteLength(raw, "utf8") > MAX_MISSION_AI_RESPONSE_BYTES) throw new Error("Gemini response exceeded the Mission AI safety limit");
-      let data;
-      try { data = JSON.parse(raw); } catch { throw new Error("Gemini returned an invalid response"); }
-      if (!response.ok) throw new Error(safeApiError(data, response.status));
       const result = groundedAnswer(data, supervision, question);
       this.lastCompletedAt = this.now();
+      // Counts, never content: how much evidence the answer was grounded in and
+      // how much was redacted on the way, which is what an audit is for.
+      this.record("question", "answered", {
+        slot,
+        evidenceCount: supervision.evidenceIndex?.length || 0,
+        redactionCount: supervision.privacy?.redactionCount || 0,
+        terminalEvidence: supervision.visibility?.terminalEvidence || "omitted"
+      });
       return {
         text: result.answer,
         citations: result.citations,
@@ -239,6 +355,7 @@ class MissionAIService {
         model: preferences.model,
         authority: "observe",
         grounded: true,
+        slot,
         context: {
           generatedAt: supervision.generatedAt,
           contextVersion: supervision.contextVersion,
@@ -255,6 +372,7 @@ class MissionAIService {
         ? `Mission AI timed out after ${Math.round(this.timeoutMs / 1000)} seconds`
         : redactText(error instanceof Error ? error.message : String(error), { maxLength: 300 }).value;
       this.lastError = message;
+      this.record("request", error?.name === "AbortError" ? "timeout" : "failed");
       throw new Error(message);
     } finally {
       clearTimeout(timeout);
@@ -282,28 +400,17 @@ class MissionAIService {
     this.lastRequestAt = this.now();
     this.lastError = null;
     try {
-      const response = await this.fetch(GEMINI_INTERACTIONS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": this.credentialStore.apiKey() },
-        body: JSON.stringify({
-          model: preferences.model,
-          input: JSON.stringify({ task: "Propose a locally approval-gated, dependency-aware Mission Control action plan.", instruction, projectSupervision: supervision }),
-          system_instruction: PLAN_SYSTEM_INSTRUCTION,
-          store: false
-        }),
+      const { data, slot } = await this.#callGemini({
+        model: preferences.model,
+        input: JSON.stringify({ task: "Propose a locally approval-gated, dependency-aware Mission Control action plan.", instruction, projectSupervision: supervision }),
+        systemInstruction: PLAN_SYSTEM_INSTRUCTION,
         signal: controller.signal
       });
-      const declaredLength = Number(response.headers?.get?.("content-length"));
-      if (Number.isFinite(declaredLength) && declaredLength > MAX_MISSION_AI_RESPONSE_BYTES) throw new Error("Gemini response exceeded the Mission AI safety limit");
-      const raw = await response.text();
-      if (Buffer.byteLength(raw, "utf8") > MAX_MISSION_AI_RESPONSE_BYTES) throw new Error("Gemini response exceeded the Mission AI safety limit");
-      let data;
-      try { data = JSON.parse(raw); } catch { throw new Error("Gemini returned an invalid response"); }
-      if (!response.ok) throw new Error(safeApiError(data, response.status));
       const plan = structuredPlan(data);
       this.lastCompletedAt = this.now();
       return {
         plan,
+        slot,
         provider: "gemini",
         model: preferences.model,
         authority: "proposal-only",
@@ -315,6 +422,7 @@ class MissionAIService {
         ? `Mission AI timed out after ${Math.round(this.timeoutMs / 1000)} seconds`
         : redactText(error instanceof Error ? error.message : String(error), { maxLength: 300 }).value;
       this.lastError = message;
+      this.record("request", error?.name === "AbortError" ? "timeout" : "failed");
       throw new Error(message);
     } finally {
       clearTimeout(timeout);
@@ -329,6 +437,7 @@ class MissionAIService {
 }
 
 module.exports = {
+  GEMINI_BASE,
   GEMINI_INTERACTIONS_ENDPOINT,
   MAX_MISSION_AI_ANSWER_LENGTH,
   MAX_MISSION_AI_CITATIONS,
@@ -347,3 +456,4 @@ module.exports = {
   missionInstruction,
   structuredPlan
 };
+

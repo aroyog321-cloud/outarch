@@ -128,6 +128,26 @@ function sanitizeContextValue(value, options = {}) {
   return { value: visit(value, 0), ...stats };
 }
 
+/**
+ * Which secret shapes a string contains, by label, without redacting it.
+ *
+ * `redactText` already removes them and counts how many; an export has to be
+ * able to TELL the operator what it found before they hand the file to someone,
+ * which is a different question. Same rule table, so the scan can never claim a
+ * file is clean of something the redactor would have caught (T113).
+ */
+function scanText(value) {
+  const text = String(value ?? "");
+  const found = [];
+  for (const rule of TEXT_PATTERNS) {
+    // Every rule is a global regex, so reset lastIndex before reusing it.
+    rule.pattern.lastIndex = 0;
+    const matches = text.match(rule.pattern);
+    if (matches && matches.length) found.push({ label: rule.label, count: matches.length });
+  }
+  return found;
+}
+
 module.exports = {
   DEFAULT_MAX_ARRAY_ITEMS,
   DEFAULT_MAX_DEPTH,
@@ -135,5 +155,6 @@ module.exports = {
   DEFAULT_MAX_STRING_LENGTH,
   redactText,
   sanitizeContextValue,
+  scanText,
   sensitiveKey
 };

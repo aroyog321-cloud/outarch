@@ -15,6 +15,8 @@ class GroundstationIpcHost {
   #mcpGateway;
   #mobileCompanion;
   #pluginPlatform;
+  #notifications;
+  #portInspector;
   #connections;
   #observedWebContents;
   #bound;
@@ -35,6 +37,8 @@ class GroundstationIpcHost {
     this.#mcpGateway = options.mcpGateway || null;
     this.#mobileCompanion = options.mobileCompanion || null;
     this.#pluginPlatform = options.pluginPlatform || null;
+    this.#notifications = options.notifications || null;
+    this.#portInspector = options.portInspector || null;
     this.#connections = new Map();
     this.#observedWebContents = new Set();
     this.#bound = false;
@@ -91,7 +95,9 @@ class GroundstationIpcHost {
       projectSupervision: this.#projectSupervision,
       mcpGateway: this.#mcpGateway,
       mobileCompanion: this.#mobileCompanion,
-      pluginPlatform: this.#pluginPlatform
+      pluginPlatform: this.#pluginPlatform,
+      notifications: this.#notifications,
+      portInspector: this.#portInspector
     });
     this.#connections.set(webContents.id, connection);
     if (!this.#observedWebContents.has(webContents.id)) {

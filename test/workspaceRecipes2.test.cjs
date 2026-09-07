@@ -232,3 +232,81 @@ test("Recipes 2 cancellation stops scheduling and preserves cloned run state", a
   cloned.stepStates.api.phase = "changed";
   assert.equal(run.stepStates.api.phase, "cancelled");
 });
+
+// T076 — two windows editing one recipe must not silently overwrite each other.
+function recipeApi(t, sessions) {
+  const filePath = workspace(t, sessions);
+  const factory = makeFakePtyFactory();
+  const api = new EngineAPI({ ptyFactory: factory, activityPersistDelayMs: 0, resourceSampleIntervalMs: 0 });
+  t.after(() => api.dispose());
+  api.loadProject(filePath);
+  return api;
+}
+
+test("T076 — a save that names a stale revision is refused, and says what changed", t => {
+  const api = recipeApi(t, [{ id: "web", name: "Web", command: "x", cwd: ".", autoStart: false }]);
+
+  const first = api.saveRecipe({ id: "stack", name: "Stack", steps: [{ workerId: "web" }] });
+  assert.equal(first.ok, true);
+  assert.equal(first.recipe.revision, 1, "a new recipe starts at revision 1");
+
+  // A second editor saves first and moves the recipe on.
+  const second = api.saveRecipe({ id: "stack", name: "Stack renamed", steps: [{ workerId: "web" }], baseRevision: 1 });
+  assert.equal(second.ok, true);
+  assert.equal(second.recipe.revision, 2, "each accepted save advances the revision");
+
+  // The first editor, still holding revision 1, is told rather than overwriting.
+  const stale = api.saveRecipe({ id: "stack", name: "Stack from the stale window", steps: [{ workerId: "web" }], baseRevision: 1 });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.conflict, true);
+  assert.equal(stale.currentRevision, 2);
+  assert.match(stale.error, /revision 1/);
+  assert.match(stale.error, /revision 2/);
+  assert.equal(api.listRecipes().find(item => item.id === "stack").name, "Stack renamed", "the winning edit must survive");
+});
+
+test("T076 — a save with no base revision is still an explicit overwrite", t => {
+  const api = recipeApi(t, [{ id: "web", name: "Web", command: "x", cwd: ".", autoStart: false }]);
+  api.saveRecipe({ id: "stack", name: "Stack", steps: [{ workerId: "web" }] });
+  api.saveRecipe({ id: "stack", name: "Second", steps: [{ workerId: "web" }], baseRevision: 1 });
+  // Protocol v1 clients predate the field; omitting it must keep working.
+  const forced = api.saveRecipe({ id: "stack", name: "Forced", steps: [{ workerId: "web" }] });
+  assert.equal(forced.ok, true);
+  assert.equal(forced.recipe.revision, 3, "the revision still advances so the next conflict is detected");
+  assert.equal(api.listRecipes().find(item => item.id === "stack").name, "Forced");
+});
+
+// T077 — the run history is what you read when deciding whether to recover.
+test("T077 — finished runs are kept per recipe, bounded, newest first", async t => {
+  const api = recipeApi(t, [{ id: "web", name: "Web", command: "x", cwd: ".", autoStart: false }]);
+  api.saveRecipe({ id: "stack", name: "Stack", steps: [{ workerId: "web", readiness: "running" }] });
+
+  assert.deepEqual(api.listRecipeRunHistory("stack"), [], "nothing has run yet");
+
+  for (let index = 0; index < 12; index += 1) {
+    assert.equal(api.runRecipe("stack").ok, true, `run ${index} should start`);
+    await waitForRun(api, "stack");
+  }
+
+  const history = api.listRecipeRunHistory("stack");
+  assert.equal(history.length, 10, "history is bounded to the recorded limit");
+  assert.ok(history[0].finishedAt >= history.at(-1).finishedAt, "newest first");
+  for (const entry of history) {
+    assert.ok(entry.runId, "every entry identifies its run");
+    assert.ok(Number.isInteger(entry.durationMs), "every entry carries how long it took");
+    assert.ok(Array.isArray(entry.completed) && Array.isArray(entry.failures));
+  }
+  // The history travels with the recipe, so one read answers the whole page.
+  assert.equal(api.listRecipes().find(item => item.id === "stack").runHistory.length, 10);
+});
+
+test("T077 — deleting a recipe forgets its run history too", async t => {
+  const api = recipeApi(t, [{ id: "web", name: "Web", command: "x", cwd: ".", autoStart: false }]);
+  api.saveRecipe({ id: "stack", name: "Stack", steps: [{ workerId: "web", readiness: "running" }] });
+  api.runRecipe("stack");
+  await waitForRun(api, "stack");
+  assert.equal(api.listRecipeRunHistory("stack").length, 1);
+
+  assert.equal(api.deleteRecipe("stack").ok, true);
+  assert.deepEqual(api.listRecipeRunHistory("stack"), [], "a deleted recipe leaves no history behind");
+});

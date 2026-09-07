@@ -16,42 +16,89 @@
 :root {
   color-scheme: dark;
 
-  --font-family-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-family-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-family-ui: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-family-display: "Inter Variable", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
 
-  /* ---- canonical graphite scale ------------------------------------------ */
-  --mc-void: #060708;
-  --mc-canvas: #0a0b0d;
-  --mc-surface: #0e1013;
-  --mc-surface-2: #14161a;
-  --mc-surface-3: #1b1e23;
-  --mc-surface-4: #23272e;
-  --mc-border: #23262d;
-  --mc-border-strong: #333844;
-  --mc-border-faint: rgba(233, 238, 247, .06);
+  /* ---- canonical neutral scale -------------------------------------------
+     Obsidian: a true black canvas with one graphite surface tone. Depth is
+     stated by a hairline border, never by a lighter slab, so the register
+     reads as one plane and status colour is the only thing that advances. */
+  --mc-void: #000000;
+  --mc-canvas: #000000;
+  --mc-surface: #171717;
+  --mc-surface-2: #171717;
+  --mc-surface-3: #1f1f1f;
+  --mc-surface-4: #292929;
+  --mc-border: rgba(255, 255, 255, .15);
+  --mc-border-strong: rgba(255, 255, 255, .28);
+  --mc-border-faint: rgba(255, 255, 255, .08);
 
-  --mc-text: #f3f5f8;
-  --mc-text-soft: #c4c8d2;
-  --mc-text-muted: #868b98;
-  --mc-text-dim: #747b88;
-  --mc-text-ink: #04101f;
+  /* ---- material tiers ---------------------------------------------------
+     Obsidian is an opaque system: a panel is a flat tone plus an edge. These
+     stay near-opaque so a surface never borrows the colour of whatever is
+     scrolling behind it. */
+  --mc-glass-base: rgba(10, 10, 10, 0.92);
+  --mc-glass-raised: rgba(23, 23, 23, 0.94);
+  --mc-glass-card: rgba(23, 23, 23, 0.90);
+  --mc-glass-card-hover: rgba(38, 38, 38, 0.94);
+  --mc-glass-overlay: rgba(0, 0, 0, 0.86);
+  --mc-glass-popover: rgba(23, 23, 23, 0.98);
 
-  /* ---- one operational accent + semantic roles -------------------------- */
-  --mc-accent: #4f9dff;
-  --mc-accent-strong: #74b2ff;
-  --mc-accent-soft: rgba(79, 157, 255, .14);
-  --mc-accent-line: rgba(79, 157, 255, .42);
+  --mc-glass-border: rgba(255, 255, 255, 0.15);
+  --mc-glass-border-hover: rgba(255, 255, 255, 0.28);
+  --mc-glass-border-focus: rgba(0, 112, 243, 0.55);
+  --mc-glass-bevel: inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  --mc-glass-bevel-subtle: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --mc-gs-panel-bg: color-mix(in srgb, var(--mc-surface-2) 73%, transparent);
+  --mc-gs-briefing-ok: linear-gradient(110deg, color-mix(in srgb, var(--mc-ok) 14%, transparent), color-mix(in srgb, var(--mc-surface-3) 60%, transparent)), var(--mc-gs-panel-bg);
+  --mc-gs-briefing-warn: linear-gradient(110deg, color-mix(in srgb, var(--mc-warning) 13%, transparent), color-mix(in srgb, var(--mc-surface-3) 60%, transparent)), var(--mc-gs-panel-bg);
+  --mc-gs-glow-ok: color-mix(in srgb, var(--mc-ok) 6%, transparent);
+  --mc-gs-glow-blue: color-mix(in srgb, var(--mc-accent) 4%, transparent);
+  --mc-gs-glow-purple: color-mix(in srgb, var(--mc-ai) 3%, transparent);
 
-  --mc-ai: #8f7bff;
-  --mc-ai-strong: #a394ff;
-  --mc-ai-soft: rgba(143, 123, 255, .15);
+  --mc-blur-sm: 8px;
+  --mc-blur-md: 16px;
+  --mc-blur-lg: 24px;
+  --mc-blur-xl: 36px;
 
-  --mc-ok: #3ecf8e;
-  --mc-ok-soft: rgba(62, 207, 142, .13);
-  --mc-warning: #eaa544;
-  --mc-warning-soft: rgba(234, 165, 68, .13);
-  --mc-danger: #ff5b66;
-  --mc-danger-soft: rgba(255, 91, 102, .14);
+  --mc-text: #ffffff;
+  --mc-text-soft: #fafafa;
+  --mc-text-muted: #a1a1a1;
+  --mc-text-dim: #a1a1a1;
+  --mc-text-ink: #ffffff;
+
+  /* ---- one operational accent + semantic roles --------------------------
+     Blue is interaction — a filled control, a current destination, a focus
+     ring — and never a status. The accent reads white-on-fill, so the
+     lighter tone is what accent-coloured TEXT uses: the base blue measures
+     under 4.5:1 on the graphite surface and would fail as a label. */
+  --mc-accent: #0070f3;
+  --mc-accent-strong: #3291ff;
+  --mc-accent-soft: rgba(0, 112, 243, .14);
+  --mc-accent-line: rgba(0, 112, 243, .52);
+  --mc-accent-glow: rgba(0, 112, 243, 0.35);
+  --mc-accent-gradient: linear-gradient(135deg, #3291ff 0%, #0070f3 100%);
+
+  /* Mission AI is part of the same calm system rather than a second brand:
+     one blue, stated a shade lighter so an AI surface is still legible. */
+  --mc-ai: #3291ff;
+  --mc-ai-strong: #6cb2ff;
+  --mc-ai-soft: rgba(50, 145, 255, .15);
+  --mc-ai-glow: rgba(50, 145, 255, 0.35);
+  --mc-ai-gradient: linear-gradient(135deg, #6cb2ff 0%, #0070f3 100%);
+
+  --mc-ok: #32d583;
+  --mc-ok-soft: rgba(50, 213, 131, .12);
+  --mc-ok-glow: rgba(50, 213, 131, 0.35);
+
+  --mc-warning: #f5b942;
+  --mc-warning-soft: rgba(245, 185, 66, .13);
+  --mc-warning-glow: rgba(245, 185, 66, 0.35);
+
+  --mc-danger: #ff5f5f;
+  --mc-danger-soft: rgba(255, 95, 95, .12);
+  --mc-danger-glow: rgba(255, 95, 95, 0.4);
+
   --mc-info: var(--mc-accent);
 
   /* ---- spacing / radius / motion / elevation -------------------------- */
@@ -59,16 +106,20 @@
   --mc-space-4: 16px; --mc-space-5: 20px; --mc-space-6: 24px;
   --mc-space-8: 32px; --mc-space-10: 40px;
 
+  --mc-radius-2xs: 3px;
   --mc-radius-xs: 5px;
   --mc-radius-sm: 8px;
   --mc-radius-md: 11px;
   --mc-radius-lg: 16px;
   --mc-radius-pill: 999px;
 
-  --mc-shadow-1: 0 1px 2px rgba(0, 0, 0, .3);
-  --mc-shadow-2: 0 12px 32px -12px rgba(0, 0, 0, .55);
-  --mc-shadow-float: 0 24px 64px -24px rgba(0, 0, 0, .72), 0 1px 0 rgba(255, 255, 255, .03) inset;
-  --mc-focus-ring: 0 0 0 2px var(--mc-void), 0 0 0 4px var(--mc-accent-line);
+  /* On a true-black canvas a cast shadow is invisible, so elevation is stated
+     by the edge and only overlays — which float above content — still cast. */
+  --mc-shadow-1: 0 0 0 0 rgba(0, 0, 0, 0);
+  --mc-shadow-2: 0 12px 32px -12px rgba(0, 0, 0, .8);
+  --mc-shadow-float: 0 24px 64px -24px rgba(0, 0, 0, .9), 0 1px 0 rgba(255, 255, 255, .06) inset;
+  --mc-focus-ring: 0 0 0 2px var(--mc-void), 0 0 0 4px var(--mc-accent);
+  --mc-glow-primary: 0 0 24px rgba(0, 112, 243, 0.28);
 
   /* ---- premium surface detail -------------------------------------------
 
@@ -77,17 +128,36 @@
      1px top light-edge, the way a physical panel catches the light above
      it. `--mc-hairline` is the internal separator — deliberately weaker
      than `--mc-border`, which stays the outer edge of a surface. */
-  --mc-font-mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, ui-monospace, monospace;
-  --mc-hairline: rgba(233, 238, 247, .055);
-  --mc-edge: inset 0 1px 0 rgba(255, 255, 255, .045);
-  --mc-edge-strong: inset 0 1px 0 rgba(255, 255, 255, .07);
-  --mc-raise-1: 0 1px 1px rgba(0, 0, 0, .34), 0 2px 6px -2px rgba(0, 0, 0, .4), var(--mc-edge);
-  --mc-raise-2: 0 2px 4px -1px rgba(0, 0, 0, .38), 0 10px 26px -10px rgba(0, 0, 0, .55), var(--mc-edge);
-  --mc-ring-accent: 0 0 0 1px var(--mc-accent-line), 0 0 22px -8px var(--mc-accent);
+  --mc-font-mono: "JetBrains Mono Variable", "Cascadia Code", "SFMono-Regular", Consolas, ui-monospace, monospace;
+  --mc-font-ui: var(--font-family-ui);
+  --mc-text-xs: 11px;
+  --mc-text-sm: 12px;
+  --mc-text-base: 13px;
+  --mc-text-lg: 15px;
+  --mc-text-xl: 18px;
+  --mc-hairline: rgba(255, 255, 255, .09);
+  --mc-edge: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --mc-edge-strong: inset 0 1px 0 rgba(255, 255, 255, .1);
+  --mc-raise-1: var(--mc-edge);
+  --mc-raise-2: var(--mc-edge);
+  --mc-ring-accent: 0 0 0 1px var(--mc-accent);
 
-  --mc-motion-fast: 120ms ease-out;
-  --mc-motion-base: 190ms ease-out;
-  --mc-motion-enter: 260ms cubic-bezier(.16, 1, .3, 1);
+  /* ---- motion (T148) -----------------------------------------------------
+     Duration and easing are separate primitives so a component can borrow one
+     without inheriting the other, and so the zero-motion variant has a single
+     place to act: setting the three durations to 0 stills every transition
+     composed from them, without any component knowing that happened. The
+     composed `--mc-motion-*` shorthands stay because most call sites want the
+     pair, and they now resolve through the primitives. */
+  --mc-duration-fast: 120ms;
+  --mc-duration-base: 190ms;
+  --mc-duration-enter: 260ms;
+  --mc-ease-standard: ease-out;
+  --mc-ease-enter: cubic-bezier(.16, 1, .3, 1);
+
+  --mc-motion-fast: var(--mc-duration-fast) var(--mc-ease-standard);
+  --mc-motion-base: var(--mc-duration-base) var(--mc-ease-standard);
+  --mc-motion-enter: var(--mc-duration-enter) var(--mc-ease-enter);
 
   /* =====================================================================
      Legacy aliases — every historical name now resolves here.
@@ -121,10 +191,9 @@
 
   /* tokens.css compatibility chain */
   --mc-accent-ink: var(--mc-text-ink);
-  --mc-accent-soft: rgba(79, 157, 255, .13);
   --green-300: var(--mc-ok);
   --green-400: var(--mc-ok);
-  --green-500: #34b87d;
+  --green-500: var(--mc-ok);
   --blue-300: var(--mc-accent-strong);
   --blue-500: var(--mc-accent);
   --violet-300: var(--mc-ai-strong);
@@ -186,21 +255,22 @@
   --mc-text: #11151c;
   --mc-text-soft: #303743;
   --mc-text-muted: #525b69;
-  --mc-text-dim: #626c7a;
+  /* measured values, not chosen ones */
+  --mc-text-dim: #59626f;
   --mc-text-ink: #ffffff;
-  --mc-accent: #2f6fd0;
-  --mc-accent-strong: #235bad;
-  --mc-accent-soft: rgba(47, 111, 208, .12);
-  --mc-accent-line: rgba(47, 111, 208, .38);
+  --mc-accent: #2161c2;
+  --mc-accent-strong: #174ea6;
+  --mc-accent-soft: rgba(33, 97, 194, .12);
+  --mc-accent-line: rgba(33, 97, 194, .38);
   --mc-ai: #6552c7;
   --mc-ai-strong: #513dac;
   --mc-ai-soft: rgba(101, 82, 199, .12);
-  --mc-ok: #1f8b57;
-  --mc-ok-soft: rgba(31, 139, 87, .11);
-  --mc-warning: #9a6208;
-  --mc-warning-soft: rgba(154, 98, 8, .11);
-  --mc-danger: #bd303b;
-  --mc-danger-soft: rgba(189, 48, 59, .11);
+  --mc-ok: #026733;
+  --mc-ok-soft: rgba(2, 103, 51, .11);
+  --mc-warning: #8c5400;
+  --mc-warning-soft: rgba(140, 84, 0, .11);
+  --mc-danger: #b52833;
+  --mc-danger-soft: rgba(181, 40, 51, .11);
   --mc-hairline: rgba(18, 23, 32, .07);
   --mc-edge: inset 0 1px 0 rgba(255, 255, 255, .8);
   --mc-edge-strong: inset 0 1px 0 rgba(255, 255, 255, .95);
@@ -208,16 +278,32 @@
   --mc-shadow-2: 0 12px 32px -16px rgba(18, 23, 32, .28);
   --mc-shadow-float: 0 24px 64px -28px rgba(18, 23, 32, .34);
   --mc-focus-ring: 0 0 0 2px var(--mc-surface), 0 0 0 4px var(--mc-accent-line);
-  --accent: #2f6fd0;
-  --blue: #2f6fd0;
+  --accent: #2161c2;
+  --blue: #2161c2;
 }
+
+/* High contrast keeps the same black canvas and the same roles, and only
+   pushes each one brighter: the edge becomes visible rather than implied, and
+   every status ink clears AAA against the graphite surface. */
 .theme-contrast {
-  --mc-accent: #7cb8ff;
-  --mc-border: #4a4a4a;
-  --mc-border-strong: #6a6a6a;
-  --accent: #7cb8ff;
-  --line: #4a4a4a;
-  --line-strong: #6a6a6a;
+  --mc-accent: #52a8ff;
+  --mc-accent-strong: #8cc6ff;
+  --mc-accent-soft: rgba(82, 168, 255, .2);
+  --mc-ai: #8cc6ff;
+  --mc-ai-soft: rgba(140, 198, 255, .2);
+  --mc-ok: #5ce8a3;
+  --mc-ok-soft: rgba(92, 232, 163, .2);
+  --mc-warning: #ffcf5c;
+  --mc-warning-soft: rgba(255, 207, 92, .2);
+  --mc-danger: #ff8a8a;
+  --mc-danger-soft: rgba(255, 138, 138, .2);
+  --mc-text-muted: #d4d4d4;
+  --mc-text-dim: #d4d4d4;
+  --mc-border: rgba(255, 255, 255, .42);
+  --mc-border-strong: rgba(255, 255, 255, .62);
+  --accent: #52a8ff;
+  --line: rgba(255, 255, 255, .42);
+  --line-strong: rgba(255, 255, 255, .62);
 }
 
 html, body { background: var(--mc-void); }

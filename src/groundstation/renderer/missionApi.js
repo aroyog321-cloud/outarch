@@ -4,7 +4,7 @@ export function missionApi() {
     throw new Error("Groundstation bridge is unavailable");
   }
   return {
-    subscribe: callback => api.subscribe(callback),
+    subscribe: (callback, filter) => api.subscribe(callback, filter),
     request: async (method, params = {}) => {
       const response = await api.request(method, params);
       if (response?.ok === false) {
@@ -15,6 +15,14 @@ export function missionApi() {
       return response && Object.hasOwn(response, "result") ? response.result : response;
     }
   };
+}
+
+export async function confirmedRequest(method, params = {}) {
+  const targetParams = { ...params };
+  delete targetParams.confirmation;
+  const confirmation = await missionApi().request("confirmation.request", { targetMethod: method, targetParams });
+  if (!confirmation?.token) throw new Error("Engine did not issue a confirmation token");
+  return missionApi().request(method, { ...targetParams, confirmation: confirmation.token });
 }
 
 export function notificationType(notification) {

@@ -42,6 +42,8 @@ export default function App({ engineApi, requestFullAttach, onQuit = () => {} })
   const [editTarget, setEditTarget] = React.useState(null);
   const [savedCommandChoices, setSavedCommandChoices] = React.useState(null);
   const [helpOpen, setHelpOpen] = React.useState(false);
+  const helpOpenRef = React.useRef(helpOpen);
+  helpOpenRef.current = helpOpen;
   const [activity, setActivity] = React.useState(() => engineApi.getActivity({ limit: 4 }).events);
   const workspace = React.useMemo(() => engineApi.getWorkspace(), [engineApi]);
   const [notice, setNotice] = React.useState(
@@ -139,6 +141,16 @@ export default function App({ engineApi, requestFullAttach, onQuit = () => {} })
   }, [current, engineApi, requestFullAttach]);
 
   const handleInput = React.useCallback((input, key) => {
+    // Keep one stable listener responsible for the Help overlay. Moving input
+    // ownership from this component to a newly mounted child creates a brief
+    // effect-order gap where a fast Escape can be dropped after Help is visible.
+    if (helpOpenRef.current) {
+      if (isEscapeInput(input, key) || input === "?" || input === "h") {
+        setHelpOpen(false);
+      }
+      return;
+    }
+
     // Ink updates useInput callbacks in an effect after rendering. A fast key
     // can arrive after the Tail frame is visible but before that effect runs;
     // read the current mode through a ref so the preceding callback still
@@ -283,7 +295,7 @@ export default function App({ engineApi, requestFullAttach, onQuit = () => {} })
     if (input === "q") onQuit();
   }, [attachCurrent, current, engineApi, moveSelection, onQuit, sessions]);
 
-  useInput(handleInput, { isActive: !modalOpen });
+  useInput(handleInput, { isActive: !modalOpen || helpOpen });
 
   if (helpOpen) {
     return e(HelpOverlay, { onClose: () => setHelpOpen(false) });

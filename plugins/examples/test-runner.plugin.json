@@ -7,5 +7,9 @@
   "description": "Reviews bounded test-worker health and may request an approved restart.",
   "permissions": ["health.read", "events.read", "worker.lifecycle.request"],
   "surfaces": ["settings.summary", "health.status", "needs.request"],
+  "contributions": [
+    { "id": "tests-summary", "surface": "settings.summary", "title": "Test intelligence", "value": "Evidence linked", "detail": "Uses bounded test-worker health and event metadata.", "tone": "neutral" },
+    { "id": "tests-health", "surface": "health.status", "title": "Test worker health", "value": "Observed", "detail": "Requests recovery only through a local approval.", "tone": "healthy" }
+  ],
   "actions": [{ "id": "restart-tests", "label": "Restart test worker", "type": "worker", "operations": ["restart"] }]
 }

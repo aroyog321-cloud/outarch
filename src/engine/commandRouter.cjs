@@ -1,9 +1,10 @@
 // safe: runs immediately, nothing to confirm.
 // reversible: runs immediately, no prompt — restarting isn't costly to undo.
-// destructive: caller must have already gotten a typed confirmation (§7 of
-// the TUI proposal) before dispatch() is ever called for this tier — the
-// Router doesn't itself gate on confirmation; that's a client concern, same
-// as the design docs specify (the ritual differs by client, the tier doesn't).
+// destructive: the public Protocol connection requires a server-issued,
+// single-use token bound to the exact action payload before dispatch reaches
+// this router. Client-specific user ceremonies happen before token issuance.
+// The router remains a risk classifier and EngineAPI dispatcher; callers that
+// bypass Protocol are trusted in-process code and must enforce the same policy.
 
 const RISK_TIER = {
   start: "reversible",

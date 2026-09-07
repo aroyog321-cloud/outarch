@@ -5,11 +5,14 @@ const EventEmitter = require("node:events");
 const http = require("node:http");
 const os = require("node:os");
 const { redactText } = require("./contextSanitizer.cjs");
+const { getMobileWebCompanionHtml } = require("./mobileWebCompanion.cjs");
 
 const MOBILE_API_VERSION = 1;
 const MOBILE_PAIR_PATH = "/mobile/v1/pair";
 const MOBILE_REQUEST_PATH = "/mobile/v1/request";
 const MOBILE_INVITE_PATH = "/mobile/v1/invite";
+const MOBILE_PING_PATH = "/mobile/v1/ping";
+const MOBILE_EVENTS_PATH = "/mobile/v1/events";
 const MOBILE_PAIRING_TTL_MS = 5 * 60 * 1000;
 const MOBILE_APPROVAL_TTL_MS = 15 * 60 * 1000;
 const MOBILE_CLOCK_SKEW_MS = 2 * 60 * 1000;
@@ -82,6 +85,7 @@ class MobileCompanionGateway extends EventEmitter {
     this.address = null;
     this.invitations = new Map();
     this.seenNonces = new Map();
+    this.sseClients = new Set();
     this.lastError = null;
     this.disposed = false;
   }
@@ -90,7 +94,16 @@ class MobileCompanionGateway extends EventEmitter {
     this.#expire();
     const stored = this.store.status();
     const port = this.address?.port || stored.port;
-    return { ...stored, running: Boolean(this.server?.listening), host: "0.0.0.0", port, endpoints: this.#endpoints(port), activeInvitationCount: this.invitations.size, lastError: this.lastError, transport: "application-layer-aes-256-gcm", authority: "approval-gated-no-shell" };
+    const latestInvite = [...this.invitations.values()].sort((a, b) => b.createdAt - a.createdAt)[0];
+    const activeInvitation = latestInvite && latestInvite.expiresAt > this.now() ? {
+      pairingId: latestInvite.pairingId,
+      code: latestInvite.code,
+      nonce: latestInvite.nonce,
+      serverPublicKey: b64(latestInvite.publicKey.export({ format: "der", type: "spki" })),
+      endpoints: this.#endpoints(port).map(endpoint => `${endpoint}${MOBILE_PAIR_PATH}`),
+      expiresAt: latestInvite.expiresAt
+    } : null;
+    return { ...stored, running: Boolean(this.server?.listening), host: "0.0.0.0", port, endpoints: this.#endpoints(port), activeInvitation, activeInvitationCount: this.invitations.size, activeClientCount: this.sseClients.size, lastError: this.lastError, transport: "application-layer-aes-256-gcm", authority: "approval-gated-no-shell" };
   }
 
   subscribe(callback) { if (typeof callback !== "function") throw new TypeError("Mobile companion subscribe requires a callback"); this.on("status", callback); return () => this.off("status", callback); }
@@ -125,6 +138,8 @@ class MobileCompanionGateway extends EventEmitter {
 
   async stop() {
     const server = this.server; this.server = null; this.address = null; this.invitations.clear(); this.seenNonces.clear();
+    for (const client of this.sseClients) { try { client.end(); } catch {} }
+    this.sseClients.clear();
     if (server) await new Promise(resolve => server.close(resolve));
     this.#emitStatus();
     return this.status();
@@ -293,27 +308,133 @@ class MobileCompanionGateway extends EventEmitter {
 
   #pruneNonces(deviceId) { const cutoff = this.now() - MOBILE_NONCE_TTL_MS; const values = this.seenNonces.get(deviceId); if (!values) return; for (const [nonce, at] of values) if (at < cutoff) values.delete(nonce); if (!values.size) this.seenNonces.delete(deviceId); }
   #projectIdentity() { const workspace = this.getEngineApi()?.getWorkspace?.(); if (!workspace?.persistent) throw new Error("Mobile Companion requires a persistent project"); const source = workspace.path || workspace.directory || workspace.name; return { key: crypto.createHash("sha256").update(String(source)).digest("base64url"), name: String(workspace.name || "Project").slice(0, 120) }; }
-  #endpoints(port) { const values = []; for (const entries of Object.values(this.networkInterfaces() || {})) for (const item of entries || []) if (item && item.family === "IPv4" && !item.internal && !values.includes(item.address)) values.push(item.address); return values.slice(0, 8).map(address => `http://${address}:${port}`); }
+  #endpoints(port) {
+    const scored = [];
+    for (const [ifaceName, entries] of Object.entries(this.networkInterfaces() || {})) {
+      for (const item of entries || []) {
+        if (!item || item.family !== "IPv4" || item.internal) continue;
+        const addr = item.address;
+        if (addr.startsWith("127.") || addr.startsWith("169.254.")) continue;
+        let score = 50;
+        const lowerName = String(ifaceName).toLowerCase();
+        if (/wi-?fi|wlan|wireless|en0|eth|ethernet/i.test(lowerName)) score += 30;
+        if (addr.startsWith("192.168.")) score += 20;
+        else if (addr.startsWith("10.")) score += 15;
+        else if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(addr)) score += 10;
+        if (/veth|wsl|docker|hyper-v|virtualbox|vmware/i.test(lowerName)) score -= 40;
+        scored.push({ addr, score });
+      }
+    }
+    scored.sort((a, b) => b.score - a.score);
+    const seen = new Set();
+    const values = [];
+    for (const item of scored) {
+      if (!seen.has(item.addr)) {
+        seen.add(item.addr);
+        values.push(item.addr);
+      }
+    }
+    return values.slice(0, 8).map(address => `http://${address}:${port}`);
+  }
+
   #audit(record) { try { this.store.appendAudit({ ...record, id: `mobile-audit-${this.randomUUID()}`, at: this.now() }); } catch {} }
-  #emitStatus() { const status = this.status(); for (const listener of this.rawListeners("status")) try { listener(status); } catch {} }
+
+  #emitStatus() {
+    const status = this.status();
+    for (const listener of this.rawListeners("status")) try { listener(status); } catch {}
+    for (const client of this.sseClients) {
+      try {
+        client.write(`event: status\ndata: ${JSON.stringify(status)}\n\n`);
+      } catch {}
+    }
+  }
 
   async #handleHttp(request, response) {
-    const send = (status, value) => { if (response.writableEnded) return; const body = JSON.stringify(value); response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Length": Buffer.byteLength(body) }); response.end(body); };
-    if (request.method === "GET" && request.url === MOBILE_INVITE_PATH) {
+    // Add CORS headers for mobile web/WebView clients
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Mission-Control-Device, X-Mission-Control-Time, X-Mission-Control-Nonce, Authorization");
+
+    if (request.method === "OPTIONS") {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+
+    const send = (status, value) => {
+      if (response.writableEnded) return;
+      const body = JSON.stringify(value);
+      response.writeHead(status, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Length": Buffer.byteLength(body)
+      });
+      response.end(body);
+    };
+
+    const pathname = String(request.url || "").split("?")[0];
+
+    // Serve Standalone Mobile Web Companion PWA
+    if (request.method === "GET" && (pathname === "/mobile" || pathname === "/mobile/")) {
+      const html = getMobileWebCompanionHtml();
+      response.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Length": Buffer.byteLength(html)
+      });
+      response.end(html);
+      return;
+    }
+
+    // Ping health check
+    if (request.method === "GET" && pathname === MOBILE_PING_PATH) {
+      return send(200, { ok: true, version: MOBILE_API_VERSION, name: "Mission Control Mobile Gateway", running: Boolean(this.server?.listening) });
+    }
+
+    // Live Server-Sent Events (SSE)
+    if (request.method === "GET" && pathname === MOBILE_EVENTS_PATH) {
+      response.writeHead(200, {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive"
+      });
+      response.write(`event: connected\ndata: ${JSON.stringify({ at: this.now() })}\n\n`);
+      this.sseClients.add(response);
+      request.on("close", () => { this.sseClients.delete(response); });
+      return;
+    }
+
+    // Public Invitation
+    if (request.method === "GET" && pathname === MOBILE_INVITE_PATH) {
       try { return send(200, this.currentInvitation()); }
       catch (error) { return send(404, { error: error instanceof Error ? error.message : String(error) }); }
     }
-    if (request.method !== "POST" || ![MOBILE_PAIR_PATH, MOBILE_REQUEST_PATH].includes(request.url)) return send(404, { error: "Mobile endpoint not found" });
+
+    if (request.method !== "POST" || ![MOBILE_PAIR_PATH, MOBILE_REQUEST_PATH].includes(pathname)) {
+      return send(404, { error: "Mobile endpoint not found" });
+    }
+
     let bytes = 0; const chunks = [];
     try {
-      for await (const chunk of request) { bytes += chunk.length; if (bytes > MAX_MOBILE_REQUEST_BYTES) throw new Error("Mobile request exceeds the 256 KiB limit"); chunks.push(chunk); }
+      for await (const chunk of request) {
+        bytes += chunk.length;
+        if (bytes > MAX_MOBILE_REQUEST_BYTES) throw new Error("Mobile request exceeds the 256 KiB limit");
+        chunks.push(chunk);
+      }
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      if (request.url === MOBILE_PAIR_PATH) return send(200, this.pair(body));
-      const opened = this.openRequest({ deviceId: request.headers["x-mission-control-device"], timestamp: Number(request.headers["x-mission-control-time"]), nonce: request.headers["x-mission-control-nonce"] }, body);
+      if (pathname === MOBILE_PAIR_PATH) return send(200, this.pair(body));
+      const opened = this.openRequest({
+        deviceId: request.headers["x-mission-control-device"],
+        timestamp: Number(request.headers["x-mission-control-time"]),
+        nonce: request.headers["x-mission-control-nonce"]
+      }, body);
       const result = await this.dispatch(opened.device, opened.payload);
       return send(200, this.sealResponse(opened, { ok: true, result }));
-    } catch (error) { return send(/authentication|credential|replay|timestamp|pairing proof/i.test(error.message) ? 401 : 400, { error: error instanceof Error ? error.message : String(error) }); }
+    } catch (error) {
+      return send(/authentication|credential|replay|timestamp|pairing proof/i.test(error.message) ? 401 : 400, { error: error instanceof Error ? error.message : String(error) });
+    }
   }
 }
 
-module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_CLOCK_SKEW_MS, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };
+module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_CLOCK_SKEW_MS, MOBILE_EVENTS_PATH, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_PING_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };

@@ -1,0 +1,680 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "monospace"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "monospace": [
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "failed"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "node worker.js"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-ok",
+          "tag": "b",
+          "text": "84p"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "npm run test:watch"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "unconfirmed"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "npm run start:api"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "unconfirmed"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "completed"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "npm run dev"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "ssh -L 5432:localhost:5432 bastion"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "claude --continue"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "codex"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "Web dev server"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "API gateway"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "Unit tests (watch)"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "Queue worker"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "Claude - refactor auth"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "Codex - migration review"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "npm run dev"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "unconfirmed"
+        },
+        {
+          "node": "b.mc-gs-evidence.tone-idle",
+          "tag": "b",
+          "text": "completed"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "monospace": [
+        {
+          "node": "small",
+          "tag": "small",
+          "text": "7 supervised workers"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "Running · no output reported yet"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "Running · no output reported yet"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "Tests: 1 failed, 84 passed, 85 total"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "Process exited with code 1"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "monospace": [
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "NEEDS YOU"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "W01"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "M02"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "W03"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "S04"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "01"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "npm run test:auth"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "02"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "T05"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "T06"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "T07"
+        },
+        {
+          "node": "div.decision-item__index",
+          "tag": "div",
+          "text": "W08"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "monospace": [
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "AI WORKFORCE"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "0m"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "0m"
+        },
+        {
+          "node": "span.agent-state.state-running",
+          "tag": "span",
+          "text": "Needs your review"
+        },
+        {
+          "node": "code",
+          "tag": "code",
+          "text": "claude --continue"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "monospace": [
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "SAVED"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "RUNNING"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "RECOVERY"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "WORKERS"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "1"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "2"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "node": "b",
+          "tag": "b",
+          "text": "4"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "monospace": [
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "PROJECT MEMORY"
+        },
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "RUN CHAPTERS · RESUMABLE MEMORY"
+        },
+        {
+          "node": "kbd",
+          "tag": "kbd",
+          "text": "35"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "now"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#decision:missionSupervisor:sup-1"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "now"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#decision:mcp:mcp-1"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#52"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#51"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#50"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#46"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#decision:session:attention-worker-17885"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#decision:session:attention-agent-claude"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#41"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#37"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#36"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#33"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#31"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#decision:session:attention-tests-178859"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#29"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#24"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#23"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#21"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#19"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#17"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#16"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#15"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#13"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#12"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#11"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#10"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#9"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        },
+        {
+          "node": "span",
+          "tag": "span",
+          "text": "#8"
+        },
+        {
+          "node": "strong",
+          "tag": "strong",
+          "text": "0m"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "monospace": [
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "MISSION CONTROL SETTINGS"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "monospace": [
+        {
+          "node": "span.trust-boundary__mark",
+          "tag": "span",
+          "text": "TB"
+        },
+        {
+          "node": "small",
+          "tag": "small",
+          "text": "Trust boundary"
+        },
+        {
+          "node": "div.integration-feature-mark",
+          "tag": "div",
+          "text": "AI"
+        },
+        {
+          "node": "span.section-kicker",
+          "tag": "span",
+          "text": "CAPABILITY DIRECTORY"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "ENGINE"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "EDITOR"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "GATEWAY"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "WORKFLOW"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "CLIENT"
+        },
+        {
+          "node": "span.integration-role-tag",
+          "tag": "span",
+          "text": "PLATFORM"
+        }
+      ]
+    }
+  ]
+}

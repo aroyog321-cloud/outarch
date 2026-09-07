@@ -15,6 +15,15 @@ function request(id, method, params = {}) {
   return { version: PROTOCOL_VERSION, id, method, params };
 }
 
+async function confirmed(connection, id, method, params = {}) {
+  const issued = await connection.handle(request(`${id}-confirmation`, "confirmation.request", {
+    targetMethod: method,
+    targetParams: params
+  }));
+  assert.equal(issued.ok, true, issued.error?.message);
+  return connection.handle(request(id, method, { ...params, confirmation: issued.result.token }));
+}
+
 function makeEngineStub(overrides = {}) {
   let subscriber = null;
   let sequence = 0;
@@ -102,30 +111,98 @@ test("action dispatch calls the public action exactly once and gates destructive
   assert.equal(rejected.error.code, "CONFIRMATION_REQUIRED");
   assert.equal(kills, 0);
 
-  const killed = await connection.handle(request("kill-yes", "action.dispatch", {
+  const killed = await confirmed(connection, "kill-yes", "action.dispatch", {
     sessionId: "worker",
-    action: { type: "kill" },
-    confirmation: "confirm:kill:worker"
-  }));
+    action: { type: "kill" }
+  });
   assert.equal(killed.ok, true);
   assert.equal(kills, 1);
   connection.dispose();
 });
 
-test("Recipes 2 routes recover and cancellation only through EngineAPI", async () => {
+test("confirmation tokens are unpredictable, exact-operation-bound, expiring, and single use", async () => {
+  let clock = 1_000;
+  let kills = 0;
+  const audit = [];
+  const engine = makeEngineStub({
+    getSnapshot: id => id === "worker" || id === "other" ? { id } : null,
+    kill: () => { kills++; return { ok: true }; },
+    recordConfirmationEvent: (kind, payload) => { audit.push({ kind, ...payload }); return { ok: true }; }
+  });
+  const connection = createProtocolConnection(engine, { send: () => {}, now: () => clock });
+  const targetParams = { sessionId: "worker", action: { type: "kill" } };
+
+  const first = await connection.handle(request("issue-first", "confirmation.request", { targetMethod: "action.dispatch", targetParams }));
+  const second = await connection.handle(request("issue-second", "confirmation.request", { targetMethod: "action.dispatch", targetParams }));
+  assert.equal(first.ok, true);
+  assert.equal(first.result.confirmationProtocolVersion, 2);
+  assert.notEqual(first.result.token, second.result.token);
+  assert.doesNotMatch(first.result.token, /^confirm:/);
+
+  const safeTarget = await connection.handle(request("issue-safe", "confirmation.request", {
+    targetMethod: "state.get",
+    targetParams: {}
+  }));
+  assert.equal(safeTarget.error.code, "INVALID_PARAMS");
+
+  const mismatch = await connection.handle(request("mismatch", "action.dispatch", {
+    sessionId: "other",
+    action: { type: "kill" },
+    confirmation: first.result.token
+  }));
+  assert.equal(mismatch.error.code, "CONFIRMATION_MISMATCH");
+  assert.equal(kills, 0);
+  const mismatchReplay = await connection.handle(request("mismatch-replay", "action.dispatch", { ...targetParams, confirmation: first.result.token }));
+  assert.equal(mismatchReplay.error.code, "CONFIRMATION_INVALID");
+
+  const executed = await connection.handle(request("execute", "action.dispatch", { ...targetParams, confirmation: second.result.token }));
+  assert.equal(executed.ok, true);
+  assert.equal(kills, 1);
+  const replay = await connection.handle(request("replay", "action.dispatch", { ...targetParams, confirmation: second.result.token }));
+  assert.equal(replay.error.code, "CONFIRMATION_INVALID");
+
+  const expiring = await connection.handle(request("issue-expiring", "confirmation.request", { targetMethod: "action.dispatch", targetParams }));
+  clock = expiring.result.expiresAt;
+  const expired = await connection.handle(request("expired", "action.dispatch", { ...targetParams, confirmation: expiring.result.token }));
+  assert.equal(expired.error.code, "CONFIRMATION_EXPIRED");
+
+  const predictable = await connection.handle(request("predictable", "action.dispatch", { ...targetParams, confirmation: "confirm:kill:worker" }));
+  assert.equal(predictable.error.code, "CONFIRMATION_INVALID");
+  assert.equal(kills, 1);
+  assert.deepEqual(audit, [
+    { kind: "requested", operation: "action.dispatch" },
+    { kind: "requested", operation: "action.dispatch" },
+    { kind: "rejected", operation: "action.dispatch", outcomeCode: "CONFIRMATION_MISMATCH" },
+    { kind: "rejected", operation: "action.dispatch", outcomeCode: "CONFIRMATION_INVALID" },
+    { kind: "confirmed", operation: "action.dispatch" },
+    { kind: "completed", operation: "action.dispatch" },
+    { kind: "rejected", operation: "action.dispatch", outcomeCode: "CONFIRMATION_INVALID" },
+    { kind: "requested", operation: "action.dispatch" },
+    { kind: "expired", operation: "action.dispatch", outcomeCode: "CONFIRMATION_EXPIRED" },
+    { kind: "rejected", operation: "action.dispatch", outcomeCode: "CONFIRMATION_INVALID" }
+  ]);
+  connection.dispose();
+});
+
+test("Recipes 2 routes enforce delete confirmation and route lifecycle actions through EngineAPI", async () => {
   const calls = [];
   const engine = makeEngineStub({
+    deleteRecipe(id) { calls.push(["delete", id]); return { ok: true }; },
     runRecipe(id, options) { calls.push(["run", id, options]); return { ok: true }; },
     pauseRecipe(id) { calls.push(["pause", id]); return { ok: true }; },
     resumeRecipe(id) { calls.push(["resume", id]); return { ok: true }; },
     cancelRecipe(id) { calls.push(["cancel", id]); return { ok: true }; }
   });
   const connection = createProtocolConnection(engine, { send: () => {} });
+  const unconfirmedDelete = await connection.handle(request("delete-blocked", "recipe.delete", { recipeId: "daily" }));
+  assert.equal(unconfirmedDelete.error.code, "CONFIRMATION_REQUIRED");
+  assert.equal((await confirmed(connection, "delete", "recipe.delete", { recipeId: "daily" })).ok, true);
   assert.equal((await connection.handle(request("run", "recipe.run", { recipeId: "daily", recover: true }))).ok, true);
   assert.equal((await connection.handle(request("pause", "recipe.pause", { recipeId: "daily" }))).ok, true);
   assert.equal((await connection.handle(request("resume", "recipe.resume", { recipeId: "daily" }))).ok, true);
   assert.equal((await connection.handle(request("cancel", "recipe.cancel", { recipeId: "daily" }))).ok, true);
   assert.deepEqual(calls, [
+    ["delete", "daily"],
     ["run", "daily", { recover: true }],
     ["pause", "daily"],
     ["resume", "daily"],
@@ -133,6 +210,48 @@ test("Recipes 2 routes recover and cancellation only through EngineAPI", async (
   ]);
   const hello = await connection.handle(request("hello", "system.hello"));
   assert.equal(hello.result.methods.includes("recipe.cancel"), true);
+  assert.deepEqual(hello.result.confirmation, {
+    version: 2,
+    method: "confirmation.request",
+    binding: "method-and-exact-params",
+    singleUse: true,
+    legacyPredictableTokens: false,
+    ttlMs: 60_000,
+    maxPendingPerConnection: 128
+  });
+  connection.dispose();
+});
+
+test("system.hello reports supported and unavailable capabilities with truthful runtime states", async () => {
+  const connection = createProtocolConnection(makeEngineStub(), {
+    send: () => {},
+    projectService: {},
+    missionAi: { status: () => ({ available: true, configured: false, busy: false }) },
+    missionSupervisor: { status: () => ({}) },
+    vscodeBridge: { status: () => ({ awaitingHandshake: true, connected: false, lastError: null }) },
+    mcpGateway: { status: () => { throw new Error("gateway status failed"); } },
+    mobileCompanion: { status: () => ({ available: false, error: "protected storage unavailable" }) },
+    pluginPlatform: { status: () => ({ available: true, enabledCount: 0 }) }
+  });
+
+  const hello = await connection.handle(request("hello-capabilities", "system.hello"));
+  const capabilities = hello.result.capabilities;
+  assert.equal(capabilities.engine.support, "supported");
+  assert.equal(capabilities.engine.state, "ready");
+  assert.equal(capabilities.intelligence.state, "disabled");
+  assert.equal(capabilities.vscode.state, "loading");
+  assert.equal(capabilities.mcp.support, "supported");
+  assert.equal(capabilities.mcp.state, "error");
+  assert.match(capabilities.mcp.reason, /gateway status failed/);
+  assert.equal(capabilities.companion.state, "unavailable");
+  assert.equal(capabilities.extensions.state, "ready");
+  // T023 — broadcast is a real, approval-backed capability now.
+  assert.equal(capabilities["terminal-broadcast"].support, "supported");
+  assert.equal(capabilities["terminal-broadcast"].state, "ready");
+  assert.ok(capabilities["terminal-broadcast"].methods.includes("terminal.broadcast"));
+  assert.ok(capabilities["terminal-broadcast"].methods.includes("terminal.broadcast.preview"));
+  assert.equal(capabilities["crashlens-free-port"].state, "unavailable");
+  assert.ok(capabilities.vscode.methods.includes("vscode.terminal.create"));
   connection.dispose();
 });
 
@@ -161,10 +280,10 @@ test("VS Code Bridge methods stay behind Protocol v1 and stream bounded integrat
   assert.equal((await connection.handle(request("launch", "vscode.launch"))).result.launched, true);
   assert.equal((await connection.handle(request("file", "vscode.openFile", { relativePath: "src/app.js", line: 8, column: 2 }))).ok, true);
   assert.equal((await connection.handle(request("problems", "vscode.openProblems"))).ok, true);
-  assert.equal((await connection.handle(request("create-terminal", "vscode.terminal.create", { name: "Backend", cwd: "apps/api", confirmation: "confirm:vscode.terminal.create" }))).result.terminalId, "terminal-managed");
-  assert.equal((await connection.handle(request("write-terminal", "vscode.terminal.write", { terminalId: "terminal-managed", input: "npm run dev", confirmation: "confirm:vscode.terminal.write:terminal-managed" }))).ok, true);
+  assert.equal((await confirmed(connection, "create-terminal", "vscode.terminal.create", { name: "Backend", cwd: "apps/api" })).result.terminalId, "terminal-managed");
+  assert.equal((await confirmed(connection, "write-terminal", "vscode.terminal.write", { terminalId: "terminal-managed", input: "npm run dev" })).ok, true);
   assert.equal((await connection.handle(request("focus-terminal", "vscode.terminal.focus", { terminalId: "terminal-managed" }))).ok, true);
-  assert.equal((await connection.handle(request("close-terminal", "vscode.terminal.close", { terminalId: "terminal-managed", confirmation: "confirm:vscode.terminal.close:terminal-managed" }))).ok, true);
+  assert.equal((await confirmed(connection, "close-terminal", "vscode.terminal.close", { terminalId: "terminal-managed" })).ok, true);
   assert.equal((await connection.handle(request("write-without-approval", "vscode.terminal.write", { terminalId: "terminal-managed", input: "npm test" }))).error.code, "CONFIRMATION_REQUIRED");
   assert.equal((await connection.handle(request("disconnect", "vscode.disconnect"))).result.disconnected, true);
   assert.deepEqual(calls, [
@@ -259,7 +378,7 @@ test("Built-in Mission AI stays behind Protocol v1 with observe-only queries and
 
   const refused = await connection.handle(request("clear-no", "missionAi.clear"));
   assert.equal(refused.error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("clear-yes", "missionAi.clear", { confirmation: "confirm:missionAi.clear" }))).ok, true);
+  assert.equal((await confirmed(connection, "clear-yes", "missionAi.clear")).ok, true);
   assert.deepEqual(calls.map(call => call[0]), ["configure", "ask", "clear"]);
   assert.deepEqual(calls[1][1], { question: "What is happening?", afterSequence: 12 });
   connection.dispose();
@@ -279,11 +398,10 @@ test("Mission Supervisor plans and resolves only through explicit local approval
   assert.equal((await connection.handle(request("supervisor-list", "missionSupervisor.approval.list"))).result.length, 1);
   const refused = await connection.handle(request("supervisor-refused", "missionSupervisor.approval.resolve", { approvalId: "approval-1", decision: "approve" }));
   assert.equal(refused.error.code, "CONFIRMATION_REQUIRED");
-  const resolved = await connection.handle(request("supervisor-resolve", "missionSupervisor.approval.resolve", {
+  const resolved = await confirmed(connection, "supervisor-resolve", "missionSupervisor.approval.resolve", {
     approvalId: "approval-1",
-    decision: "approve",
-    confirmation: "confirm:missionSupervisor.approval:approval-1:approve"
-  }));
+    decision: "approve"
+  });
   assert.equal(resolved.result.state, "executed");
   assert.deepEqual(calls, [
     ["propose", { instruction: "Create backend", afterSequence: undefined }],
@@ -311,9 +429,9 @@ test("Secure MCP Gateway configuration, audit, and approvals stay behind Protoco
   assert.equal((await connection.handle(request("status", "mcp.status"))).result.running, true);
   assert.equal((await connection.handle(request("configure", "mcp.configure", { configuration: { enabled: true, scopes: ["context.read"] } }))).ok, true);
   assert.equal((await connection.handle(request("rotate-no", "mcp.rotateToken"))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("rotate", "mcp.rotateToken", { confirmation: "confirm:mcp.rotateToken" }))).result.token, "one-time");
+  assert.equal((await confirmed(connection, "rotate", "mcp.rotateToken")).result.token, "one-time");
   assert.equal((await connection.handle(request("approval-no", "mcp.approval.resolve", { approvalId: "approval-1", decision: "approve" }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("approval", "mcp.approval.resolve", { approvalId: "approval-1", decision: "approve", confirmation: "confirm:mcp.approval:approval-1:approve" }))).result.state, "approved");
+  assert.equal((await confirmed(connection, "approval", "mcp.approval.resolve", { approvalId: "approval-1", decision: "approve" })).result.state, "approved");
   assert.equal((await connection.handle(request("audit", "mcp.audit.list", { limit: 7 }))).result[0].limit, 7);
   assert.equal((await connection.handle(request("integrations-mcp", "integration.list"))).result[0].enabled, true);
 
@@ -342,10 +460,10 @@ test("deeper mission supervision keeps lifecycle, checkpoints, and approvals beh
   assert.equal((await connection.handle(request("list", "mission.approval.list"))).result[0].state, "pending");
   assert.equal((await connection.handle(request("request", "mission.approval.request", { agentId: "agent-codex", scopes: ["write"], reason: "Update manifest", impact: "One write" }))).ok, true);
   assert.equal((await connection.handle(request("resolve-no", "mission.approval.resolve", { missionId: "mission-1", approvalId: "approval-1", decision: "approve" }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("resolve", "mission.approval.resolve", { missionId: "mission-1", approvalId: "approval-1", decision: "approve", confirmation: "confirm:mission.approval:mission-1:approval-1:approve" }))).ok, true);
+  assert.equal((await confirmed(connection, "resolve", "mission.approval.resolve", { missionId: "mission-1", approvalId: "approval-1", decision: "approve" })).ok, true);
   assert.equal((await connection.handle(request("checkpoint-no", "mission.checkpoint.verify", { missionId: "mission-1", checkpointId: "review" }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("checkpoint", "mission.checkpoint.verify", { missionId: "mission-1", checkpointId: "review", confirmation: "confirm:mission.checkpoint:mission-1:review" }))).ok, true);
-  assert.equal((await connection.handle(request("transition", "mission.transition", { missionId: "mission-1", state: "completed", confirmation: "confirm:mission.transition:mission-1:completed" }))).ok, true);
+  assert.equal((await confirmed(connection, "checkpoint", "mission.checkpoint.verify", { missionId: "mission-1", checkpointId: "review" })).ok, true);
+  assert.equal((await confirmed(connection, "transition", "mission.transition", { missionId: "mission-1", state: "completed" })).ok, true);
   assert.deepEqual(calls, [
     ["request", "agent-codex", { scopes: ["write"], reason: "Update manifest", impact: "One write" }],
     ["resolve", "mission-1", "approval-1", "approve"],
@@ -370,7 +488,7 @@ test("automation workflows stay behind Protocol v1 confirmations", async () => {
   const blocked = await connection.handle(request("automation-resolve-blocked", "automation.approval.resolve", { approvalId: "approval-1", decision: "approve" }));
   assert.equal(blocked.error.code, "CONFIRMATION_REQUIRED");
   assert.equal(resolved, 0);
-  const approved = await connection.handle(request("automation-resolve", "automation.approval.resolve", { approvalId: "approval-1", decision: "approve", confirmation: "confirm:automation.approval:approval-1:approve" }));
+  const approved = await confirmed(connection, "automation-resolve", "automation.approval.resolve", { approvalId: "approval-1", decision: "approve" });
   assert.equal(approved.ok, true);
   assert.equal(resolved, 1);
   connection.dispose();
@@ -395,13 +513,13 @@ test("Mobile Companion pairing, revocation, and approvals stay behind Protocol v
   const blockedRevoke = await connection.handle(request("mobile-revoke-blocked", "mobile.device.revoke", { deviceId: "phone-1" }));
   assert.equal(blockedRevoke.error.code, "CONFIRMATION_REQUIRED");
   assert.equal(revoked, 0);
-  const revokedResult = await connection.handle(request("mobile-revoke", "mobile.device.revoke", { deviceId: "phone-1", confirmation: "confirm:mobile.device.revoke:phone-1" }));
+  const revokedResult = await confirmed(connection, "mobile-revoke", "mobile.device.revoke", { deviceId: "phone-1" });
   assert.equal(revokedResult.ok, true);
   assert.equal(revoked, 1);
   const blockedApproval = await connection.handle(request("mobile-approval-blocked", "mobile.approval.resolve", { approvalId: "mobile-approval-1", decision: "approve" }));
   assert.equal(blockedApproval.error.code, "CONFIRMATION_REQUIRED");
   assert.equal(resolved, 0);
-  const approval = await connection.handle(request("mobile-approval", "mobile.approval.resolve", { approvalId: "mobile-approval-1", decision: "approve", confirmation: "confirm:mobile.approval:mobile-approval-1:approve" }));
+  const approval = await confirmed(connection, "mobile-approval", "mobile.approval.resolve", { approvalId: "mobile-approval-1", decision: "approve" });
   assert.equal(approval.ok, true);
   assert.equal(resolved, 1);
   connection.dispose();
@@ -420,14 +538,8 @@ test("project changes invalidate the active VS Code workspace handshake", async 
   };
   const connection = createProtocolConnection(makeEngineStub(), { send: () => {}, vscodeBridge, projectService });
 
-  assert.equal((await connection.handle(request("open", "project.open", {
-    projectId: "project-1",
-    confirmation: "confirm:project.open:project-1"
-  }))).ok, true);
-  assert.equal((await connection.handle(request("init", "project.initialize", {
-    selectionToken: "selection-1",
-    confirmation: "confirm:project.initialize:selection-1"
-  }))).ok, true);
+  assert.equal((await confirmed(connection, "open", "project.open", { projectId: "project-1" })).ok, true);
+  assert.equal((await confirmed(connection, "init", "project.initialize", { selectionToken: "selection-1" })).ok, true);
   assert.equal(workspaceChanges, 2);
   connection.dispose();
 });
@@ -472,11 +584,10 @@ test("Groundstation worker management stays routed through public protocol actio
     action: { type: "remove" }
   }));
   assert.equal(unconfirmed.error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("remove-yes", "action.dispatch", {
+  assert.equal((await confirmed(connection, "remove-yes", "action.dispatch", {
     sessionId: "worker",
-    action: { type: "remove" },
-    confirmation: "confirm:remove:worker"
-  }))).ok, true);
+    action: { type: "remove" }
+  })).ok, true);
 
   assert.deepEqual(calls.map(call => call[0]), ["create", "preset", "reconfigure", "remove"]);
   connection.dispose();
@@ -749,11 +860,11 @@ test("permissioned plugins stay behind Protocol v1 confirmations and local appro
   const connection = createProtocolConnection(makeEngineStub(), { send: () => {}, pluginPlatform });
   assert.equal((await connection.handle(request("status", "plugin.status"))).ok, true);
   assert.equal((await connection.handle(request("install-no", "plugin.install"))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("install", "plugin.install", { confirmation: "confirm:plugin.install" }))).ok, true);
+  assert.equal((await confirmed(connection, "install", "plugin.install")).ok, true);
   assert.equal((await connection.handle(request("configure-no", "plugin.configure", { pluginId: "dev.test", configuration: { enabled: true } }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("configure", "plugin.configure", { pluginId: "dev.test", configuration: { enabled: true }, confirmation: "confirm:plugin.configure:dev.test" }))).ok, true);
+  assert.equal((await confirmed(connection, "configure", "plugin.configure", { pluginId: "dev.test", configuration: { enabled: true } })).ok, true);
   assert.equal((await connection.handle(request("approval-no", "plugin.approval.resolve", { approvalId: "approval-1", decision: "approve" }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await connection.handle(request("approval", "plugin.approval.resolve", { approvalId: "approval-1", decision: "approve", confirmation: "confirm:plugin.approval:approval-1:approve" }))).ok, true);
+  assert.equal((await confirmed(connection, "approval", "plugin.approval.resolve", { approvalId: "approval-1", decision: "approve" })).ok, true);
   assert.deepEqual(calls, [["install"], ["configure", "dev.test", { enabled: true }], ["resolve", "approval-1", "approve"]]);
   connection.dispose();
   assert.equal(subscribers.size, 0);

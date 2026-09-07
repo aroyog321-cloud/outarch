@@ -15,6 +15,7 @@ const { buildProjectMemory } = require("./projectMemory.cjs");
 const {
   RECIPE_LIMIT,
   cloneRun,
+  RECIPE_RUN_HISTORY_LIMIT,
   normalizeRecipe
 } = require("./workspaceRecipes.cjs");
 const {
@@ -84,6 +85,7 @@ class EngineAPI extends EventEmitter {
   #lastActivityPersistError;
   #recipes;
   #recipeRuns;
+  #recipeRunHistory;
   #missions;
   #attentionRecords;
   #attentionPreferences;
@@ -129,6 +131,7 @@ class EngineAPI extends EventEmitter {
     this.#lastActivityPersistError = null;
     this.#recipes = new Map();
     this.#recipeRuns = new Map();
+    this.#recipeRunHistory = new Map();
     this.#missions = new Map();
     this.#attentionRecords = new Map();
     this.#attentionPreferences = { minimumSeverity: "info", desktopNotifications: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } };
@@ -306,6 +309,10 @@ class EngineAPI extends EventEmitter {
     };
   }
 
+  // T182 — the renderer no longer reads this; `IntegrationHubView` queries each
+  // service directly. The real caller is the advertised `integration.list`
+  // protocol method, which external Protocol v1 clients may call, so this stays
+  // as the engine-owned inventory rather than being retired with the legacy view.
   listIntegrations() {
     const workspace = this.getWorkspace();
     return [
@@ -318,7 +325,7 @@ class EngineAPI extends EventEmitter {
   }
 
   listRecipes() {
-    return [...this.#recipes.values()].map(recipe => ({ ...recipe, steps: recipe.steps.map(step => ({ ...step, dependsOn: [...step.dependsOn] })), run: cloneRun(this.#recipeRuns.get(recipe.id)) }));
+    return [...this.#recipes.values()].map(recipe => ({ ...recipe, steps: recipe.steps.map(step => ({ ...step, dependsOn: [...step.dependsOn] })), run: cloneRun(this.#recipeRuns.get(recipe.id)), runHistory: this.listRecipeRunHistory(recipe.id) }));
   }
 
   #dependencyImpact(sessionId) {
@@ -751,10 +758,26 @@ class EngineAPI extends EventEmitter {
     try { recipe = normalizeRecipe(value, new Set(this.#sessionEngine.list().map(session => session.id))); }
     catch (error) { return { ok: false, error: error.message }; }
     if (!this.#recipes.has(recipe.id) && this.#recipes.size >= RECIPE_LIMIT) return { ok: false, error: `workspace recipe limit is ${RECIPE_LIMIT}` };
+    // T076 — last-write-wins silently discards the other editor's work. A save
+    // that names the revision it started from is rejected when that is no longer
+    // current, so the second window is told rather than overwritten. A save that
+    // names no revision is an explicit overwrite and is still allowed, because
+    // scripted and external Protocol v1 clients predate this field.
+    const existing = this.#recipes.get(recipe.id) || null;
+    if (existing && Number.isInteger(value?.baseRevision) && value.baseRevision !== existing.revision) {
+      return {
+        ok: false,
+        conflict: true,
+        error: `This recipe changed since you opened it (you edited revision ${value.baseRevision}, the saved copy is revision ${existing.revision}). Reload it to see the current steps before saving.`,
+        currentRevision: existing.revision,
+        currentUpdatedAt: existing.updatedAt
+      };
+    }
+    recipe.revision = existing ? existing.revision + 1 : 1;
     try { this.#workspaceStore.upsertRecipe(recipe); }
     catch (error) { return { ok: false, error: error.message }; }
     this.#recipes.set(recipe.id, recipe);
-    this.#publish("recipe:saved", { recipeId: recipe.id, name: recipe.name });
+    this.#publish("recipe:saved", { recipeId: recipe.id, name: recipe.name, revision: recipe.revision });
     return { ok: true, recipe };
   }
 
@@ -767,6 +790,7 @@ class EngineAPI extends EventEmitter {
     } catch (error) { return { ok: false, error: error.message }; }
     this.#recipes.delete(id);
     this.#recipeRuns.delete(id);
+    this.#recipeRunHistory.delete(id);
     this.#publish("recipe:deleted", { recipeId: id });
     return { ok: true };
   }
@@ -950,9 +974,39 @@ class EngineAPI extends EventEmitter {
     run.currentWorkerId = null;
     run.runningWorkerIds = [];
     run.finishedAt = Date.now();
+    this.#recordRecipeRun(recipe.id, run);
     const completion = { recipeId: recipe.id, runId: run.runId, phase: run.phase, completedCount: run.completed.length, failureCount: run.failures.length, waveCount: run.wave, recoveryOfRunId: run.recoveryOfRunId };
     this.#publish("recipe:run", completion);
     this.#considerAutomations("recipe:run", completion);
+  }
+
+  // T077 — a finished run is the only record of what a recipe actually did, and
+  // it is the thing you need when deciding whether to recover. Kept bounded and
+  // summarised: the per-step states and rollback outcome, never the output.
+  #recordRecipeRun(recipeId, run) {
+    const summary = {
+      runId: run.runId,
+      phase: run.phase,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      durationMs: Math.max(0, Number(run.finishedAt) - Number(run.startedAt)) || 0,
+      completed: [...run.completed],
+      failures: run.failures.map(failure => ({ ...failure })),
+      waveCount: run.wave,
+      recoveryOfRunId: run.recoveryOfRunId || null,
+      rollback: run.rollback
+        ? { phase: run.rollback.phase, stoppedCount: run.rollback.stoppedCount, failureCount: run.rollback.failureCount, workerIds: [...run.rollback.workerIds] }
+        : null,
+      stepStates: Object.fromEntries(Object.entries(run.stepStates).map(([workerId, state]) => [workerId, { ...state }]))
+    };
+    const history = this.#recipeRunHistory.get(recipeId) || [];
+    history.unshift(summary);
+    this.#recipeRunHistory.set(recipeId, history.slice(0, RECIPE_RUN_HISTORY_LIMIT));
+  }
+
+  listRecipeRunHistory(id) {
+    const history = this.#recipeRunHistory.get(String(id)) || [];
+    return JSON.parse(JSON.stringify(history));
   }
 
   runRecipe(id, options = {}) {
@@ -1173,6 +1227,30 @@ class EngineAPI extends EventEmitter {
       return { ok: false, error: "supervisor event payload must be an object" };
     }
     const event = this.#publish(`supervisor:${normalizedKind}`, payload);
+    return { ok: true, sequence: event.sequence, timestamp: event.timestamp };
+  }
+
+  recordConfirmationEvent(kind, payload = {}) {
+    const normalizedKind = String(kind || "").trim();
+    if (!/^(?:requested|confirmed|rejected|expired|completed)$/.test(normalizedKind)) {
+      return { ok: false, error: "confirmation event kind is invalid" };
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return { ok: false, error: "confirmation event payload must be an object" };
+    }
+    const operation = String(payload.operation || "").trim();
+    if (!/^[a-z][a-z0-9.-]{1,80}$/.test(operation)) {
+      return { ok: false, error: "confirmation operation is invalid" };
+    }
+
+    // Persist only the allow-listed operation name and outcome class. Tokens,
+    // exact parameter bindings, paths, commands, decision text and payloads
+    // never enter durable activity history.
+    const eventPayload = { operation };
+    if (typeof payload.outcomeCode === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(payload.outcomeCode)) {
+      eventPayload.outcomeCode = payload.outcomeCode;
+    }
+    const event = this.#publish(`confirmation:${normalizedKind}`, eventPayload);
     return { ok: true, sequence: event.sequence, timestamp: event.timestamp };
   }
 

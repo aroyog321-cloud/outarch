@@ -10,12 +10,16 @@ const packageJson = require("../package.json");
 
 const root = path.resolve(__dirname, "..");
 const cliPath = path.join(root, "bin", "termctl.js");
+// The full parallel suite saturates Windows process startup with syntax-check,
+// renderer-build, and TUI workers. Five seconds was below the observed clean
+// startup time under that load and produced `status: null` despite a healthy CLI.
+const CLI_TEST_TIMEOUT_MS = 15_000;
 
 function runCli(args, cwd = root) {
   return spawnSync(process.execPath, [cliPath, ...args], {
     cwd,
     encoding: "utf8",
-    timeout: 5000
+    timeout: CLI_TEST_TIMEOUT_MS
   });
 }
 

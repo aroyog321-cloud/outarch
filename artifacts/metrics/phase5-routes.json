@@ -1,0 +1,142 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "scroll"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-groundstation",
+            "overflowPx": 673,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": []
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-needs",
+            "overflowPx": 1210,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-agents",
+            "overflowPx": 18,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          },
+          {
+            "node": "div.agent-detail-scroll",
+            "overflowPx": 124,
+            "nestedInsideScrollers": 1,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": []
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-history",
+            "overflowPx": 3080,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-settings",
+            "overflowPx": 1141,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-integrations",
+            "overflowPx": 169,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      }
+    }
+  ]
+}

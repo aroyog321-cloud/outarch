@@ -1,0 +1,338 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "scale"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "scale": {
+        "radiusValues": 7,
+        "radii": [
+          "8px x36",
+          "999px x27",
+          "5px x23",
+          "50% x14",
+          "11px x8",
+          "4px x5",
+          "3px x4"
+        ],
+        "controlHeightValues": 8,
+        "controlHeights": [
+          "32 x28",
+          "27 x7",
+          "29 x6",
+          "26 x5",
+          "28 x4",
+          "47 x4",
+          "46 x2",
+          "36 x1"
+        ],
+        "iconSizes": [
+          "12x12 x12"
+        ],
+        "gaps": [
+          "7px/7px x27",
+          "6px/6px x18",
+          "9px/9px x12",
+          "2px/2px x9",
+          "12px/12px x9",
+          "10px/10px x6",
+          "8px/8px x5",
+          "14px/14px x5",
+          "13px/13px x4",
+          "11px/11px x3",
+          "3px/12px x3",
+          "20px/20px x2"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "scale": {
+        "radiusValues": 8,
+        "radii": [
+          "8px x18",
+          "50% x18",
+          "999px x12",
+          "6px x12",
+          "5px x10",
+          "11px x5",
+          "3px x5",
+          "4px x4"
+        ],
+        "controlHeightValues": 7,
+        "controlHeights": [
+          "26 x21",
+          "32 x11",
+          "30 x5",
+          "17 x4",
+          "37 x3",
+          "31 x1",
+          "467 x1"
+        ],
+        "iconSizes": [
+          "12x12 x14",
+          "15x15 x13"
+        ],
+        "gaps": [
+          "8px/8px x22",
+          "6px/6px x11",
+          "4px/4px x10",
+          "5px/5px x9",
+          "7px/7px x7",
+          "1px/1px x5",
+          "0px/0px x4",
+          "14px/14px x1",
+          "2px/2px x1",
+          "4px/10px x1",
+          "12px/12px x1",
+          "10px/10px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "scale": {
+        "radiusValues": 4,
+        "radii": [
+          "8px x29",
+          "5px x16",
+          "4px x6",
+          "999px x4"
+        ],
+        "controlHeightValues": 2,
+        "controlHeights": [
+          "34 x28",
+          "32 x5"
+        ],
+        "iconSizes": [
+          "12x12 x1"
+        ],
+        "gaps": [
+          "8px/8px x19",
+          "12px/12px x17",
+          "6px/6px x8",
+          "7px/7px x5",
+          "2px/2px x2",
+          "4px/12px x1",
+          "2px/8px x1",
+          "5px/5px x1",
+          "4px/4px x1",
+          "10px/10px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "scale": {
+        "radiusValues": 10,
+        "radii": [
+          "8px x8",
+          "50% x6",
+          "6px x4",
+          "11px x3",
+          "4px x3",
+          "7px x3",
+          "9px x2",
+          "5px x2",
+          "999px x1",
+          "12px x1"
+        ],
+        "controlHeightValues": 5,
+        "controlHeights": [
+          "32 x6",
+          "43 x5",
+          "26 x2",
+          "92 x2",
+          "58 x1"
+        ],
+        "iconSizes": [],
+        "gaps": [
+          "8px/8px x8",
+          "2px/2px x5",
+          "1px/1px x5",
+          "12px/12px x5",
+          "6px/6px x4",
+          "4px/4px x3",
+          "9px/9px x3",
+          "0px/0px x2",
+          "4px/12px x1",
+          "2px/8px x1",
+          "3px/3px x1",
+          "normal/9px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "scale": {
+        "radiusValues": 5,
+        "radii": [
+          "8px x18",
+          "5px x9",
+          "999px x4",
+          "16px x3",
+          "50% x3"
+        ],
+        "controlHeightValues": 3,
+        "controlHeights": [
+          "32 x14",
+          "28 x1",
+          "30 x1"
+        ],
+        "iconSizes": [],
+        "gaps": [
+          "8px/8px x22",
+          "6px/6px x14",
+          "0px/0px x6",
+          "1px/1px x4",
+          "12px/12px x3",
+          "4px/6px x3",
+          "4px/12px x1",
+          "2px/8px x1",
+          "16px/16px x1",
+          "normal/8px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "scale": {
+        "radiusValues": 12,
+        "radii": [
+          "50% x56",
+          "8px x38",
+          "6px x37",
+          "999px x17",
+          "7px x10",
+          "11px x5",
+          "4px x5",
+          "5px x4",
+          "3px x3",
+          "10px x1",
+          "16px x1",
+          "12px x1"
+        ],
+        "controlHeightValues": 9,
+        "controlHeights": [
+          "96 x21",
+          "32 x18",
+          "94 x14",
+          "100 x5",
+          "78 x4",
+          "117 x4",
+          "28 x2",
+          "51 x2",
+          "29 x1"
+        ],
+        "iconSizes": [
+          "12x12 x1"
+        ],
+        "gaps": [
+          "8px/8px x17",
+          "4px/4px x12",
+          "3px/3px x9",
+          "5px/5px x6",
+          "9px/9px x5",
+          "7px/9px x4",
+          "6px/6px x3",
+          "2px/8px x2",
+          "7px/7px x2",
+          "6px/5px x2",
+          "4px/12px x1",
+          "0px/0px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "scale": {
+        "radiusValues": 3,
+        "radii": [
+          "5px x11",
+          "999px x8",
+          "8px x6"
+        ],
+        "controlHeightValues": 3,
+        "controlHeights": [
+          "28 x11",
+          "30 x8",
+          "32 x1"
+        ],
+        "iconSizes": [
+          "32x32 x1"
+        ],
+        "gaps": [
+          "6px/6px x10",
+          "16px/16px x6",
+          "2px/2px x4",
+          "4px/12px x1",
+          "2px/8px x1",
+          "12px/12px x1",
+          "normal/8px x1",
+          "4px/4px x1"
+        ]
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "scale": {
+        "radiusValues": 7,
+        "radii": [
+          "8px x24",
+          "5px x9",
+          "999px x6",
+          "50% x5",
+          "16px x1",
+          "3px x1",
+          "11px x1"
+        ],
+        "controlHeightValues": 4,
+        "controlHeights": [
+          "36 x7",
+          "30 x6",
+          "32 x2",
+          "28 x1"
+        ],
+        "iconSizes": [],
+        "gaps": [
+          "8px/8px x8",
+          "6px/6px x7",
+          "4px/8px x6",
+          "1px/1px x6",
+          "2px/8px x3",
+          "12px/12px x2",
+          "16px/16px x2",
+          "8px/12px x2",
+          "4px/12px x1",
+          "4px/4px x1",
+          "0px/0px x1",
+          "2px/2px x1"
+        ]
+      }
+    }
+  ]
+}

@@ -256,6 +256,11 @@ class Session extends EventEmitter {
     this.attentionRequired = false;
     this.attentionReason = null;
     this.attentionSince = null;
+    // T069 — where the attention came from decides whether later output may
+    // clear it. "output" is an inference from a log line and is supersedable;
+    // "lifecycle" is a spawn failure or a non-zero exit, which is the fact that
+    // the process is dead and no amount of later text can undo.
+    this.attentionOrigin = null;
     this.evidence = {};
     this._partialLine = "";
     this._rawReplay = new RawReplayBuffer();
@@ -382,6 +387,19 @@ class Session extends EventEmitter {
       this.attentionRequired = true;
       this.attentionReason = this._attentionReasonFrom(text);
       this.attentionSince = Date.now();
+      this.attentionOrigin = "output";
+    }
+    // T069 — a build that failed and then succeeded is history, not a decision.
+    // Attention inferred from a log line is superseded when the same worker
+    // later reports success, so a recovered watch-mode server or a re-run test
+    // suite stops demanding an acknowledgement it no longer needs. Attention
+    // raised by the lifecycle is never cleared this way: the process is dead,
+    // and only a restart resolves that.
+    if (nextActivity === "nominal" && this.attentionRequired && this.attentionOrigin === "output" && this.status !== "failed") {
+      this.attentionRequired = false;
+      this.attentionReason = null;
+      this.attentionSince = null;
+      this.attentionOrigin = null;
     }
     this._emitSupervisionIfChanged(previous);
   }
@@ -394,6 +412,9 @@ class Session extends EventEmitter {
       this.attentionReason = this._attentionReasonFrom(reason);
       this.attentionSince = Date.now();
     }
+    // Always upgrade the origin: a worker whose output merely looked bad and
+    // then actually exited non-zero must stop being clearable by a later line.
+    this.attentionOrigin = "lifecycle";
     this._emitSupervisionIfChanged(previous);
   }
 
@@ -403,6 +424,7 @@ class Session extends EventEmitter {
     this.attentionRequired = false;
     this.attentionReason = null;
     this.attentionSince = null;
+    this.attentionOrigin = null;
     this._emitSupervisionIfChanged(previous);
   }
 
@@ -717,6 +739,7 @@ class Session extends EventEmitter {
     this.attentionRequired = false;
     this.attentionReason = null;
     this.attentionSince = null;
+    this.attentionOrigin = null;
     this._emitSupervisionIfChanged(previous);
     return true;
   }

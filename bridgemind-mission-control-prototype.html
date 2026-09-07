@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Kinetic Orbital AI Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Unique Kinetic Orbital Color System */
+      --void-base: #07080b;
+      --void-surface: #0e1017;
+      --void-card: rgba(18, 21, 30, 0.75);
+      --void-card-elevated: rgba(26, 31, 44, 0.85);
+      --void-glass: rgba(15, 18, 25, 0.65);
+      
+      --specular-border: rgba(255, 255, 255, 0.08);
+      --specular-border-glow: rgba(255, 255, 255, 0.18);
+      --specular-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+
+      --neon-cyan: #00f2fe;
+      --neon-cyan-glow: rgba(0, 242, 254, 0.35);
+      --neon-purple: #9d4edd;
+      --neon-purple-glow: rgba(157, 78, 221, 0.35);
+      --neon-emerald: #10b981;
+      --neon-emerald-glow: rgba(16, 185, 129, 0.35);
+      --neon-amber: #ff9f1c;
+      --neon-amber-glow: rgba(255, 159, 28, 0.35);
+      --neon-rose: #ff3366;
+      --neon-rose-glow: rgba(255, 51, 102, 0.35);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-tertiary: #525f77;
+
+      --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+
+      --ease-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-display);
+      background-color: var(--void-base);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+    }
+
+    /* Ambient Kinetic Background Aurora */
+    .ambient-aurora {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .aurora-glow-1 {
+      position: absolute;
+      width: 650px;
+      height: 650px;
+      border-radius: 50%;
+      top: -200px;
+      left: 10%;
+      background: radial-gradient(circle, rgba(157, 78, 221, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+      filter: blur(80px);
+      animation: driftAurora1 18s ease-in-out infinite alternate;
+    }
+    .aurora-glow-2 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      bottom: -150px;
+      right: 5%;
+      background: radial-gradient(circle, rgba(0, 242, 254, 0.10) 0%, rgba(0, 0, 0, 0) 70%);
+      filter: blur(90px);
+      animation: driftAurora2 22s ease-in-out infinite alternate;
+    }
+    @keyframes driftAurora1 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(120px, 80px) scale(1.15); }
+    }
+    @keyframes driftAurora2 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-100px, -60px) scale(1.1); }
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+    /* ─── KINETIC SHELL LAYOUT ─── */
+    .cockpit-shell {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      padding: 10px;
+      gap: 10px;
+    }
+
+    /* ─── 1. FLOATING ORBITAL DOCK (SIDEBAR) ─── */
+    .orbital-dock {
+      width: 68px;
+      min-width: 68px;
+      height: 100%;
+      background: var(--void-glass);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--specular-border);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), var(--specular-highlight);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      justify-content: space-between;
+      transition: width 0.28s var(--ease-snappy);
+      z-index: 30;
+      overflow: hidden;
+    }
+    .orbital-dock:hover {
+      width: 230px;
+    }
+
+    .dock-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      gap: 16px;
+    }
+    .dock-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(157, 78, 221, 0.35));
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .dock-logo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 60%);
+    }
+
+    .dock-nav-group {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      padding: 0 10px;
+      gap: 6px;
+    }
+    .dock-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      height: 44px;
+      width: 100%;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-snappy);
+      white-space: nowrap;
+      position: relative;
+    }
+    .dock-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+    .dock-btn.active {
+      background: linear-gradient(90deg, rgba(0, 242, 254, 0.15), rgba(157, 78, 221, 0.08));
+      border-color: rgba(0, 242, 254, 0.3);
+      color: #fff;
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+    }
+    .dock-btn.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 3px;
+      background: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+    .dock-icon-wrap {
+      min-width: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dock-label {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .orbital-dock:hover .dock-label {
+      opacity: 1;
+    }
+    .dock-badge {
+      margin-left: auto;
+      font-size: 10.5px;
+      font-family: var(--font-code);
+      font-weight: 700;
+      background: rgba(255, 51, 102, 0.2);
+      border: 1px solid rgba(255, 51, 102, 0.4);
+      color: var(--neon-rose);
+      padding: 1px 6px;
+      border-radius: 999px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .orbital-dock:hover .dock-badge {
+      opacity: 1;
+    }
+
+    .dock-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      padding: 0 10px;
+      gap: 10px;
+    }
+    .vitals-meter-capsule {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--specular-border);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .vitals-ring {
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--neon-cyan);
+      border-top-color: transparent;
+      animation: spinMeter 3s linear infinite;
+    }
+    @keyframes spinMeter { to { transform: rotate(360deg); } }
+    .vitals-text {
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      white-space: nowrap;
+    }
+    .orbital-dock:hover .vitals-text { opacity: 1; }
+    .vitals-text span:first-child { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; font-weight: 700; }
+    .vitals-text span:last-child { font-size: 12px; color: var(--neon-cyan); font-family: var(--font-code); font-weight: 600; }
+
+    /* ─── 2. MAIN COCKPIT VIEWPORT ─── */
+    .cockpit-core {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      position: relative;
+    }
+
+    /* ─── 3. THE FLOATING DYNAMIC SUPER-NOTCH (TOP ORBITAL HUD) ─── */
+    .super-notch-wrap {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      z-index: 40;
+    }
+    .super-notch {
+      height: 46px;
+      background: rgba(14, 17, 24, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--specular-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), var(--specular-highlight);
+      border-radius: 999px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.24s var(--ease-snappy);
+    }
+    .super-notch:hover {
+      border-color: var(--specular-border-glow);
+      box-shadow: 0 12px 40px rgba(0, 242, 254, 0.12), var(--specular-highlight);
+    }
+
+    .mission-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mission-orb {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-emerald);
+      box-shadow: 0 0 10px var(--neon-emerald);
+      animation: orbBreathe 2s infinite ease-in-out;
+    }
+    @keyframes orbBreathe {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(0.85); opacity: 0.5; }
+    }
+    .mission-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mission-tag {
+      font-size: 10.5px;
+      font-family: var(--font-code);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--text-secondary);
+    }
+
+    .notch-divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Live Neural Reasoning Frequency Waveform */
+    .neural-wave {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 18px;
+    }
+    .wave-bar {
+      width: 3px;
+      background: var(--neon-purple);
+      border-radius: 2px;
+      animation: wavePulse 1.2s infinite ease-in-out;
+    }
+    .wave-bar:nth-child(1) { height: 6px; animation-delay: 0.1s; }
+    .wave-bar:nth-child(2) { height: 14px; animation-delay: 0.3s; }
+    .wave-bar:nth-child(3) { height: 9px; animation-delay: 0.2s; }
+    .wave-bar:nth-child(4) { height: 16px; animation-delay: 0.4s; }
+    .wave-bar:nth-child(5) { height: 7px; animation-delay: 0.15s; }
+    @keyframes wavePulse {
+      0%, 100% { transform: scaleY(0.4); opacity: 0.4; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    .notch-metric {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      color: var(--text-secondary);
+    }
+    .metric-value {
+      color: var(--neon-cyan);
+      font-weight: 600;
+    }
+
+    .notch-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-snappy);
+    }
+    .notch-action-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      transform: translateY(-1px);
+    }
+    .notch-action-btn.btn-glow {
+      background: linear-gradient(135deg, rgba(255, 51, 102, 0.2), rgba(255, 159, 28, 0.2));
+      border-color: rgba(255, 51, 102, 0.4);
+      color: #ffcad4;
+    }
+
+    /* ─── 4. KINETIC WORKSPACE CANVAS (BENTO FLIGHT DECK) ─── */
+    .workspace-canvas {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view-deck {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.24s var(--ease-snappy), transform 0.24s var(--ease-snappy);
+      transform: scale(0.985);
+      display: flex;
+      flex-direction: column;
+    }
+    .view-deck.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    /* ─── VIEW 1: KINETIC COCKPIT (THE REVOLUTIONARY BENTO DECK) ─── */
+    .kinetic-bento {
+      display: grid;
+      grid-template-columns: 1.2fr 0.95fr;
+      gap: 12px;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    .bento-column {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      height: 100%;
+      min-height: 0;
+    }
+    .bento-column-split {
+      display: grid;
+      grid-template-rows: 1.15fr 1fr;
+      gap: 12px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    /* Bento Card Frame */
+    .bento-card {
+      background: var(--void-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--specular-border);
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), var(--specular-highlight);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.2s var(--ease-snappy), box-shadow 0.2s var(--ease-snappy);
+      min-height: 0;
+    }
+    .bento-card:hover {
+      border-color: var(--specular-border-glow);
+    }
+    .bento-card.maximized {
+      position: fixed;
+      inset: 64px 14px 14px 84px;
+      z-index: 50;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.95);
+      border-color: var(--neon-cyan);
+    }
+
+    /* Card Super-Header */
+    .card-super-header {
+      height: 42px;
+      min-height: 42px;
+      padding: 0 14px;
+      background: rgba(255, 255, 255, 0.015);
+      border-bottom: 1px solid var(--specular-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-pulse-ring {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 242, 254, 0.15);
+    }
+    .card-pulse-core {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+    .card-title-text {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-subtitle-code {
+      font-size: 11px;
+      font-family: var(--font-code);
+      color: var(--text-tertiary);
+    }
+
+    .card-toolbelt {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .toolbelt-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.16s var(--ease-snappy);
+    }
+    .toolbelt-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Card Main Surface */
+    .card-surface-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      position: relative;
+    }
+
+    /* ─── COMPONENT: NEURAL REASONING & DIFF STREAM (CLAUDE ORCHESTRATION) ─── */
+    .agent-stream-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .prompt-capsule {
+      background: linear-gradient(135deg, rgba(157, 78, 221, 0.12), rgba(0, 242, 254, 0.06));
+      border: 1px solid rgba(157, 78, 221, 0.25);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .prompt-capsule-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--neon-purple);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .prompt-capsule-text {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #f1f5f9;
+      line-height: 1.45;
+    }
+
+    .stream-step-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--specular-border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-family: var(--font-code);
+    }
+    .step-action-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+    .tag-edit { color: var(--neon-amber); }
+    .tag-verify { color: var(--neon-emerald); }
+
+    .diff-lens {
+      background: #090b10;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: var(--font-code);
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+    .diff-del { color: #f87171; background: rgba(239, 68, 68, 0.1); padding: 1px 4px; border-radius: 3px; }
+    .diff-add { color: #4ade80; background: rgba(34, 197, 94, 0.1); padding: 1px 4px; border-radius: 3px; }
+
+    .stream-composer-dock {
+      margin-top: 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--specular-border);
+      border-radius: 14px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .stream-composer-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 13px;
+      font-family: var(--font-display);
+    }
+    .composer-pill {
+      font-size: 11px;
+      font-family: var(--font-code);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .btn-orb-send {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+      border: none;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s var(--ease-elastic);
+    }
+    .btn-orb-send:hover {
+      transform: scale(1.08);
+    }
+
+    /* ─── COMPONENT: OMNI-PTY TERMINAL HUB ─── */
+    .terminal-tab-rail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--specular-border);
+    }
+    .term-tab {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-family: var(--font-code);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all 0.16s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .term-tab.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+    .term-tab-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--neon-emerald);
+    }
+    .terminal-screen {
+      font-family: var(--font-code);
+      font-size: 12px;
+      line-height: 1.65;
+      color: #cbd5e1;
+      padding: 14px;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    /* ─── COMPONENT: LIVE GLASS WEBVIEW STAGE ─── */
+    .webview-chrome {
+      height: 36px;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid var(--specular-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+    .webview-url-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--specular-border);
+      border-radius: 8px;
+      padding: 3px 12px;
+      font-size: 11.5px;
+      font-family: var(--font-code);
+      color: #cbd5e1;
+    }
+    .webview-stage {
+      flex: 1;
+      background: #fdfdfd;
+      color: #0f172a;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ─── COMPONENT: ATTENTION & HUMAN DECISION CHAMBER ─── */
+    .attention-card-surface {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .decision-capsule {
+      background: linear-gradient(135deg, rgba(255, 159, 28, 0.08), rgba(0, 0, 0, 0.3));
+      border: 1px solid rgba(255, 159, 28, 0.3);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .risk-radar-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      display: flex;
+    }
+    .risk-fill {
+      width: 78%;
+      background: linear-gradient(90deg, var(--neon-amber), var(--neon-rose));
+    }
+
+    /* ─── FLOATING COMMAND MATRIX MODAL (CMD+K) ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 4, 7, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s var(--ease-snappy);
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .command-matrix {
+      width: 90%;
+      max-width: 640px;
+      background: rgba(18, 22, 32, 0.95);
+      border: 1px solid rgba(0, 242, 254, 0.25);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 242, 254, 0.15), var(--specular-highlight);
+      border-radius: 22px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.95) translateY(10px);
+      transition: transform 0.24s var(--ease-elastic);
+    }
+    .modal-overlay.open .command-matrix {
+      transform: scale(1) translateY(0);
+    }
+
+    .matrix-search-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--specular-border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .matrix-search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 15px;
+      font-family: var(--font-display);
+    }
+    .matrix-results {
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .matrix-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .matrix-row:hover, .matrix-row.active {
+      background: linear-gradient(90deg, rgba(0, 242, 254, 0.12), rgba(157, 78, 221, 0.08));
+      color: #fff;
+    }
+
+    /* Toast HUD */
+    .toast-hud {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 200;
+      pointer-events: none;
+    }
+    .hud-toast-item {
+      pointer-events: auto;
+      background: rgba(18, 22, 32, 0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 12.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastRise 0.22s var(--ease-snappy);
+    }
+    @keyframes toastRise {
+      from { transform: translateY(14px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Dynamic Aurora -->
+  <div class="ambient-aurora">
+    <div class="aurora-glow-1"></div>
+    <div class="aurora-glow-2"></div>
+  </div>
+
+  <div class="cockpit-shell">
+
+    <!-- ─── 1. FLOATING ORBITAL DOCK (SIDEBAR) ─── -->
+    <aside class="orbital-dock" id="orbitalDock">
+      <div class="dock-top">
+        <div class="dock-logo" onclick="switchDeck('deck-cockpit')" title="Mission Control 3.0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 3v18M3 12h18"/>
+          </svg>
+        </div>
+
+        <nav class="dock-nav-group">
+          <button class="dock-btn active" id="btn-cockpit" onclick="switchDeck('deck-cockpit')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+            </div>
+            <span class="dock-label">Flight Deck</span>
+          </button>
+
+          <button class="dock-btn" id="btn-telemetry" onclick="switchDeck('deck-telemetry')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <span class="dock-label">Telemetry Vitals</span>
+          </button>
+
+          <button class="dock-btn" id="btn-attention" onclick="switchDeck('deck-attention')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <span class="dock-label">Attention Chamber</span>
+            <span class="dock-badge">2</span>
+          </button>
+
+          <button class="dock-btn" id="btn-fleet" onclick="switchDeck('deck-fleet')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <span class="dock-label">Agent Fleet</span>
+          </button>
+
+          <button class="dock-btn" id="btn-pipelines" onclick="switchDeck('deck-pipelines')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <span class="dock-label">Automation Stacks</span>
+          </button>
+
+          <button class="dock-btn" id="btn-settings" onclick="switchDeck('deck-settings')">
+            <div class="dock-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <span class="dock-label">Flight Controls</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="dock-bottom">
+        <div class="vitals-meter-capsule" onclick="openModal('modal-matrix')">
+          <div class="vitals-ring"></div>
+          <div class="vitals-text">
+            <span>Compute Vitals</span>
+            <span>4 PTYs • Optimal</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── 2. MAIN COCKPIT VIEWPORT ─── -->
+    <main class="cockpit-core">
+
+      <!-- Dynamic Super-Notch HUD -->
+      <div class="super-notch-wrap">
+        <div class="super-notch">
+          <div class="mission-indicator">
+            <span class="mission-orb"></span>
+            <span class="mission-name">
+              Mission: Auth Guard Hardening
+              <span class="mission-tag">Sonnet 5 + PTYs</span>
+            </span>
+          </div>
+
+          <div class="notch-divider"></div>
+
+          <!-- Neural Waveform -->
+          <div class="neural-wave" title="Live Agent Reasoning Stream">
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+          </div>
+
+          <div class="notch-metric">
+            <span>Velocity:</span>
+            <span class="metric-value">148 tps</span>
+          </div>
+
+          <div class="notch-divider"></div>
+
+          <button class="notch-action-btn btn-glow" onclick="switchDeck('deck-attention')">
+            <span>2 Blocked</span>
+            <span style="font-size:10px;">⚡</span>
+          </button>
+
+          <button class="notch-action-btn" onclick="openModal('modal-matrix')">
+            <span>⌘K Command</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- WORKSPACE CANVAS DECKS -->
+      <div class="workspace-canvas">
+
+        <!-- ═══ VIEW 1: KINETIC FLIGHT DECK (BENTO COCKPIT) ═══ -->
+        <section class="view-deck active" id="deck-cockpit">
+          <div class="kinetic-bento">
+
+            <!-- Left Bento Column: Autonomous Agent Synthesis -->
+            <div class="bento-column">
+              <div class="bento-card" id="card-agent-stream">
+                <div class="card-super-header">
+                  <div class="card-title-cluster">
+                    <div class="card-pulse-ring"><div class="card-pulse-core"></div></div>
+                    <span class="card-title-text">Autonomous Agent Orchestration</span>
+                    <span class="card-subtitle-code">Claude Code v2.4.1</span>
+                  </div>
+                  <div class="card-toolbelt">
+                    <button class="toolbelt-btn" title="Reasoning Log">🧠</button>
+                    <button class="toolbelt-btn" title="Maximize Card" onclick="toggleMaximizeCard('card-agent-stream')">⤢</button>
+                    <button class="toolbelt-btn" title="Clear">✕</button>
+                  </div>
+                </div>
+
+                <div class="card-surface-body">
+                  <div class="agent-stream-feed">
+                    <div class="prompt-capsule">
+                      <div class="prompt-capsule-label">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Operator Direct Instruction
+                      </div>
+                      <div class="prompt-capsule-text">
+                        Tighten the subscription guard so cancelled tiers fail closed before reaching the PRO route controller.
+                      </div>
+                    </div>
+
+                    <div class="stream-step-card">
+                      <div class="step-header">
+                        <span class="step-action-tag tag-edit">✎ Mutating AST: subscription.guard.ts</span>
+                        <span style="color:var(--neon-cyan);">+14, -6 lines</span>
+                      </div>
+                      <div class="diff-lens">
+                        <div><span class="diff-del">- if (user.tier === 'cancelled') return false;</span></div>
+                        <div><span class="diff-add">+ if (!user?.tier || user.tier === Tier.CANCELLED) {</span></div>
+                        <div><span class="diff-add">+   throw new ForbiddenException('Subscription tier inactive');</span></div>
+                        <div><span class="diff-add">+ }</span></div>
+                      </div>
+                    </div>
+
+                    <div class="stream-step-card">
+                      <div class="step-header">
+                        <span class="step-action-tag tag-verify">✓ Regression Verification Passed</span>
+                        <span style="color:var(--neon-emerald);">18 / 18 specs</span>
+                      </div>
+                      <div style="font-size:12.5px; color:#cbd5e1; font-family:var(--font-display);">
+                        Ran <code>npm run test -- subscription.guard.spec.ts</code>. Verified cancelled tokens throw 403 Forbidden with zero leaks.
+                      </div>
+                    </div>
+
+                    <!-- Composer Dock -->
+                    <div class="stream-composer-dock">
+                      <input type="text" class="stream-composer-input" id="orchestratorPrompt" placeholder="Dispatch instructions to fleet agents..." onkeydown="if(event.key==='Enter') dispatchOrchestrator()">
+                      <div class="composer-pill" onclick="triggerPresetPrompt('Run static security audit')">Audit</div>
+                      <div class="composer-pill" onclick="triggerPresetPrompt('Generate E2E regression test')">E2E</div>
+                      <button class="btn-orb-send" onclick="dispatchOrchestrator()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.8"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Bento Column: Omni-PTY Terminal & Live Glass Web Stage -->
+            <div class="bento-column-split">
+
+              <!-- Top Right: Omni-PTY Matrix -->
+              <div class="bento-card" id="card-pty">
+                <div class="card-super-header">
+                  <div class="card-title-cluster">
+                    <span class="card-title-text">Omni-PTY Terminal Hub</span>
+                    <span class="card-subtitle-code">4 Active Shells</span>
+                  </div>
+                  <div class="card-toolbelt">
+                    <button class="toolbelt-btn" onclick="toggleMaximizeCard('card-pty')">⤢</button>
+                    <button class="toolbelt-btn" onclick="spawnNewShell()">+</button>
+                  </div>
+                </div>
+                <div class="terminal-tab-rail">
+                  <div class="term-tab active"><span class="term-tab-dot"></span> nestjs:4000</div>
+                  <div class="term-tab"><span class="term-tab-dot"></span> vite-client:3000</div>
+                  <div class="term-tab"><span class="term-tab-dot"></span> zsh (dev)</div>
+                </div>
+                <div class="terminal-screen">
+                  <div style="color:#94a3b8;">[Nest] 9412 - 09/05/2026, 1:04:12 PM LOG [NestApplication] Listening at :4000</div>
+                  <div style="color:var(--neon-cyan);">[SubscriptionGuard] Checking token header x-user-tier...</div>
+                  <div style="color:var(--neon-emerald);">[TestWatcher] File change detected: subscription.guard.ts (auto-recompiled in 34ms)</div>
+                  <div style="color:#f1f5f9; margin-top:8px;">> <span id="ptyTerminalPrompt">Ready for PTY input...</span></div>
+                </div>
+              </div>
+
+              <!-- Bottom Right: Live Glass Webview Stage -->
+              <div class="bento-card" id="card-stage">
+                <div class="webview-chrome">
+                  <div class="webview-url-pill">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neon-emerald)" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>localhost:3000/pricing</span>
+                  </div>
+                  <div class="card-toolbelt">
+                    <button class="toolbelt-btn" title="Refresh" onclick="showHudToast('Hot-reloaded localhost:3000 (14ms)')">↻</button>
+                    <button class="toolbelt-btn" onclick="toggleMaximizeCard('card-stage')">⤢</button>
+                  </div>
+                </div>
+                <div class="webview-stage">
+                  <div style="text-align:center; padding: 6px 0;">
+                    <h3 style="font-size:15px; font-weight:800;">Enterprise Platform Tiers</h3>
+                    <p style="font-size:11.5px; color:#64748b;">Autonomous agent workflows for engineering orgs</p>
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+                    <div style="background:#f1f5f9; padding:10px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+                      <div style="font-size:11.5px; font-weight:600;">Starter</div>
+                      <div style="font-size:16px; font-weight:800; margin:4px 0;">$0</div>
+                      <button style="width:100%; font-size:10px; padding:4px; background:#475569; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="showHudToast('Selected Starter tier')">Current</button>
+                    </div>
+                    <div style="background:#ecfdf5; padding:10px; border-radius:8px; text-align:center; border:1px solid #10b981;">
+                      <div style="font-size:11.5px; font-weight:600; color:#059669;">Pro Agent</div>
+                      <div style="font-size:16px; font-weight:800; margin:4px 0; color:#065f46;">$49</div>
+                      <button style="width:100%; font-size:10px; padding:4px; background:#10b981; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="showHudToast('Upgrading to Pro...')">Upgrade</button>
+                    </div>
+                    <div style="background:#f1f5f9; padding:10px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+                      <div style="font-size:11.5px; font-weight:600;">Dedicated</div>
+                      <div style="font-size:16px; font-weight:800; margin:4px 0;">Custom</div>
+                      <button style="width:100%; font-size:10px; padding:4px; background:#0f172a; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="showHudToast('Sales contact initiated')">Talk</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ═══ VIEW 2: TELEMETRY VITALS DECK ═══ -->
+        <section class="view-deck" id="deck-telemetry">
+          <div style="display:flex; flex-direction:column; gap:14px; height:100%; overflow-y:auto;">
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px;">
+              <div class="bento-card" style="padding:16px;">
+                <span style="font-size:11px; color:var(--text-tertiary); font-weight:700;">PTY RESIDENCY</span>
+                <span style="font-size:26px; font-weight:800; color:#fff; margin-top:4px;">4 Active</span>
+              </div>
+              <div class="bento-card" style="padding:16px;">
+                <span style="font-size:11px; color:var(--text-tertiary); font-weight:700;">MEMORY WATERLINE</span>
+                <span style="font-size:26px; font-weight:800; color:var(--neon-cyan); margin-top:4px;">214 MB</span>
+              </div>
+              <div class="bento-card" style="padding:16px;">
+                <span style="font-size:11px; color:var(--text-tertiary); font-weight:700;">CONTEXT INDEX</span>
+                <span style="font-size:26px; font-weight:800; color:var(--neon-purple); margin-top:4px;">100% Synced</span>
+              </div>
+              <div class="bento-card" style="padding:16px;">
+                <span style="font-size:11px; color:var(--text-tertiary); font-weight:700;">SAFETY ROLLBACKS</span>
+                <span style="font-size:26px; font-weight:800; color:var(--neon-emerald); margin-top:4px;">Ready (0 Fail)</span>
+              </div>
+            </div>
+            <div class="bento-card" style="flex:1; padding:16px;">
+              <h4 style="font-size:14px; font-weight:700; margin-bottom:12px;">Real-Time PTY Manifest</h4>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; padding:10px; background:rgba(0,0,0,0.3); border-radius:8px; font-family:var(--font-code); font-size:12px;">
+                  <span>PID 9412 • Nest Backend</span>
+                  <span style="color:var(--neon-emerald);">● Listening :4000</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:10px; background:rgba(0,0,0,0.3); border-radius:8px; font-family:var(--font-code); font-size:12px;">
+                  <span>PID 9655 • Vite Client</span>
+                  <span style="color:var(--neon-emerald);">● Serving :3000</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ VIEW 3: ATTENTION CHAMBER DECK ═══ -->
+        <section class="view-deck" id="deck-attention">
+          <div style="display:flex; flex-direction:column; gap:16px; height:100%; overflow-y:auto;">
+            <div class="decision-capsule">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <h3 style="font-size:15px; font-weight:700; color:#fff;">Staging Database Column Migration</h3>
+                  <p style="font-size:12.5px; color:var(--text-secondary); margin-top:4px;">Claude wants to execute <code>ALTER TABLE subscriptions ALTER COLUMN tier SET NOT NULL</code>.</p>
+                </div>
+                <span style="font-size:11px; font-family:var(--font-code); background:rgba(255,51,102,0.2); color:var(--neon-rose); padding:2px 8px; border-radius:6px; font-weight:700;">HIGH RISK</span>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-code); color:var(--text-tertiary); margin-bottom:4px;">
+                  <span>Risk Probability</span>
+                  <span>78% Schema Impact</span>
+                </div>
+                <div class="risk-radar-bar"><div class="risk-fill"></div></div>
+              </div>
+              <div style="display:flex; gap:10px; margin-top:6px;">
+                <button class="notch-action-btn" style="background:var(--neon-emerald); color:#000; font-weight:700;" onclick="approveDecisionAction('DB Migration')">Operator Authorize</button>
+                <button class="notch-action-btn" onclick="showHudToast('Decision deferred')">Defer</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ VIEW 4: AGENT FLEET DECK ═══ -->
+        <section class="view-deck" id="deck-fleet">
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; height:100%; overflow-y:auto;">
+            <div class="bento-card" style="padding:16px; gap:12px;">
+              <h4 style="font-size:14px; font-weight:700;">Claude Code v2.4</h4>
+              <p style="font-size:12px; color:var(--text-secondary);">Primary coding & refactoring specialist.</p>
+              <div style="font-size:11px; font-family:var(--font-code); color:var(--neon-cyan);">64.2k tokens used</div>
+            </div>
+            <div class="bento-card" style="padding:16px; gap:12px;">
+              <h4 style="font-size:14px; font-weight:700;">Codex Reviewer</h4>
+              <p style="font-size:12px; color:var(--text-secondary);">Automated static analysis and security linter.</p>
+              <div style="font-size:11px; font-family:var(--font-code); color:var(--neon-purple);">Ready on standby</div>
+            </div>
+            <div class="bento-card" style="padding:16px; gap:12px;">
+              <h4 style="font-size:14px; font-weight:700;">Gemini Architect</h4>
+              <p style="font-size:12px; color:var(--text-secondary);">Global cross-repo dependency topology manager.</p>
+              <div style="font-size:11px; font-family:var(--font-code); color:var(--neon-emerald);">Indexed 1,420 files</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ VIEW 5: AUTOMATION STACKS DECK ═══ -->
+        <section class="view-deck" id="deck-pipelines">
+          <div style="display:flex; flex-direction:column; gap:12px; height:100%; overflow-y:auto;">
+            <div class="bento-card" style="padding:16px; display:flex; flex-direction:row; justify-content:space-between; align-items:center;">
+              <div>
+                <h4 style="font-size:14px; font-weight:700;">Morning Dev Kickoff</h4>
+                <p style="font-size:12px; color:var(--text-secondary);">Pulls origin, migrates DB, launches Nest and Vite dev servers.</p>
+              </div>
+              <button class="notch-action-btn" style="background:var(--neon-cyan); color:#000; font-weight:700;" onclick="showHudToast('Kickoff routine executing...')">▶ Run Stack</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ VIEW 6: FLIGHT CONTROLS (SETTINGS) DECK ═══ -->
+        <section class="view-deck" id="deck-settings">
+          <div style="max-width:680px; display:flex; flex-direction:column; gap:14px;">
+            <div class="bento-card" style="padding:16px;">
+              <h4 style="font-size:14px; font-weight:700; margin-bottom:8px;">Cockpit Aesthetics</h4>
+              <p style="font-size:12px; color:var(--text-secondary);">Kinetic Aurora Mesh enabled. Hardware accelerated render pipe.</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ─── COMMAND MATRIX MODAL (CMD+K) ─── -->
+  <div class="modal-overlay" id="modal-matrix" onclick="if(event.target===this) closeModal('modal-matrix')">
+    <div class="command-matrix">
+      <div class="matrix-search-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="matrix-search-input" id="matrixInput" placeholder="Enter natural language command or navigate..." oninput="filterMatrix(this.value)">
+        <span style="font-size:11px; font-family:var(--font-code); color:var(--text-tertiary);">Esc</span>
+      </div>
+      <div class="matrix-results" id="matrixResults">
+        <div class="matrix-row active" onclick="switchDeck('deck-cockpit'); closeModal('modal-matrix')">
+          <span>Jump to Flight Deck (Bento Cockpit)</span>
+          <span style="font-family:var(--font-code); font-size:11px;">Alt W</span>
+        </div>
+        <div class="matrix-row" onclick="switchDeck('deck-telemetry'); closeModal('modal-matrix')">
+          <span>Inspect Telemetry Vitals</span>
+          <span style="font-family:var(--font-code); font-size:11px;">Alt T</span>
+        </div>
+        <div class="matrix-row" onclick="switchDeck('deck-attention'); closeModal('modal-matrix')">
+          <span>Open Attention Chamber (2 Pending Decisions)</span>
+          <span style="font-family:var(--font-code); font-size:11px;">Alt A</span>
+        </div>
+        <div class="matrix-row" onclick="spawnNewShell(); closeModal('modal-matrix')">
+          <span>Spawn New Omni-PTY Shell</span>
+          <span style="font-family:var(--font-code); font-size:11px;">+ PTY</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast HUD Container -->
+  <div class="toast-hud" id="toastHud"></div>
+
+  <script>
+    // Deck Switcher
+    function switchDeck(deckId) {
+      document.querySelectorAll('.view-deck').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.dock-btn').forEach(el => el.classList.remove('active'));
+
+      const targetDeck = document.getElementById(deckId);
+      if (targetDeck) targetDeck.classList.add('active');
+
+      const btnMap = {
+        'deck-cockpit': 'btn-cockpit',
+        'deck-telemetry': 'btn-telemetry',
+        'deck-attention': 'btn-attention',
+        'deck-fleet': 'btn-fleet',
+        'deck-pipelines': 'btn-pipelines',
+        'deck-settings': 'btn-settings'
+      };
+      const activeBtn = document.getElementById(btnMap[deckId]);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      showHudToast('Deck Switched: ' + deckId.replace('deck-', '').toUpperCase());
+    }
+
+    // Card Maximize
+    function toggleMaximizeCard(cardId) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      card.classList.toggle('maximized');
+      showHudToast(card.classList.contains('maximized') ? 'Card Maximized' : 'Normal Bento Layout');
+    }
+
+    // Modal Matrix
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.add('open');
+        setTimeout(() => document.getElementById('matrixInput')?.focus(), 50);
+      }
+    }
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('open');
+    }
+
+    // Orchestrator Dispatch
+    function dispatchOrchestrator() {
+      const input = document.getElementById('orchestratorPrompt');
+      const val = input.value.trim();
+      if (!val) return;
+      showHudToast('Dispatched to Claude Code: ' + val);
+      input.value = '';
+    }
+    function triggerPresetPrompt(text) {
+      document.getElementById('orchestratorPrompt').value = text;
+      dispatchOrchestrator();
+    }
+
+    function spawnNewShell() {
+      showHudToast('Spawned new PTY Shell (PID 10984)');
+    }
+
+    function approveDecisionAction(title) {
+      showHudToast('Operator Approved: ' + title);
+      switchDeck('deck-cockpit');
+    }
+
+    function filterMatrix(query) {
+      const q = query.toLowerCase();
+      document.querySelectorAll('#matrixResults .matrix-row').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    // Toast HUD
+    function showHudToast(msg) {
+      const container = document.getElementById('toastHud');
+      const toast = document.createElement('div');
+      toast.className = 'hud-toast-item';
+      toast.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+        <span>${msg}</span>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        toast.style.transition = 'all 0.2s ease-out';
+        setTimeout(() => toast.remove(), 220);
+      }, 2600);
+    }
+
+    // Keybindings
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openModal('modal-matrix');
+      }
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.open').forEach(el => el.classList.remove('open'));
+      }
+    });
+  </script>
+</body>
+</html>

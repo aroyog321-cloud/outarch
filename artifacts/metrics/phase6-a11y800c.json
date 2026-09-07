@@ -1,0 +1,412 @@
+{
+  "width": 800,
+  "height": 680,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "announce"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "Groundstation"
+        },
+        {
+          "node": "header.mc-gs-statusbar.tone-danger",
+          "role": "region",
+          "live": null,
+          "name": "Project status"
+        },
+        {
+          "node": "section.mc-gs-attention",
+          "role": "region",
+          "live": null,
+          "name": "Attention queue; 5 decisions waiting"
+        },
+        {
+          "node": "section.mc-ref-section.mc-gs-register",
+          "role": "region",
+          "live": null,
+          "name": "Supervised workers"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Project operations"
+        },
+        {
+          "node": "div.mc-ref-manifest",
+          "role": "grid",
+          "live": null,
+          "name": "Supervised workers"
+        },
+        {
+          "node": "section.mc-ref-section.mc-gs-register",
+          "role": "region",
+          "live": null,
+          "name": "Assigned AI agents"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "AI crew"
+        },
+        {
+          "node": "div.mc-ref-manifest",
+          "role": "grid",
+          "live": null,
+          "name": "Assigned AI agents"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "NOW — what's happening"
+        },
+        {
+          "node": "div.mc-gs-feed",
+          "role": "div",
+          "live": "polite",
+          "name": ""
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Recipes"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Mission dependencies"
+        },
+        {
+          "node": "aside.mc-gs-inspector.state-ok",
+          "role": "complementary",
+          "live": null,
+          "name": "Selected worker details"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Web dev server"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "Terminal Workspace"
+        },
+        {
+          "node": "nav.worker-folders",
+          "role": "nav",
+          "live": null,
+          "name": "Worker folders"
+        },
+        {
+          "node": "div.live-region",
+          "role": "div",
+          "live": "assertive",
+          "name": ""
+        },
+        {
+          "node": "div.live-region",
+          "role": "div",
+          "live": "assertive",
+          "name": ""
+        },
+        {
+          "node": "div.live-region",
+          "role": "div",
+          "live": "assertive",
+          "name": ""
+        },
+        {
+          "node": "div.live-region",
+          "role": "div",
+          "live": "assertive",
+          "name": ""
+        },
+        {
+          "node": "div.crash-lens",
+          "role": "alert",
+          "live": null,
+          "name": "Crash detected: Process exited unexpectedly"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "Needs You"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "8 decisions waiting"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Queue worker failed"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "restart · API gateway"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Claude - refactor auth needs a decision"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Approve 2 supervisor actions"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Web dev server terminal connection failed"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "API gateway terminal connection failed"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Unit tests (watch) terminal connection failed"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Unit tests (watch) needs a decision"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "announce": [
+        {
+          "node": "h1",
+          "role": "h1",
+          "live": null,
+          "name": "Supervised agents"
+        },
+        {
+          "node": "main.agent-operations__detail",
+          "role": "main",
+          "live": null,
+          "name": ""
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Claude - refactor auth"
+        },
+        {
+          "node": "section.agent-decision-strip",
+          "role": "region",
+          "live": null,
+          "name": "Decisions waiting about Claude - refactor auth"
+        },
+        {
+          "node": "div.agent-detail-tabs",
+          "role": "tablist",
+          "live": null,
+          "name": "Selected agent details"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Needs your review"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Refactor authentication"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "announce": [
+        {
+          "node": "h1",
+          "role": "h1",
+          "live": null,
+          "name": "Recipes"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Launch, edit, or recover a project setup"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Morning stack"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Review agents"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Database session"
+        },
+        {
+          "node": "aside.recipes-guide",
+          "role": "aside",
+          "live": null,
+          "name": ""
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "One click. Ordered startup."
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "History"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Investigate how the work unfolded"
+        },
+        {
+          "node": "p.history-export__note",
+          "role": "status",
+          "live": null,
+          "name": ""
+        },
+        {
+          "node": "aside.history-evidence",
+          "role": "aside",
+          "live": null,
+          "name": ""
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "announce": [
+        {
+          "node": "h1",
+          "role": "h1",
+          "live": null,
+          "name": "Settings"
+        },
+        {
+          "node": "nav.settings-hub__groups",
+          "role": "nav",
+          "live": null,
+          "name": "Settings groups"
+        },
+        {
+          "node": "h2.sr-only",
+          "role": "h2",
+          "live": null,
+          "name": "Appearance & accessibility"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Appearance and accessibility"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "announce": [
+        {
+          "node": "h1",
+          "role": "h1",
+          "live": null,
+          "name": "Integrations"
+        },
+        {
+          "node": "nav.integration-hub-tabs",
+          "role": "nav",
+          "live": null,
+          "name": "Integration sections"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Ask about the project. Plan the next move."
+        }
+      ]
+    }
+  ]
+}

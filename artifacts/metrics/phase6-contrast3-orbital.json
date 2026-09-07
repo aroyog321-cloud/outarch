@@ -1,0 +1,174 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "contrast"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "5",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 29
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 5
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 2
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 16
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 4
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 4
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 1
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "contrast": {
+        "findings": [
+          {
+            "node": "b",
+            "text": "8",
+            "ratio": 3.03,
+            "required": 4.5,
+            "size": 9.5,
+            "weight": 800,
+            "color": "rgb(255, 255, 255)",
+            "behind": "rgb(255,91,102)"
+          }
+        ],
+        "unresolvable": 1
+      }
+    }
+  ]
+}

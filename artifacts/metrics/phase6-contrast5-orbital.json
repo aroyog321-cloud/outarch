@@ -1,0 +1,86 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "workspace",
+    "needs",
+    "agents",
+    "recipes",
+    "history",
+    "settings",
+    "integrations"
+  ],
+  "sections": [
+    "contrast"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 29
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "workspace",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 5
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 2
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "agents",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 16
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "recipes",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 4
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 4
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 1
+      }
+    },
+    {
+      "theme": "orbital",
+      "route": "integrations",
+      "contrast": {
+        "findings": [],
+        "unresolvable": 1
+      }
+    }
+  ]
+}

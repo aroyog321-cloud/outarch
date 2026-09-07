@@ -19,7 +19,7 @@
   color: var(--gs-text,var(--text));
   background: rgba(17,21,19,.96);
   border: 1px solid var(--gs-line-strong,var(--line-strong));
-  border-radius: 14px;
+  border-radius: var(--mc-radius-lg);
   box-shadow: var(--gs-shadow-float,var(--shadow-dialog));
   transform: translate(-50%,-50%);
   -webkit-backdrop-filter: blur(16px) saturate(.9);
@@ -40,14 +40,14 @@
 .mission-graph-header h2 { margin: 5px 0 2px; font-size: 22px; font-weight: 660; letter-spacing: -.025em; }
 .mission-graph-header p { margin: 0; color: var(--gs-muted,var(--muted)); font-size: 12.5px; }
 .mission-graph-header > div:last-child { display: flex; gap: 6px; }
-.mission-graph-header button { min-height: 32px; padding: 0 10px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line,var(--line)); border-radius: 7px; cursor: pointer; }
+.mission-graph-header button { min-height: 32px; padding: 0 10px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line,var(--line)); border-radius: var(--mc-radius-xs); cursor: pointer; }
 .mission-graph-header button:last-child { width: 32px; padding: 0; font-size: 18px; }
 .mission-graph-header button:hover { color: var(--gs-text,var(--text)); background: rgba(255,255,255,.035); border-color: var(--gs-line-strong,var(--line-strong)); }
 
 .mission-graph-recipes { display: flex; min-height: 52px; gap: 4px; padding: 7px 12px; overflow-x: auto; background: #0d110f; border-bottom: 1px solid var(--gs-line,var(--line)); }
-.mission-graph-recipes button { display: flex; min-width: 150px; justify-content: center; flex-direction: column; padding: 5px 10px; color: var(--gs-dim,var(--dim)); background: transparent; border: 1px solid transparent; border-radius: 7px; text-align: left; cursor: pointer; }
+.mission-graph-recipes button { display: flex; min-width: 150px; justify-content: center; flex-direction: column; padding: 5px 10px; color: var(--gs-dim,var(--dim)); background: transparent; border: 1px solid transparent; border-radius: var(--mc-radius-xs); text-align: left; cursor: pointer; }
 .mission-graph-recipes button:hover { color: var(--gs-muted,var(--muted)); background: rgba(255,255,255,.025); }
-.mission-graph-recipes button.is-current { color: var(--gs-text,var(--text)); background: rgba(169,224,182,.065); border-color: rgba(169,224,182,.16); box-shadow: inset 2px 0 var(--gs-accent,var(--accent)); }
+.mission-graph-recipes button.is-current { color: var(--gs-text,var(--text)); background: color-mix(in srgb, var(--mc-accent) 6.5%, transparent); border-color: color-mix(in srgb, var(--mc-accent) 16%, transparent); box-shadow: inset 2px 0 var(--gs-accent,var(--accent)); }
 .mission-graph-recipes strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
 .mission-graph-recipes small { margin-top: 2px; color: var(--gs-dim,var(--dim)); font-size: 11px; }
 
@@ -68,12 +68,12 @@
 .mission-graph-layer > div { display: flex; flex-direction: column; gap: 8px; padding-top: 9px; }
 .mission-graph-connector { position: absolute; top: 48%; right: -26px; display: grid; width: 18px; height: 18px; place-items: center; color: var(--gs-dim,var(--dim)); border: 1px solid var(--gs-line-strong,var(--line-strong)); border-radius: 50%; font-size: 11px; }
 
-.mission-node { display: grid; grid-template-columns: 9px minmax(0,1fr); min-height: 104px; gap: 9px; padding: 11px; color: var(--gs-muted,var(--muted)); background: #111613; border: 1px solid var(--gs-line,var(--line)); border-radius: 9px; text-align: left; cursor: pointer; transition: background-color 110ms var(--gs-ease,ease),border-color 110ms var(--gs-ease,ease); }
+.mission-node { display: grid; grid-template-columns: 9px minmax(0,1fr); min-height: 104px; gap: 9px; padding: 11px; color: var(--gs-muted,var(--muted)); background: #111613; border: 1px solid var(--gs-line,var(--line)); border-radius: var(--mc-radius-sm); text-align: left; cursor: pointer; transition: background-color 110ms var(--gs-ease,ease),border-color 110ms var(--gs-ease,ease); }
 .mission-node:hover { color: var(--gs-text,var(--text)); background: #151b17; border-color: var(--gs-line-strong,var(--line-strong)); }
-.mission-node.is-selected { background: rgba(169,224,182,.06); border-color: rgba(169,224,182,.28); box-shadow: inset 3px 0 var(--gs-accent,var(--accent)); }
+.mission-node.is-selected { background: color-mix(in srgb, var(--mc-accent) 6%, transparent); border-color: color-mix(in srgb, var(--mc-accent) 28%, transparent); box-shadow: inset 3px 0 var(--gs-accent,var(--accent)); }
 .mission-node__status { display: flex; justify-content: center; }
 .mission-node__status i { width: 7px; height: 7px; margin-top: 5px; background: var(--gs-dim,var(--dim)); border-radius: 50%; }
-.mission-node.tone-running .mission-node__status i { background: var(--gs-accent,var(--accent)); }
+.mission-node.tone-running .mission-node__status i { background: var(--mc-ok); }
 .mission-node.tone-attention .mission-node__status i { background: var(--amber); }
 .mission-node.tone-failed .mission-node__status i,.mission-node.tone-missing .mission-node__status i { background: var(--red); }
 .mission-node__copy { display: flex; min-width: 0; flex-direction: column; }
@@ -81,13 +81,13 @@
 .mission-node__copy strong { margin-top: 3px; overflow: hidden; color: var(--gs-text,var(--text)); font-size: 13.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .mission-node__copy code { margin-top: 4px; overflow: hidden; color: var(--gs-muted,var(--muted)); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .mission-node__copy em { margin-top: 7px; color: var(--gs-dim,var(--dim)); font-size: 10.5px; font-style: normal; }
-.mission-node__state { grid-column: 2; width: max-content; padding: 2px 6px; color: var(--gs-dim,var(--dim)); background: rgba(255,255,255,.025); border: 1px solid var(--gs-line,var(--line)); border-radius: 5px; font-size: 10.5px; }
+.mission-node__state { grid-column: 2; width: max-content; padding: 2px 6px; color: var(--gs-dim,var(--dim)); background: rgba(255,255,255,.025); border: 1px solid var(--gs-line,var(--line)); border-radius: var(--mc-radius-xs); font-size: 10.5px; }
 
 .mission-graph-unlinked { margin-top: 20px; }
 .mission-graph-unlinked > div { display: flex; gap: 7px; padding-top: 8px; overflow-x: auto; }
-.mission-graph-unlinked button { display: grid; grid-template-columns: 8px minmax(0,1fr); min-width: 180px; gap: 8px; padding: 8px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line,var(--line)); border-radius: 7px; text-align: left; cursor: pointer; }
+.mission-graph-unlinked button { display: grid; grid-template-columns: 8px minmax(0,1fr); min-width: 180px; gap: 8px; padding: 8px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line,var(--line)); border-radius: var(--mc-radius-xs); text-align: left; cursor: pointer; }
 .mission-graph-unlinked button > i { width: 6px; height: 6px; margin-top: 5px; background: var(--gs-dim,var(--dim)); border-radius: 50%; }
-.mission-graph-unlinked button > i.tone-running { background: var(--gs-accent,var(--accent)); }.mission-graph-unlinked button > i.tone-attention { background: var(--amber); }.mission-graph-unlinked button > i.tone-failed { background: var(--red); }
+.mission-graph-unlinked button > i.tone-running { background: var(--mc-ok); }.mission-graph-unlinked button > i.tone-attention { background: var(--amber); }.mission-graph-unlinked button > i.tone-failed { background: var(--red); }
 .mission-graph-unlinked button > span { display: flex; min-width: 0; flex-direction: column; }
 .mission-graph-unlinked strong,.mission-graph-unlinked small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mission-graph-unlinked strong { font-size: 12px; }.mission-graph-unlinked small { margin-top: 2px; color: var(--gs-dim,var(--dim)); font-size: 10.5px; }
@@ -102,15 +102,15 @@
 .mission-graph-inspector dt { color: var(--gs-dim,var(--dim)); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
 .mission-graph-inspector dd { margin: 4px 0 0; color: var(--gs-text,var(--text)); font-size: 12.5px; line-height: 1.45; }
 .mission-graph-inspector footer { display: flex; gap: 6px; margin-top: 17px; }
-.mission-graph-inspector footer button,.mission-graph-empty button { min-height: 34px; padding: 0 11px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line-strong,var(--line-strong)); border-radius: 7px; cursor: pointer; }
+.mission-graph-inspector footer button,.mission-graph-empty button { min-height: 34px; padding: 0 11px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line-strong,var(--line-strong)); border-radius: var(--mc-radius-xs); cursor: pointer; }
 .mission-graph-inspector footer button.primary,.mission-graph-empty button { color: var(--accent-ink); background: var(--gs-accent,var(--accent)); border-color: transparent; font-weight: 680; }
-.mission-graph-cycle,.mission-graph-warning,.mission-graph-error { padding: 9px 11px; color: var(--amber); background: rgba(236,203,140,.06); border: 1px solid rgba(236,203,140,.18); border-radius: 7px; font-size: 11.5px; }
+.mission-graph-cycle,.mission-graph-warning,.mission-graph-error { padding: 9px 11px; color: var(--amber); background: color-mix(in srgb, var(--mc-warning) 6%, transparent); border: 1px solid color-mix(in srgb, var(--mc-warning) 18%, transparent); border-radius: var(--mc-radius-xs); font-size: 11.5px; }
 .mission-graph-cycle { margin-top: 12px; }
 .mission-graph-warning { margin-bottom: 10px; }
-.mission-graph-error { margin: 12px; color: var(--red); border-color: rgba(242,160,153,.2); }
+.mission-graph-error { margin: 12px; color: var(--red); border-color: color-mix(in srgb, var(--mc-danger) 20%, transparent); }
 .mission-graph-inspector__empty { display: grid; min-height: 240px; place-items: center; color: var(--gs-dim,var(--dim)); text-align: center; }
 .mission-graph-empty { grid-row: 2/-1; display: grid; place-items: center; align-content: center; padding: 32px; text-align: center; }
-.mission-graph-empty > span { display: grid; width: 48px; height: 48px; place-items: center; color: var(--gs-accent,var(--accent)); background: rgba(169,224,182,.07); border: 1px solid rgba(169,224,182,.16); border-radius: 13px; font-size: 24px; }
+.mission-graph-empty > span { display: grid; width: 48px; height: 48px; place-items: center; color: var(--gs-accent,var(--accent)); background: color-mix(in srgb, var(--mc-accent) 7%, transparent); border: 1px solid color-mix(in srgb, var(--mc-accent) 16%, transparent); border-radius: var(--mc-radius-md); font-size: 24px; }
 .mission-graph-empty h2 { margin: 14px 0 5px; font-size: 22px; }
 .mission-graph-empty p { max-width: 560px; margin: 0; color: var(--gs-muted,var(--muted)); font-size: 13px; line-height: 1.55; }
 .mission-graph-empty button { margin-top: 17px; }
@@ -124,9 +124,5 @@
   .mission-graph-inspector { min-height: 260px; border-top: 1px solid var(--gs-line,var(--line)); border-left: 0; }
   .mission-graph-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .mission-graph-summary > div { border-top: 1px solid var(--gs-line,var(--line)); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mission-node,.mission-graph-dialog button { transition-duration: .01ms !important; }
 }
 

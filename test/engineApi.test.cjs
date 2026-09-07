@@ -3,6 +3,35 @@ const { test } = require("node:test");
 const { EngineAPI, ENGINE_CONTRACT_VERSION } = require("../src/engine/index.cjs");
 const { makeFakePtyFactory } = require("./fakePty.cjs");
 
+test("confirmation lifecycle activity is engine-owned, bounded, and payload-free", t => {
+  const api = new EngineAPI({ ptyFactory: makeFakePtyFactory(), maxActivityEvents: 8 });
+  t.after(() => api.dispose());
+
+  const recorded = api.recordConfirmationEvent("requested", {
+    operation: "recipe.delete",
+    outcomeCode: "CONFIRMATION_REQUIRED",
+    token: "must-not-persist",
+    targetParams: { recipeId: "secret-project-path" }
+  });
+  assert.equal(recorded.ok, true);
+  assert.deepEqual(api.getActivity({ limit: 8 }).events.at(-1), {
+    operation: "recipe.delete",
+    outcomeCode: "CONFIRMATION_REQUIRED",
+    contractVersion: ENGINE_CONTRACT_VERSION,
+    sequence: recorded.sequence,
+    timestamp: recorded.timestamp,
+    type: "confirmation:requested"
+  });
+  assert.deepEqual(api.recordConfirmationEvent("unknown", { operation: "recipe.delete" }), {
+    ok: false,
+    error: "confirmation event kind is invalid"
+  });
+  assert.deepEqual(api.recordConfirmationEvent("completed", { operation: "invalid operation" }), {
+    ok: false,
+    error: "confirmation operation is invalid"
+  });
+});
+
 test("loadProject reports one bad definition without blocking valid sessions", t => {
   const factory = makeFakePtyFactory();
   const api = new EngineAPI({ ptyFactory: factory });

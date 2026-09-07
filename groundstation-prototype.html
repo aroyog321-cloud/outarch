@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Groundstation Cockpit Dashboard</title>
+  <!-- Tailwind CSS via allowlisted CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+    :root {
+      /* Canonical Mission Control Deep Graphite Palette (tokens.css) */
+      --mc-void: #060709;
+      --mc-canvas: #0a0b0e;
+      --mc-surface: #0e1013;
+      --mc-surface-2: #14161b;
+      --mc-surface-3: #1b1e25;
+      --mc-surface-4: #23272e;
+      
+      --mc-border: #23262f;
+      --mc-border-strong: #323644;
+
+      /* Typography */
+      --mc-text: #f4f5f7;
+      --mc-text-soft: #c2c5cf;
+      --mc-text-muted: #828693;
+      --mc-text-dim: #565a68;
+
+      /* Semantic Operational Accents */
+      --mc-accent: #4f9eff;
+      --mc-accent-strong: #69acff;
+      --mc-accent-soft: rgba(79, 158, 255, 0.12);
+      --mc-accent-glow: rgba(79, 158, 255, 0.25);
+
+      --mc-ai: #8f7bff;
+      --mc-ai-soft: rgba(143, 123, 255, 0.12);
+      --mc-ai-glow: rgba(143, 123, 255, 0.3);
+
+      --mc-ok: #3ecf8e;
+      --mc-ok-soft: rgba(62, 207, 142, 0.12);
+      --mc-ok-glow: rgba(62, 207, 142, 0.25);
+
+      --mc-warning: #eea23f;
+      --mc-warning-soft: rgba(238, 162, 63, 0.12);
+      --mc-warning-glow: rgba(238, 162, 63, 0.25);
+
+      --mc-danger: #ff5c67;
+      --mc-danger-soft: rgba(255, 92, 103, 0.12);
+      --mc-danger-glow: rgba(255, 92, 103, 0.3);
+
+      --mc-cyan: #67cde0;
+
+      /* Glass Panels with Specular Highlight */
+      --mc-glass-card: rgba(14, 16, 19, 0.88);
+      --mc-glass-bevel: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--mc-canvas);
+      color: var(--mc-text);
+      overflow: hidden;
+      height: 100vh;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Glass Panels */
+    .glass-card {
+      background: var(--mc-glass-card);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--mc-border);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4), var(--mc-glass-bevel);
+    }
+
+    .kpi-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--mc-border-strong);
+      box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), var(--mc-glass-bevel);
+    }
+
+    .terminal-card {
+      transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      border: 1px solid var(--mc-border);
+      background: var(--mc-surface-2);
+    }
+    .terminal-card:hover {
+      background: var(--mc-surface-3);
+      border-color: var(--mc-border-strong);
+      transform: translateY(-1px);
+    }
+    .terminal-card.is-selected {
+      border-color: var(--mc-accent) !important;
+      background: rgba(79, 158, 255, 0.08) !important;
+      box-shadow: 0 0 16px var(--mc-accent-glow), var(--mc-glass-bevel) !important;
+    }
+
+    /* Topology Node */
+    .topo-node {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .topo-node:hover {
+      transform: scale(1.03);
+      border-color: var(--mc-accent);
+      box-shadow: 0 0 16px var(--mc-accent-glow);
+    }
+
+    /* Pulse Glow */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.18); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Flow line pulse */
+    @keyframes flowAnimation {
+      0% { stroke-dashoffset: 24; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .flow-line {
+      stroke-dasharray: 6 6;
+      animation: flowAnimation 1.2s linear infinite;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(6, 7, 9, 0.4); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+    /* Windows Caption Controls */
+    .win-caption-btn {
+      width: 44px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mc-text-muted);
+      transition: all 0.15s ease;
+    }
+    .win-caption-btn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: var(--mc-text);
+    }
+    .win-caption-close:hover {
+      background-color: #e81123 !important;
+      color: #ffffff !important;
+    }
+
+    .nav-btn-active {
+      background: var(--mc-accent-soft) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(79, 158, 255, 0.35) !important;
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 0 12px var(--mc-accent-glow) !important;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen text-slate-200">
+
+  <!-- =========================================================================
+       1. WINDOWS TITLEBAR (Native Windows 11 Desktop Integration)
+       ========================================================================= -->
+  <header class="h-8 bg-[#060709] border-b border-[#23262f] flex items-center justify-between px-3 shrink-0 z-40 select-none">
+    <div class="flex items-center gap-2.5 text-xs">
+      <div class="w-4 h-4 rounded bg-[#4f9eff]/20 border border-[#4f9eff]/40 flex items-center justify-center text-[#4f9eff] font-bold text-[9px] font-mono">
+        MC
+      </div>
+      <span class="text-white font-semibold text-[11px] tracking-tight">Mission Control</span>
+      <span class="text-slate-600">/</span>
+      <span class="text-slate-300 text-[11px] font-mono">Cockpit Dashboard</span>
+      <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] text-emerald-400 font-mono ml-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-glow"></span>
+        <span>ConPTY Engine v2.19</span>
+      </span>
+    </div>
+
+    <!-- Live Telemetry Streamlet in Titlebar -->
+    <div class="hidden md:flex items-center gap-4 text-[10px] font-mono text-slate-400">
+      <span class="flex items-center gap-1.5">
+        <span class="text-slate-500">PROJECT:</span>
+        <strong class="text-white">nvkh-main</strong>
+      </span>
+      <span>•</span>
+      <span class="flex items-center gap-1.5">
+        <span class="text-slate-500">HOST PID:</span>
+        <strong class="text-[#67cde0]">18904</strong>
+      </span>
+      <span>•</span>
+      <span class="flex items-center gap-1.5">
+        <span class="text-slate-500">CPU LOAD:</span>
+        <strong class="text-emerald-400" id="top-cpu-stat">12.4%</strong>
+      </span>
+      <span>•</span>
+      <span class="flex items-center gap-1.5">
+        <span class="text-slate-500">MEMORY:</span>
+        <strong class="text-white" id="top-mem-stat">1,078 MB</strong>
+      </span>
+    </div>
+
+    <div class="flex items-center -mr-3">
+      <button onclick="triggerToast('Minimized to Taskbar', 'slate')" class="win-caption-btn" title="Minimize">
+        <svg class="w-3 h-3" viewBox="0 0 12 12"><rect y="6" width="12" height="1" fill="currentColor"/></svg>
+      </button>
+      <button onclick="triggerToast('Window Maximized', 'slate')" class="win-caption-btn" title="Maximize">
+        <svg class="w-3 h-3" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button onclick="triggerToast('Exit requested', 'rose')" class="win-caption-btn win-caption-close" title="Close">
+        <svg class="w-3 h-3" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. COCKPIT SHELL (Sidebar + Dynamic Visual Dashboard)
+       ========================================================================= -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Navigation Rail -->
+    <aside class="w-52 bg-[#090b0e] border-r border-[#23262f] flex flex-col justify-between shrink-0 p-3 select-none z-30">
+      <div class="space-y-3">
+        <!-- Project Selector -->
+        <button onclick="triggerToast('Active Project: nvkh-main · Git: main (3 changes)', 'slate')" class="w-full p-2.5 rounded-xl bg-[#0e1013] border border-[#23262f] hover:border-[#323644] flex items-center justify-between text-left transition-all">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-[#1b1e25] border border-white/[0.08] flex items-center justify-center font-mono font-bold text-xs text-[#67cde0]">NV</span>
+            <div>
+              <div class="text-[9px] text-slate-500 font-mono uppercase tracking-wider">PROJECT</div>
+              <div class="text-xs font-bold text-white tracking-tight">nvkh-main</div>
+            </div>
+          </div>
+          <span class="text-slate-500 text-xs">⌄</span>
+        </button>
+
+        <!-- Nav Links -->
+        <nav class="space-y-1 text-xs font-mono">
+          <button onclick="setNav('groundstation')" id="nav-groundstation" class="w-full flex items-center justify-between px-3 py-2 rounded-xl nav-btn-active transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-[#4f9eff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg>
+              <span>Groundstation</span>
+            </span>
+            <span class="text-[9px] opacity-60">Alt G</span>
+          </button>
+
+          <button onclick="setNav('workspace')" id="nav-workspace" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+              <span>Workspace</span>
+            </span>
+            <span class="text-[9px] opacity-40">Alt W</span>
+          </button>
+
+          <button onclick="setNav('needs')" id="nav-needs" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#eea23f] hover:bg-[#eea23f]/10 transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-[#eea23f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>
+              <span>Needs You</span>
+            </span>
+            <span id="side-needs-pill" class="px-1.5 py-0.2 rounded-full bg-[#eea23f]/20 text-[#eea23f] border border-[#eea23f]/40 text-[10px] font-bold">2</span>
+          </button>
+
+          <button onclick="setNav('agents')" id="nav-agents" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#8f7bff] hover:bg-[#8f7bff]/10 transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-[#8f7bff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9V7a4 4 0 0 1 8 0v2M5 11h14v9H5z"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/><path d="M9 18h6"/></svg>
+              <span>Agents</span>
+            </span>
+            <span class="text-[9px] text-[#8f7bff] font-bold">3</span>
+          </button>
+
+          <button onclick="setNav('recipes')" id="nav-recipes" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-[#3ecf8e]" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span>Recipes</span>
+            </span>
+            <span class="text-[9px] opacity-40">Alt R</span>
+          </button>
+
+          <button onclick="setNav('history')" id="nav-history" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+              <span>History</span>
+            </span>
+            <span class="text-[9px] opacity-40">Alt H</span>
+          </button>
+
+          <button onclick="setNav('settings')" id="nav-settings" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+              <span>Settings</span>
+            </span>
+            <span class="text-[9px] opacity-40">Alt S</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Quick Command Deck -->
+      <div class="space-y-2 pt-3 border-t border-[#23262f] font-mono text-xs">
+        <button onclick="openPalette()" class="w-full px-3 py-2 rounded-xl bg-[#0e1013] hover:bg-[#14161b] border border-[#23262f] text-slate-300 flex items-center justify-between transition-all">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="text-[11px]">Command</span>
+          </span>
+          <kbd class="text-[9px] bg-black/60 px-1.5 py-0.5 rounded border border-white/[0.06] text-slate-400">Ctrl+K</kbd>
+        </button>
+
+        <button onclick="triggerToast('Mission AI: Ready to assist on nvkh-main', 'violet')" class="w-full px-3 py-2 rounded-xl bg-gradient-to-r from-[#8f7bff]/20 to-[#4f9eff]/15 border border-[#8f7bff]/35 text-white flex items-center justify-between transition-all">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#8f7bff] animate-ping"></span>
+            <span class="text-[11px] font-bold">Mission AI</span>
+          </span>
+          <span class="text-[9px] text-[#8f7bff]">Ask</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- =======================================================================
+         MAIN COCKPIT DASHBOARD AREA
+         ======================================================================= -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-[#0a0b0e]">
+      
+      <!-- =====================================================================
+           TOP HERO BENTO DECK WITH LIVE SPARKLINE DIALS
+           ===================================================================== -->
+      <div class="p-5 pb-3 border-b border-[#23262f] bg-[#0c0e12]/90 backdrop-blur-xl shrink-0">
+        
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 max-w-[1600px] mx-auto">
+          
+          <!-- CARD 1: nvkh-main Core Health with Dial -->
+          <div onclick="selectKpi('all')" id="kpi-project" class="kpi-card glass-card rounded-2xl p-4 border border-[#4f9eff]/40 bg-gradient-to-b from-[#4f9eff]/10 to-transparent flex flex-col justify-between relative overflow-hidden">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-[11px] text-[#67cde0] font-bold uppercase tracking-wider">PROJECT HEALTH</span>
+              <span id="kpi-health-dot" class="w-2.5 h-2.5 rounded-full bg-[#eea23f] pulse-glow"></span>
+            </div>
+            
+            <div class="my-2 flex items-center justify-between">
+              <div>
+                <div id="kpi-project-name" class="text-xl font-extrabold text-white tracking-tight">nvkh-main</div>
+                <div id="kpi-project-detail" class="text-xs text-[#eea23f] font-mono font-bold mt-0.5">Degraded: 1 Crash</div>
+              </div>
+
+              <!-- Mini Circular Health Gauge -->
+              <svg class="w-10 h-10 -mr-1 shrink-0" viewBox="0 0 36 36">
+                <path class="text-slate-800" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path id="kpi-health-gauge" class="text-[#eea23f] transition-all duration-500" stroke-dasharray="82, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <text id="kpi-health-pct" x="18" y="21" class="text-[9px] font-mono font-bold fill-white text-anchor-middle" text-anchor="middle">82%</text>
+              </svg>
+            </div>
+
+            <div class="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-2 border-t border-white/[0.06]">
+              <span>Host PID 18904</span>
+              <span class="text-[#67cde0]">4 Ports Active</span>
+            </div>
+          </div>
+
+          <!-- CARD 2: Running Terminals with Live Pulse Sparkline -->
+          <div onclick="selectKpi('live')" id="kpi-running" class="kpi-card glass-card rounded-2xl p-4 border border-[#3ecf8e]/35 bg-gradient-to-b from-[#3ecf8e]/10 to-transparent flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-[11px] text-[#3ecf8e] font-bold uppercase tracking-wider">RUNNING</span>
+              <span class="w-2 h-2 rounded-full bg-[#3ecf8e]"></span>
+            </div>
+            
+            <div class="my-2 flex items-baseline justify-between">
+              <div>
+                <span id="kpi-running-num" class="text-3xl font-extrabold text-white tracking-tight font-mono">9</span>
+                <span class="text-xs text-slate-400 font-mono">/ 11 live</span>
+              </div>
+              
+              <!-- Mini SVG Sparkline -->
+              <svg class="w-16 h-8 shrink-0" viewBox="0 0 60 25" fill="none">
+                <path d="M0 18 Q 10 12, 20 16 T 40 8 T 60 10" stroke="#3ecf8e" stroke-width="2" fill="none"/>
+                <path d="M0 18 Q 10 12, 20 16 T 40 8 T 60 10 L 60 25 L 0 25 Z" fill="rgba(62, 207, 142, 0.15)"/>
+              </svg>
+            </div>
+
+            <div class="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-2 border-t border-white/[0.06]">
+              <span>Services & Watchers</span>
+              <span class="text-[#3ecf8e]">● 100% OK</span>
+            </div>
+          </div>
+
+          <!-- CARD 3: Needs You (Attention & Crash Triage) -->
+          <div onclick="selectKpi('needs')" id="kpi-needs" class="kpi-card glass-card rounded-2xl p-4 border border-[#eea23f]/50 bg-gradient-to-b from-[#eea23f]/15 to-transparent flex flex-col justify-between shadow-lg">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-[11px] text-[#eea23f] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span id="kpi-needs-ping" class="w-2 h-2 rounded-full bg-[#eea23f] animate-ping"></span>
+                <span>NEEDS YOU</span>
+              </span>
+              <span id="kpi-needs-badge" class="px-2 py-0.5 rounded-full bg-[#eea23f]/25 text-[#eea23f] text-[10px] font-bold font-mono">P0 Action</span>
+            </div>
+
+            <div class="my-2 flex items-baseline justify-between">
+              <div>
+                <span id="kpi-needs-num" class="text-3xl font-extrabold text-[#eea23f] tracking-tight font-mono">2</span>
+                <span class="text-xs text-slate-300 font-mono">awaiting review</span>
+              </div>
+              <button onclick="event.stopPropagation(); fixAllBlockers();" class="px-2 py-1 rounded bg-[#eea23f] hover:bg-[#df9127] text-black font-bold text-[10px] font-mono transition-all">
+                Fix All ⚡
+              </button>
+            </div>
+
+            <div class="text-[10px] text-slate-300 font-mono flex items-center justify-between pt-2 border-t border-white/[0.06]">
+              <span>Crash + Gate</span>
+              <span class="text-[#eea23f] font-bold">1-Click Triage →</span>
+            </div>
+          </div>
+
+          <!-- CARD 4: AI Crew (Autonomous Agents) -->
+          <div onclick="selectKpi('ai')" id="kpi-ai" class="kpi-card glass-card rounded-2xl p-4 border border-[#8f7bff]/35 bg-gradient-to-b from-[#8f7bff]/10 to-transparent flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-[11px] text-[#8f7bff] font-bold uppercase tracking-wider">AI CREW</span>
+              <span class="w-2 h-2 rounded-full bg-[#8f7bff]"></span>
+            </div>
+
+            <div class="my-2 flex items-baseline justify-between">
+              <div>
+                <span class="text-3xl font-extrabold text-white tracking-tight font-mono">3</span>
+                <span class="text-xs text-[#8f7bff] font-mono">agents</span>
+              </div>
+              <span class="px-2 py-0.5 rounded bg-[#8f7bff]/20 text-[#8f7bff] font-mono text-[10px] font-bold">74 t/s</span>
+            </div>
+
+            <div class="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-2 border-t border-white/[0.06]">
+              <span>Tokens: 72k Cached</span>
+              <span class="text-[#8f7bff]">Supervised</span>
+            </div>
+          </div>
+
+          <!-- CARD 5: Idle / Standby -->
+          <div onclick="selectKpi('idle')" id="kpi-idle" class="kpi-card glass-card rounded-2xl p-4 border border-slate-700 bg-gradient-to-b from-slate-800/20 to-transparent flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-[11px] text-slate-400 font-bold uppercase tracking-wider">IDLE / READY</span>
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+            </div>
+
+            <div class="my-2 flex items-baseline justify-between">
+              <div>
+                <span id="kpi-idle-num" class="text-3xl font-extrabold text-slate-300 tracking-tight font-mono">1</span>
+                <span class="text-xs text-slate-500 font-mono">standby</span>
+              </div>
+              <span class="text-slate-500 text-xs font-mono">0% CPU</span>
+            </div>
+
+            <div class="text-[10px] text-slate-500 font-mono flex items-center justify-between pt-2 border-t border-white/[0.06]">
+              <span>docker-bridge</span>
+              <span class="text-slate-400">Ready</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- =====================================================================
+           DYNAMIC MULTI-VIEW COCKPIT
+           View Tabs: [Matrix Grid View] [Interactive Topology Graph] [Telemetry Table]
+           ===================================================================== -->
+      <div class="flex-1 flex overflow-hidden p-5 gap-5 max-w-[1600px] w-full mx-auto">
+        
+        <!-- LEFT 65%: Main Operational Stage (Matrix, Topology, or Table) -->
+        <div class="flex-1 flex flex-col overflow-hidden glass-card rounded-2xl border border-[#23262f] p-4">
+          
+          <!-- View Switcher & Filter Controls -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#23262f] shrink-0">
+            
+            <!-- Category Chips -->
+            <div class="flex items-center gap-1.5 font-mono text-xs">
+              <button onclick="setFilter('all')" id="tab-all" class="px-3 py-1.5 rounded-lg bg-white/[0.08] text-white font-bold transition-all">All (11)</button>
+              <button onclick="setFilter('live')" id="tab-live" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">Running (9)</button>
+              <button onclick="setFilter('needs')" id="tab-needs" class="px-3 py-1.5 rounded-lg text-[#eea23f] hover:bg-[#eea23f]/10 transition-all font-bold">Needs You (2)</button>
+              <button onclick="setFilter('ai')" id="tab-ai" class="px-3 py-1.5 rounded-lg text-[#8f7bff] hover:bg-[#8f7bff]/10 transition-all">AI Crew (3)</button>
+              <button onclick="setFilter('idle')" id="tab-idle" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">Idle (1)</button>
+            </div>
+
+            <!-- View Modes (Matrix Grid, Topology Flow, Telemetry Table) -->
+            <div class="flex items-center gap-2">
+              
+              <div class="flex items-center p-1 rounded-xl bg-[#060709] border border-[#23262f] font-mono text-xs">
+                <button onclick="switchViewMode('grid')" id="btn-view-grid" class="px-2.5 py-1 rounded-lg bg-white/[0.08] text-white font-bold flex items-center gap-1.5" title="Card Matrix Grid">
+                  <svg class="w-3.5 h-3.5 text-[#4f9eff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  <span>Matrix</span>
+                </button>
+                <button onclick="switchViewMode('topo')" id="btn-view-topo" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5" title="Service Topology Flow">
+                  <svg class="w-3.5 h-3.5 text-[#67cde0]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v9h9M9 6h6"/></svg>
+                  <span>Topology</span>
+                </button>
+                <button onclick="switchViewMode('table')" id="btn-view-table" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5" title="Telemetry Metrics Table">
+                  <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                  <span>Table</span>
+                </button>
+              </div>
+
+              <!-- Search Filter Input -->
+              <div class="relative w-48">
+                <input id="terminal-search" type="search" placeholder="Search… (Ctrl+F)" oninput="renderMainStage()" class="w-full bg-[#060709] border border-[#23262f] rounded-xl px-2.5 py-1 pl-7 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-[#4f9eff]">
+                <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- DYNAMIC CONTENT CONTAINER (Switches between Matrix Grid, Topology Flow, and Table) -->
+          <div id="main-stage-container" class="flex-1 overflow-y-auto pt-3">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Bottom Operational Bar with Live Ticker -->
+          <div class="pt-3 border-t border-[#23262f] shrink-0 flex items-center justify-between text-xs font-mono">
+            
+            <div class="flex items-center gap-3 overflow-hidden">
+              <span class="text-[10px] uppercase font-bold text-[#4f9eff] bg-[#4f9eff]/10 px-2 py-0.5 rounded border border-[#4f9eff]/25 shrink-0">
+                NOW TICKER
+              </span>
+              <div id="live-ticker-text" class="text-slate-300 text-xs truncate">
+                12s ago · test-runner: 409 passed across 5 test suites (0 failed)
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="launchRecipe('Full-Stack Dev')" class="px-3 py-1.5 rounded-xl bg-[#4f9eff] hover:bg-[#3b82f6] text-white font-bold transition-all shadow-sm flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <span>Launch Recipe</span>
+              </button>
+              <button onclick="triggerToast('Opening workspace canvas (Alt W)', 'cyan')" class="px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] transition-all">
+                Workspace (Alt W)
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- RIGHT 35%: Instant Side Summary Deck (Interactive Visual Terminal Telemetry) -->
+        <div id="side-summary-deck" class="w-[450px] flex flex-col overflow-hidden glass-card rounded-2xl border border-[#23262f] p-4 shrink-0 justify-between">
+          
+          <div class="space-y-3">
+            
+            <!-- Selected Terminal Header -->
+            <div class="flex items-center justify-between pb-2.5 border-b border-[#23262f]">
+              <div class="flex items-center gap-2.5">
+                <span id="side-status-dot" class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <div>
+                  <h3 id="side-terminal-name" class="text-base font-bold text-white font-mono leading-none">api-server</h3>
+                  <span id="side-terminal-role" class="text-[10px] text-slate-400 font-mono mt-0.5 block">API Gateway · Node.js</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span id="side-port-badge" class="px-2 py-0.5 rounded bg-[#67cde0]/15 text-[#67cde0] border border-[#67cde0]/30 font-mono text-[10px] font-bold">:8080</span>
+                <span id="side-state-badge" class="px-2 py-0.5 rounded bg-[#3ecf8e]/15 text-[#3ecf8e] border border-[#3ecf8e]/30 font-mono text-[10px] font-bold">RUNNING</span>
+              </div>
+            </div>
+
+            <!-- Single-Line Clean Current Telemetry Summary -->
+            <div class="p-3 rounded-xl bg-[#060709] border border-[#23262f] font-mono text-xs">
+              <div class="text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-1">TERMINAL SUMMARY</div>
+              <p id="side-terminal-summary" class="text-slate-200 leading-relaxed">
+                Listening on 0.0.0.0:8080 · 2.8ms avg response · 14 socket pipes active · 0 unhandled rejections
+              </p>
+            </div>
+
+            <!-- Live CPU & Memory Mini-Sparkline Chart -->
+            <div class="p-3 rounded-xl bg-[#060709] border border-[#23262f] font-mono text-xs space-y-2">
+              <div class="flex items-center justify-between text-[10px] text-slate-400">
+                <span class="uppercase font-bold">LIVE TELEMETRY (LAST 60S)</span>
+                <span id="side-sparkline-metric" class="text-white font-bold">4.2% CPU · 184 MB</span>
+              </div>
+              
+              <!-- SVG Live Sparkline Waveform -->
+              <svg id="side-sparkline-svg" class="w-full h-12" viewBox="0 0 300 50" fill="none">
+                <defs>
+                  <linearGradient id="grad-wave" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#4f9eff" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#4f9eff" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0 35 Q 30 20, 60 28 T 120 15 T 180 32 T 240 18 T 300 24 L 300 50 L 0 50 Z" fill="url(#grad-wave)"/>
+                <path d="M0 35 Q 30 20, 60 28 T 120 15 T 180 32 T 240 18 T 300 24" stroke="#4f9eff" stroke-width="2" fill="none"/>
+              </svg>
+            </div>
+
+            <!-- Telemetry Gauges Grid -->
+            <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+              <div class="p-2.5 rounded-xl bg-[#14161b] border border-[#23262f]">
+                <div class="text-[9px] text-slate-500 uppercase">ENGINE PTY PID</div>
+                <div id="side-pid-val" class="text-sm font-bold text-slate-300 mt-0.5">28491</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-[#14161b] border border-[#23262f]">
+                <div class="text-[9px] text-slate-500 uppercase">UPTIME</div>
+                <div id="side-uptime-val" class="text-sm font-bold text-slate-300 mt-0.5">03h 42m</div>
+              </div>
+            </div>
+
+            <!-- Active Command -->
+            <div class="p-2.5 rounded-xl bg-[#14161b] border border-[#23262f] font-mono text-xs">
+              <div class="text-[9px] text-slate-500 uppercase">ACTIVE COMMAND</div>
+              <code id="side-cmd-val" class="text-slate-300 block truncate mt-0.5">node src/server.cjs --port=8080</code>
+            </div>
+
+            <!-- Live Terminal Output Preview -->
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
+                <span>CONPTY STDOUT STREAM</span>
+                <span class="text-[#3ecf8e] flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#3ecf8e]"></span>
+                  <span>LIVE ATTACHED</span>
+                </span>
+              </div>
+              <div id="side-terminal-stream" class="bg-[#060709] rounded-xl p-3 border border-[#23262f] font-mono text-[11px] text-slate-300 h-32 overflow-y-auto space-y-1">
+                <!-- Log entries -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Action Footer for Selected Terminal -->
+          <div class="pt-3 border-t border-[#23262f] flex items-center justify-between gap-2 font-mono text-xs">
+            <button id="side-action-btn" onclick="restartSelectedTerminal()" class="px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white font-bold transition-all border border-white/[0.08]">
+              Restart
+            </button>
+            <button onclick="askMissionAIAboutSelected()" class="px-3 py-2 rounded-xl bg-[#8f7bff]/20 hover:bg-[#8f7bff]/30 text-[#8f7bff] border border-[#8f7bff]/40 font-bold transition-all">
+              Ask AI
+            </button>
+            <button onclick="openInWorkspace()" class="px-4 py-2 rounded-xl bg-[#4f9eff] hover:bg-[#3b82f6] text-white font-bold transition-all shadow-sm">
+              Open Terminal →
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Command Palette Modal (Ctrl+K) -->
+  <div id="palette-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-start justify-center pt-24">
+    <div class="w-full max-w-xl glass-card rounded-2xl border border-[#323644] p-4 shadow-2xl space-y-3 font-mono text-xs">
+      <div class="flex items-center gap-2 pb-2 border-b border-[#23262f]">
+        <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="palette-input" type="text" placeholder="Type a command or terminal name…" class="w-full bg-transparent border-none text-white focus:outline-none placeholder-slate-500 text-sm">
+        <kbd class="text-[10px] bg-black/50 px-1.5 py-0.5 rounded text-slate-400">Esc</kbd>
+      </div>
+      <div class="space-y-1 max-h-64 overflow-y-auto">
+        <button onclick="setNav('workspace'); closePalette();" class="w-full p-2 rounded-lg hover:bg-white/[0.08] flex items-center justify-between text-left text-slate-200">
+          <span>Go to Terminal Workspace</span>
+          <span class="text-slate-500">Alt W</span>
+        </button>
+        <button onclick="setNav('needs'); closePalette();" class="w-full p-2 rounded-lg hover:bg-white/[0.08] flex items-center justify-between text-left text-slate-200">
+          <span>Go to Needs You Queue</span>
+          <span class="text-[#eea23f]">Alt N</span>
+        </button>
+        <button onclick="fixAllBlockers(); closePalette();" class="w-full p-2 rounded-lg hover:bg-white/[0.08] flex items-center justify-between text-left text-slate-200">
+          <span>Fix all blockers (Restart crash + Approve gate)</span>
+          <span class="text-[#3ecf8e]">Resolve All</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Dock -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none font-mono"></div>
+
+  <!-- =========================================================================
+       DATA MODEL & INTERACTION CONTROLLER
+       ========================================================================= -->
+  <script>
+    const TERMINALS = [
+      {
+        id: 'api-server',
+        name: 'api-server',
+        role: 'API Gateway',
+        port: 8080,
+        state: 'live',
+        cmd: 'node src/server.cjs --port=8080',
+        pid: 28491,
+        cpu: 4.2,
+        mem: 184,
+        uptime: '03h 42m',
+        isAgent: false,
+        summary: 'Listening on 0.0.0.0:8080 · 2.8ms latency · 14 sockets · 0 errors',
+        logs: [
+          '[INFO] 07:34:10 GET /api/v1/workspaces/nvkh 200 OK - 2.8ms',
+          '[INFO] 07:34:12 Session authenticated via ConPTY engine host',
+          '[DEBUG] 07:34:14 Telemetry frame dispatched to VS Code bridge (240B)'
+        ]
+      },
+      {
+        id: 'web-client',
+        name: 'web-client',
+        role: 'Frontend UI',
+        port: 5173,
+        state: 'live',
+        cmd: 'vite --port=5173 --host',
+        pid: 28502,
+        cpu: 1.8,
+        mem: 96,
+        uptime: '03h 40m',
+        isAgent: false,
+        summary: 'Vite 6.4.3 ready in 238ms · Local: http://localhost:5173/ · HMR connected (172 modules)',
+        logs: [
+          '[VITE] 07:30:02 ready in 238 ms',
+          '[VITE] 07:30:02 Local: http://localhost:5173/',
+          '[HMR] 07:34:11 connected, watching 172 modules'
+        ]
+      },
+      {
+        id: 'db-postgres',
+        name: 'db-postgres',
+        role: 'PostgreSQL Database',
+        port: 5432,
+        state: 'live',
+        cmd: 'docker run -p 5432:5432 postgres:16',
+        pid: 28400,
+        cpu: 2.1,
+        mem: 312,
+        uptime: '05h 12m',
+        isAgent: false,
+        summary: 'PostgreSQL 16 healthy · 42 active client connections · Checkpoint flushed',
+        logs: [
+          'LOG: database system was shut down at 2026-09-04 05:00:00 UTC',
+          'LOG: database system is ready to accept connections on port 5432'
+        ]
+      },
+      {
+        id: 'redis-queue',
+        name: 'redis-queue',
+        role: 'Cache / Broker',
+        port: 6379,
+        state: 'live',
+        cmd: 'redis-server --port 6379',
+        pid: 28415,
+        cpu: 0.4,
+        mem: 42,
+        uptime: '05h 12m',
+        isAgent: false,
+        summary: 'Redis standalone on :6379 · 14 clients · 0 queued jobs pending',
+        logs: [
+          '* 05:00:00 Running mode=standalone, port=6379',
+          '* 07:34:10 DB 0: 42 keys, 14 client connections, 0 pending'
+        ]
+      },
+      {
+        id: 'test-runner',
+        name: 'test-runner',
+        role: 'Test Watcher',
+        port: null,
+        state: 'live',
+        cmd: 'node --test --watch test/*.test.cjs',
+        pid: 28620,
+        cpu: 0.8,
+        mem: 88,
+        uptime: '01h 45m',
+        isAgent: false,
+        summary: 'TAP 13: 409 passed across 5 suites (0 failed) · Watching filesystem',
+        logs: [
+          'TAP version 13',
+          'ok 409 - Recipes cancellation stops scheduling and preserves run state',
+          '# tests 409 # pass 409 # fail 0'
+        ]
+      },
+      {
+        id: 'docs-server',
+        name: 'docs-server',
+        role: 'Storybook Docs',
+        port: 6006,
+        state: 'live',
+        cmd: 'npx storybook dev -p 6006',
+        pid: 28711,
+        cpu: 0.6,
+        mem: 102,
+        uptime: '02h 20m',
+        isAgent: false,
+        summary: 'Storybook running on http://localhost:6006/ · 48 stories registered',
+        logs: [
+          'info => Storybook 8.2.9 started',
+          'info => 48 stories registered'
+        ]
+      },
+      {
+        id: 'analytics-collector',
+        name: 'analytics-collector',
+        role: 'Telemetry Daemon',
+        port: null,
+        state: 'failed',
+        cmd: 'node scripts/telemetry-collector.cjs',
+        pid: 0,
+        cpu: 0.0,
+        mem: 0,
+        uptime: 'crashed 4m ago',
+        isAgent: false,
+        summary: 'CRASHED: Exit Code 137 (Heap Out of Memory) · 1 downstream worker waiting',
+        logs: [
+          'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory',
+          '[ENGINE] Process exited with code 137 (SIGKILL)'
+        ]
+      },
+      {
+        id: 'docker-bridge',
+        name: 'docker-bridge',
+        role: 'Container Daemon',
+        port: null,
+        state: 'idle',
+        cmd: 'docker compose up -d',
+        pid: 0,
+        cpu: 0.0,
+        mem: 0,
+        uptime: 'stopped cleanly',
+        isAgent: false,
+        summary: 'Stopped cleanly by operator · Ready to resume on recipe launch',
+        logs: [
+          '[DOCKER] Stopped cleanly by operator via Alt W'
+        ]
+      },
+      // AI Crew
+      {
+        id: 'agent-companion',
+        name: 'agent-companion',
+        role: 'Autonomous Pair AI',
+        port: null,
+        state: 'live',
+        cmd: 'termctl agent --adapter=gemini-pair',
+        pid: 29100,
+        cpu: 3.5,
+        mem: 180,
+        uptime: '02h 10m',
+        isAgent: true,
+        summary: 'Autonomous AI pairing active · 42.8k context tokens · Codebase verified',
+        logs: [
+          '[AI] Context tokens: 42,800 cached, streaming throughput 74 t/s',
+          '[AI] Monitoring terminal stream for anomaly signatures'
+        ]
+      },
+      {
+        id: 'agent-architect',
+        name: 'agent-architect',
+        role: 'System Designer AI',
+        port: null,
+        state: 'review',
+        cmd: 'termctl agent --adapter=architect-bot',
+        pid: 29112,
+        cpu: 0.1,
+        mem: 140,
+        uptime: '01h 05m',
+        isAgent: true,
+        summary: 'AWAITING APPROVAL: proposed `npx prisma migrate deploy` schema mutation',
+        logs: [
+          '[ARCH] Migration SQL generated: prisma/migrations/20260904_add_telemetry_indices.sql',
+          '[ARCH] Destructive boundary gate enforced: waiting for operator approval'
+        ]
+      },
+      {
+        id: 'agent-auditor',
+        name: 'agent-auditor',
+        role: 'Security Guardian AI',
+        port: null,
+        state: 'live',
+        cmd: 'termctl agent --adapter=security-audit',
+        pid: 29104,
+        cpu: 1.2,
+        mem: 110,
+        uptime: '02h 10m',
+        isAgent: true,
+        summary: 'Security & socket monitoring active · 0 unauthorized outbound requests',
+        logs: [
+          '[AUDIT] File descriptors and loopback ports verified',
+          '[AUDIT] Zero leaked secrets in working tree'
+        ]
+      }
+    ];
+
+    let currentFilter = 'all';
+    let currentViewMode = 'grid'; // 'grid' | 'topo' | 'table'
+    let selectedTerminalId = 'api-server';
+
+    function renderMainStage() {
+      const container = document.getElementById('main-stage-container');
+      container.innerHTML = '';
+
+      if (currentViewMode === 'grid') {
+        renderMatrixGrid(container);
+      } else if (currentViewMode === 'topo') {
+        renderTopologyFlow(container);
+      } else if (currentViewMode === 'table') {
+        renderTelemetryTable(container);
+      }
+
+      updateSideSummary();
+    }
+
+    // 1. Matrix Grid Mode
+    function renderMatrixGrid(container) {
+      const grid = document.createElement('div');
+      grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3 pr-1';
+
+      const filtered = getFilteredTerminals();
+
+      filtered.forEach(t => {
+        const isSelected = t.id === selectedTerminalId;
+        const card = document.createElement('div');
+        card.className = `terminal-card rounded-xl p-3.5 flex flex-col justify-between ${isSelected ? 'is-selected' : ''}`;
+        card.onclick = () => selectTerminal(t.id);
+
+        let statusColor = t.state === 'failed' ? 'bg-[#ff5c67]' : t.state === 'review' ? 'bg-[#eea23f] animate-ping' : t.state === 'live' ? 'bg-[#3ecf8e]' : 'bg-slate-500';
+        let badgeStyle = t.state === 'failed' ? 'text-[#ff5c67] bg-[#ff5c67]/15 border-[#ff5c67]/40' :
+                         t.state === 'review' ? 'text-[#eea23f] bg-[#eea23f]/15 border-[#eea23f]/40' :
+                         t.state === 'live' ? 'text-[#3ecf8e] bg-[#3ecf8e]/10 border-[#3ecf8e]/30' :
+                         'text-slate-400 bg-slate-900 border-slate-700';
+        let stateLabel = t.state.toUpperCase();
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full ${statusColor}"></span>
+                <strong class="text-white text-xs font-mono font-bold">${t.name}</strong>
+                ${t.port ? `<span class="text-[9px] font-mono text-[#67cde0] bg-[#67cde0]/15 px-1.5 py-0.2 rounded font-bold">:${t.port}</span>` : ''}
+              </div>
+              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${badgeStyle}">${stateLabel}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 font-mono mt-1">${t.role}</div>
+            <p class="text-xs text-slate-300 mt-2 font-mono line-clamp-2 leading-relaxed">${t.summary}</p>
+          </div>
+          <div class="pt-2.5 mt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <span>${t.pid ? `PID ${t.pid}` : 'Standby'}</span>
+            <span>${t.cpu > 0 ? `${t.cpu}% CPU · ${t.mem} MB` : t.uptime}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      container.appendChild(grid);
+    }
+
+    // 2. Interactive Topology Flow Mode
+    function renderTopologyFlow(container) {
+      const topo = document.createElement('div');
+      topo.className = 'p-4 rounded-xl bg-[#060709] border border-[#23262f] h-full flex flex-col justify-between space-y-4';
+
+      topo.innerHTML = `
+        <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-[#23262f]">
+          <span class="text-[#67cde0] font-bold uppercase tracking-wider">INTERACTIVE SERVICE TOPOLOGY & DATA FLOW</span>
+          <span class="text-slate-400">Click any node to inspect terminal summary</span>
+        </div>
+
+        <!-- Visual Flow Diagram -->
+        <div class="flex-1 flex flex-col justify-center items-center py-4">
+          <div class="flex flex-wrap items-center justify-center gap-6 max-w-2xl w-full">
+            
+            <!-- Layer 1: Data Store -->
+            <div class="flex flex-col gap-3 shrink-0">
+              <div onclick="selectTerminal('db-postgres')" class="topo-node p-3 rounded-xl bg-[#14161b] border ${selectedTerminalId === 'db-postgres' ? 'border-[#4f9eff]' : 'border-[#23262f]'} flex items-center gap-3 w-48 shadow">
+                <span class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <div>
+                  <div class="text-xs font-bold text-white font-mono">db-postgres</div>
+                  <div class="text-[10px] text-[#67cde0] font-mono">:5432 · PostgreSQL 16</div>
+                </div>
+              </div>
+
+              <div onclick="selectTerminal('redis-queue')" class="topo-node p-3 rounded-xl bg-[#14161b] border ${selectedTerminalId === 'redis-queue' ? 'border-[#4f9eff]' : 'border-[#23262f]'} flex items-center gap-3 w-48 shadow">
+                <span class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <div>
+                  <div class="text-xs font-bold text-white font-mono">redis-queue</div>
+                  <div class="text-[10px] text-[#67cde0] font-mono">:6379 · Cache Standalone</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arrow Bridge 1 -->
+            <div class="text-[#4f9eff] font-mono text-sm">──▶</div>
+
+            <!-- Layer 2: Core API -->
+            <div onclick="selectTerminal('api-server')" class="topo-node p-4 rounded-xl bg-[#14161b] border ${selectedTerminalId === 'api-server' ? 'border-[#4f9eff]' : 'border-[#23262f]'} flex flex-col gap-1 w-52 shadow">
+              <div class="flex items-center justify-between">
+                <span class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <span class="text-[10px] text-[#67cde0] font-mono font-bold">:8080</span>
+              </div>
+              <div class="text-sm font-bold text-white font-mono mt-1">api-server</div>
+              <div class="text-[10px] text-slate-400 font-mono">Gateway · 2.8ms Latency</div>
+              <div class="mt-2 text-[9px] text-[#3ecf8e] font-mono bg-[#3ecf8e]/10 px-1.5 py-0.5 rounded text-center">14 Sockets Bound</div>
+            </div>
+
+            <!-- Arrow Bridge 2 -->
+            <div class="text-[#4f9eff] font-mono text-sm">──▶</div>
+
+            <!-- Layer 3: Presentation UI & Watchers -->
+            <div class="flex flex-col gap-3 shrink-0">
+              <div onclick="selectTerminal('web-client')" class="topo-node p-3 rounded-xl bg-[#14161b] border ${selectedTerminalId === 'web-client' ? 'border-[#4f9eff]' : 'border-[#23262f]'} flex items-center gap-3 w-48 shadow">
+                <span class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <div>
+                  <div class="text-xs font-bold text-white font-mono">web-client</div>
+                  <div class="text-[10px] text-[#67cde0] font-mono">:5173 · Vite 6.4.3 HMR</div>
+                </div>
+              </div>
+
+              <div onclick="selectTerminal('test-runner')" class="topo-node p-3 rounded-xl bg-[#14161b] border ${selectedTerminalId === 'test-runner' ? 'border-[#4f9eff]' : 'border-[#23262f]'} flex items-center gap-3 w-48 shadow">
+                <span class="w-3 h-3 rounded-full bg-[#3ecf8e]"></span>
+                <div>
+                  <div class="text-xs font-bold text-white font-mono">test-runner</div>
+                  <div class="text-[10px] text-[#3ecf8e] font-mono">409 Tests Passing</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-[#14161b] border border-[#23262f] flex items-center justify-between text-[11px] font-mono text-slate-400">
+          <span>DAG status: 4 connected nodes · 0 upstream locks · End-to-end verified</span>
+          <span class="text-[#3ecf8e]">PIPELINE HEALTHY</span>
+        </div>
+      `;
+
+      container.appendChild(topo);
+    }
+
+    // 3. Telemetry Table Mode
+    function renderTelemetryTable(container) {
+      const tableWrapper = document.createElement('div');
+      tableWrapper.className = 'overflow-x-auto';
+
+      const filtered = getFilteredTerminals();
+
+      let rows = filtered.map(t => {
+        const isSelected = t.id === selectedTerminalId;
+        let statusDot = t.state === 'failed' ? 'bg-[#ff5c67]' : t.state === 'review' ? 'bg-[#eea23f] animate-ping' : t.state === 'live' ? 'bg-[#3ecf8e]' : 'bg-slate-500';
+        return `
+          <tr onclick="selectTerminal('${t.id}')" class="border-b border-[#23262f] hover:bg-white/[0.04] cursor-pointer transition-all ${isSelected ? 'bg-white/[0.06] text-[#4f9eff]' : 'text-slate-300'} font-mono text-xs">
+            <td class="py-3 px-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full ${statusDot}"></span>
+              <strong class="text-white">${t.name}</strong>
+            </td>
+            <td class="py-3 px-3 text-slate-400">${t.role}</td>
+            <td class="py-3 px-3 text-[#67cde0]">${t.port ? `:${t.port}` : '—'}</td>
+            <td class="py-3 px-3 uppercase font-bold text-[10px]">${t.state}</td>
+            <td class="py-3 px-3 text-slate-300">${t.pid ? t.pid : '—'}</td>
+            <td class="py-3 px-3">${t.cpu > 0 ? `${t.cpu}%` : '—'}</td>
+            <td class="py-3 px-3">${t.mem > 0 ? `${t.mem} MB` : '—'}</td>
+            <td class="py-3 px-3 text-slate-400">${t.uptime}</td>
+          </tr>
+        `;
+      }).join('');
+
+      tableWrapper.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-[#23262f] font-mono text-[10px] uppercase text-slate-500 bg-[#060709]">
+              <th class="py-2.5 px-3">Terminal</th>
+              <th class="py-2.5 px-3">Role</th>
+              <th class="py-2.5 px-3">Port</th>
+              <th class="py-2.5 px-3">State</th>
+              <th class="py-2.5 px-3">PID</th>
+              <th class="py-2.5 px-3">CPU</th>
+              <th class="py-2.5 px-3">Memory</th>
+              <th class="py-2.5 px-3">Uptime</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      container.appendChild(tableWrapper);
+    }
+
+    function getFilteredTerminals() {
+      const query = (document.getElementById('terminal-search').value || '').toLowerCase().trim();
+      return TERMINALS.filter(t => {
+        const matchesQuery = !query || 
+          t.name.toLowerCase().includes(query) || 
+          t.role.toLowerCase().includes(query) || 
+          t.cmd.toLowerCase().includes(query) || 
+          (t.port && String(t.port).includes(query));
+
+        const matchesFilter = 
+          currentFilter === 'all' ||
+          (currentFilter === 'live' && t.state === 'live') ||
+          (currentFilter === 'idle' && t.state === 'idle') ||
+          (currentFilter === 'ai' && t.isAgent) ||
+          (currentFilter === 'needs' && (t.state === 'review' || t.state === 'failed'));
+
+        return matchesQuery && matchesFilter;
+      });
+    }
+
+    function switchViewMode(mode) {
+      currentViewMode = mode;
+      ['grid', 'topo', 'table'].forEach(m => {
+        const btn = document.getElementById(`btn-view-${m}`);
+        if (m === mode) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-white/[0.08] text-white font-bold flex items-center gap-1.5';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5';
+        }
+      });
+      renderMainStage();
+      triggerToast(`Switched view to ${mode.toUpperCase()}`, 'cyan');
+    }
+
+    function selectTerminal(id) {
+      selectedTerminalId = id;
+      renderMainStage();
+    }
+
+    function updateSideSummary() {
+      const t = TERMINALS.find(item => item.id === selectedTerminalId);
+      if (!t) return;
+
+      document.getElementById('side-terminal-name').textContent = t.name;
+      document.getElementById('side-terminal-role').textContent = `${t.role} · ${t.isAgent ? 'Assigned AI Agent' : 'Engine PTY Worker'}`;
+      document.getElementById('side-terminal-summary').textContent = t.summary;
+      document.getElementById('side-sparkline-metric').textContent = `${t.cpu}% CPU · ${t.mem} MB`;
+      document.getElementById('side-pid-val').textContent = t.pid ? t.pid : 'Standby';
+      document.getElementById('side-uptime-val').textContent = t.uptime;
+      document.getElementById('side-cmd-val').textContent = t.cmd;
+
+      const portBadge = document.getElementById('side-port-badge');
+      if (t.port) {
+        portBadge.textContent = `:${t.port}`;
+        portBadge.style.display = 'inline-block';
+      } else {
+        portBadge.style.display = 'none';
+      }
+
+      const dot = document.getElementById('side-status-dot');
+      const badge = document.getElementById('side-state-badge');
+      const actionBtn = document.getElementById('side-action-btn');
+
+      if (t.state === 'failed') {
+        dot.className = 'w-3 h-3 rounded-full bg-[#ff5c67]';
+        badge.className = 'px-2 py-0.5 rounded bg-[#ff5c67]/15 text-[#ff5c67] border border-[#ff5c67]/40 font-mono text-[10px] font-bold';
+        badge.textContent = 'CRASHED';
+        actionBtn.textContent = 'Restart';
+        actionBtn.className = 'px-3 py-2 rounded-xl bg-[#ff5c67] hover:bg-[#ff4250] text-white font-bold transition-all';
+      } else if (t.state === 'review') {
+        dot.className = 'w-3 h-3 rounded-full bg-[#eea23f] animate-ping';
+        badge.className = 'px-2 py-0.5 rounded bg-[#eea23f]/15 text-[#eea23f] border border-[#eea23f]/40 font-mono text-[10px] font-bold';
+        badge.textContent = 'APPROVAL GATE';
+        actionBtn.textContent = 'Approve Gate';
+        actionBtn.className = 'px-3 py-2 rounded-xl bg-[#eea23f] hover:bg-[#df9127] text-black font-bold transition-all';
+      } else if (t.state === 'live') {
+        dot.className = 'w-3 h-3 rounded-full bg-[#3ecf8e]';
+        badge.className = 'px-2 py-0.5 rounded bg-[#3ecf8e]/15 text-[#3ecf8e] border border-[#3ecf8e]/30 font-mono text-[10px] font-bold';
+        badge.textContent = 'RUNNING';
+        actionBtn.textContent = 'Restart';
+        actionBtn.className = 'px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white font-bold transition-all border border-white/[0.08]';
+      } else {
+        dot.className = 'w-3 h-3 rounded-full bg-slate-500';
+        badge.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono text-[10px] font-bold';
+        badge.textContent = 'IDLE';
+        actionBtn.textContent = 'Start';
+        actionBtn.className = 'px-3 py-2 rounded-xl bg-[#4f9eff] hover:bg-[#3b82f6] text-white font-bold transition-all';
+      }
+
+      // Stream logs
+      const streamEl = document.getElementById('side-terminal-stream');
+      streamEl.innerHTML = '';
+      t.logs.forEach(l => {
+        const div = document.createElement('div');
+        div.className = l.includes('FATAL') ? 'text-[#ff5c67] font-bold' : l.includes('[INFO]') ? 'text-[#67cde0]' : l.includes('[AI]') ? 'text-[#8f7bff]' : 'text-slate-300';
+        div.textContent = l;
+        streamEl.appendChild(div);
+      });
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      ['all', 'live', 'needs', 'ai', 'idle'].forEach(tab => {
+        const el = document.getElementById(`tab-${tab}`);
+        if (tab === f) {
+          el.className = 'px-3 py-1.5 rounded-lg bg-white/[0.08] text-white font-bold transition-all';
+        } else {
+          el.className = 'px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all';
+        }
+      });
+      renderMainStage();
+    }
+
+    function selectKpi(filterName) {
+      setFilter(filterName);
+      triggerToast(`Dashboard Filter: ${filterName.toUpperCase()}`, 'cyan');
+    }
+
+    function restartSelectedTerminal() {
+      const t = TERMINALS.find(item => item.id === selectedTerminalId);
+      if (!t) return;
+
+      if (t.state === 'review') {
+        approveMigration();
+        return;
+      }
+      restartWorker(t.id);
+    }
+
+    function restartWorker(id) {
+      const t = TERMINALS.find(item => item.id === id);
+      if (!t) return;
+
+      t.state = 'live';
+      t.pid = Math.floor(Math.random() * 20000 + 20000);
+      t.cpu = (Math.random() * 2 + 1).toFixed(1);
+      t.mem = Math.floor(Math.random() * 60 + 90);
+      t.uptime = 'just now';
+      t.summary = `Cleanly restarted under ConPTY host supervision · PID ${t.pid}`;
+      t.logs.push(`[ENGINE] Clean process restart dispatched with PID ${t.pid}`);
+
+      recalcCounts();
+      renderMainStage();
+      triggerToast(`${t.name} restarted cleanly (PID ${t.pid})`, 'emerald');
+    }
+
+    function approveMigration() {
+      const arch = TERMINALS.find(item => item.id === 'agent-architect');
+      if (arch) {
+        arch.state = 'live';
+        arch.summary = 'Migration executed cleanly · Prisma database schema synchronized';
+        arch.logs.push('[ARCH] Prisma deploy applied successfully to PostgreSQL 16');
+      }
+
+      recalcCounts();
+      renderMainStage();
+      triggerToast('Migration approved & executed · Database synchronized', 'emerald');
+    }
+
+    function fixAllBlockers() {
+      restartWorker('analytics-collector');
+      approveMigration();
+      triggerToast('All blockers resolved: 1 Crash restarted + 1 Gate approved', 'emerald');
+    }
+
+    function recalcCounts() {
+      const runningCount = TERMINALS.filter(t => t.state === 'live').length;
+      const needsCount = TERMINALS.filter(t => t.state === 'failed' || t.state === 'review').length;
+      const idleCount = TERMINALS.filter(t => t.state === 'idle').length;
+
+      document.getElementById('kpi-running-num').textContent = runningCount;
+      document.getElementById('kpi-needs-num').textContent = needsCount;
+      document.getElementById('kpi-idle-num').textContent = idleCount;
+      document.getElementById('side-needs-pill').textContent = needsCount;
+
+      if (needsCount === 0) {
+        document.getElementById('kpi-project-detail').textContent = 'Healthy · All Nominal';
+        document.getElementById('kpi-project-detail').className = 'text-xs text-[#3ecf8e] font-mono font-bold mt-0.5';
+        document.getElementById('kpi-health-dot').className = 'w-2.5 h-2.5 rounded-full bg-[#3ecf8e] pulse-glow';
+        document.getElementById('kpi-health-gauge').setAttribute('stroke-dasharray', '100, 100');
+        document.getElementById('kpi-health-gauge').className = 'text-[#3ecf8e] transition-all duration-500';
+        document.getElementById('kpi-health-pct').textContent = '100%';
+        document.getElementById('kpi-needs-badge').textContent = '0 Waiting';
+        document.getElementById('kpi-needs-badge').className = 'px-2 py-0.5 rounded-full bg-[#3ecf8e]/20 text-[#3ecf8e] text-[10px] font-bold font-mono';
+        document.getElementById('kpi-needs-ping')?.classList.remove('animate-ping');
+      }
+    }
+
+    function openInWorkspace() {
+      triggerToast(`Switching to Workspace with terminal focused: ${selectedTerminalId}`, 'cyan');
+    }
+
+    function askMissionAIAboutSelected() {
+      const t = TERMINALS.find(item => item.id === selectedTerminalId);
+      if (!t) return;
+      triggerToast(`Mission AI Copilot queried about ${t.name}: "${t.summary}"`, 'violet');
+    }
+
+    function launchRecipe(recipeName) {
+      triggerToast(`Launching ${recipeName} in sequential dependency order…`, 'emerald');
+      document.getElementById('live-ticker-text').textContent = `just now · recipe-runner: Executed ${recipeName} launch chain`;
+    }
+
+    function setNav(nav) {
+      ['groundstation', 'workspace', 'needs', 'agents', 'recipes', 'history', 'settings'].forEach(n => {
+        const btn = document.getElementById(`nav-${n}`);
+        if (!btn) return;
+        if (n === nav) {
+          btn.className = 'w-full flex items-center justify-between px-3 py-2 rounded-xl nav-btn-active transition-all';
+        } else {
+          btn.className = 'w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all';
+        }
+      });
+      triggerToast(`Switched to ${nav.toUpperCase()}`, 'cyan');
+    }
+
+    function openPalette() {
+      document.getElementById('palette-modal').classList.remove('hidden');
+      document.getElementById('palette-input').focus();
+    }
+
+    function closePalette() {
+      document.getElementById('palette-modal').classList.add('hidden');
+    }
+
+    function triggerToast(msg, tone = 'cyan') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      let border = 'border-[#4f9eff]/50 text-[#4f9eff] bg-[#0e1013]/95';
+      if (tone === 'emerald') border = 'border-[#3ecf8e]/50 text-[#3ecf8e] bg-[#0e1013]/95';
+      if (tone === 'rose') border = 'border-[#ff5c67]/50 text-[#ff5c67] bg-[#0e1013]/95';
+      if (tone === 'violet') border = 'border-[#8f7bff]/50 text-[#8f7bff] bg-[#0e1013]/95';
+      if (tone === 'slate') border = 'border-slate-700 text-slate-200 bg-[#0e1013]/95';
+
+      toast.className = `glass-card ${border} rounded-xl px-4 py-2.5 text-xs shadow-2xl flex items-center gap-2.5 transition-all duration-300 opacity-0 translate-y-3 pointer-events-auto font-mono`;
+      toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-current animate-ping"></span><span>${msg}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-3');
+        toast.classList.add('opacity-100', 'translate-y-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    // Keyboard controls
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePalette();
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openPalette();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        document.getElementById('terminal-search')?.focus();
+      }
+      if (e.altKey) {
+        const map = { g: 'groundstation', w: 'workspace', n: 'needs', a: 'agents', r: 'recipes', h: 'history', s: 'settings' };
+        const nav = map[e.key.toLowerCase()];
+        if (nav) {
+          e.preventDefault();
+          setNav(nav);
+        }
+      }
+    });
+
+    document.getElementById('palette-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'palette-modal') closePalette();
+    });
+
+    // Initial render
+    renderMainStage();
+  </script>
+</body>
+</html>

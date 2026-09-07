@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Simple, Premium & Modern Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM TOKENS (Simple, Premium, Modern)
+       Linear / Apple / Raycast inspired design language
+       ========================================================================== */
+    :root, [data-theme="dark"] {
+      --bg-base: #090a0f;
+      --bg-subtle: #0f1118;
+      --bg-surface: #141722;
+      --bg-surface-hover: #1c202e;
+      --bg-surface-active: #222738;
+      --bg-overlay: rgba(9, 10, 15, 0.82);
+
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-default: rgba(255, 255, 255, 0.12);
+      --border-focus: #4f46e5;
+      --border-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-faint: #475569;
+
+      --brand-primary: #6366f1;
+      --brand-primary-hover: #4f46e5;
+      --brand-surface: rgba(99, 102, 241, 0.12);
+      --brand-border: rgba(99, 102, 241, 0.28);
+
+      --success: #10b981;
+      --success-surface: rgba(16, 185, 129, 0.12);
+      --success-border: rgba(16, 185, 129, 0.28);
+
+      --warning: #f59e0b;
+      --warning-surface: rgba(245, 158, 11, 0.12);
+      --warning-border: rgba(245, 158, 11, 0.28);
+
+      --danger: #ef4444;
+      --danger-surface: rgba(239, 68, 68, 0.12);
+      --danger-border: rgba(239, 68, 68, 0.28);
+
+      --info: #0ea5e9;
+      --info-surface: rgba(14, 165, 233, 0.12);
+      --info-border: rgba(14, 165, 233, 0.28);
+
+      --terminal-bg: #0b0d13;
+      --terminal-header: #10131c;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 12px 36px -4px rgba(0, 0, 0, 0.65);
+      --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.2);
+
+      --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-base: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    [data-theme="solar"] {
+      --bg-base: #f8fafc;
+      --bg-subtle: #f1f5f9;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f1f5f9;
+      --bg-surface-active: #e2e8f0;
+      --bg-overlay: rgba(248, 250, 252, 0.85);
+
+      --border-subtle: #e2e8f0;
+      --border-default: #cbd5e1;
+      --border-focus: #4f46e5;
+      --border-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+
+      --brand-primary: #4f46e5;
+      --brand-primary-hover: #4338ca;
+      --brand-surface: rgba(79, 70, 229, 0.08);
+      --brand-border: rgba(79, 70, 229, 0.22);
+
+      --success: #059669;
+      --success-surface: rgba(5, 150, 105, 0.08);
+      --success-border: rgba(5, 150, 105, 0.25);
+
+      --warning: #d97706;
+      --warning-surface: rgba(217, 119, 6, 0.08);
+      --warning-border: rgba(217, 119, 6, 0.25);
+
+      --danger: #dc2626;
+      --danger-surface: rgba(220, 38, 38, 0.08);
+      --danger-border: rgba(220, 38, 38, 0.25);
+
+      --info: #0284c7;
+      --info-surface: rgba(2, 132, 199, 0.08);
+      --info-border: rgba(2, 132, 199, 0.25);
+
+      --terminal-bg: #1e222d;
+      --terminal-header: #151821;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 12px 32px -4px rgba(15, 23, 42, 0.12);
+      --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
+    }
+
+    [data-theme="contrast"] {
+      --bg-base: #000000;
+      --bg-subtle: #080808;
+      --bg-surface: #101010;
+      --bg-surface-hover: #1c1c1c;
+      --bg-surface-active: #282828;
+      --border-subtle: #2d2d2d;
+      --border-default: #4f4f4f;
+      --text-primary: #ffffff;
+      --text-secondary: #d4d4d4;
+      --text-muted: #a3a3a3;
+      --text-faint: #737373;
+      --brand-primary: #818cf8;
+      --brand-border: #6366f1;
+    }
+
+    /* ==========================================================================
+       RESET & BASE STYLES
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      font-size: 13px;
+      line-height: 1.5;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      transition: background-color var(--transition-base), color var(--transition-base);
+    }
+
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    button {
+      font-family: inherit;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    input, select, textarea {
+      font-family: inherit;
+      color: inherit;
+      outline: none;
+    }
+
+    /* ==========================================================================
+       APP SHELL LAYOUT
+       ========================================================================== */
+    .app-shell {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* --- SIDEBAR NAVIGATION --- */
+    .app-sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--bg-subtle);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 10;
+      transition: width var(--transition-base), min-width var(--transition-base);
+    }
+
+    .app-sidebar.collapsed {
+      width: 68px;
+      min-width: 68px;
+    }
+
+    .sidebar-header {
+      padding: 16px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      text-decoration: none;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--brand-primary), #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .brand-name .title {
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    .brand-name .version {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+
+    .collapse-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+
+    .collapse-btn:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+    }
+
+    .nav-section-label {
+      padding: 8px 10px 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+    }
+
+    .app-sidebar.collapsed .nav-section-label {
+      display: none;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 13px;
+      position: relative;
+      transition: all var(--transition-fast);
+      text-align: left;
+      width: 100%;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--bg-surface-active);
+      color: var(--text-primary);
+      font-weight: 600;
+      box-shadow: var(--border-highlight);
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--brand-primary);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      stroke-width: 2;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-amber {
+      background: var(--warning-surface);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    .badge-indigo {
+      background: var(--brand-surface);
+      color: var(--brand-primary);
+      border: 1px solid var(--brand-border);
+    }
+
+    .sidebar-footer {
+      padding: 12px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .project-pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .project-pill:hover {
+      border-color: var(--border-default);
+      background: var(--bg-surface-hover);
+    }
+
+    .project-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+      flex-shrink: 0;
+    }
+
+    .project-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .project-name {
+      font-weight: 600;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-branch {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* --- MAIN CONTENT VIEWPORT --- */
+    .app-main {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-base);
+      min-width: 0;
+    }
+
+    /* Top Global Header */
+    .top-header {
+      height: 52px;
+      min-height: 52px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 5;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .view-title-group {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .view-heading {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .view-subheading {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .header-search {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 6px 10px;
+      width: 280px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .header-search:hover {
+      border-color: var(--border-default);
+      background: var(--bg-surface-hover);
+    }
+
+    .header-search svg {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .header-search-placeholder {
+      color: var(--text-muted);
+      font-size: 12.5px;
+      flex: 1;
+    }
+
+    .kbd-shortcut {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .system-vitals-strip {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 12px;
+      border-radius: var(--radius-md);
+      margin-right: 4px;
+    }
+
+    .vital-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .vital-item strong {
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .vital-meter {
+      width: 40px;
+      height: 4px;
+      background: var(--bg-surface-active);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .vital-bar {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      border-color: var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-default);
+      color: var(--text-primary);
+    }
+
+    .btn-primary {
+      background: var(--brand-primary);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-primary-hover);
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11.5px;
+      border-radius: var(--radius-sm);
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      transition: all var(--transition-fast);
+    }
+
+    .icon-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-default);
+      background: var(--bg-surface-hover);
+    }
+
+    /* Content Area */
+    .view-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: none;
+    }
+
+    .view-container.active {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ==========================================================================
+       CARDS & DESIGN COMPONENTS
+       ========================================================================== */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm), var(--border-highlight);
+      position: relative;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .card:hover {
+      border-color: var(--border-default);
+    }
+
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 18px;
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi-card {
+      padding: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm), var(--border-highlight);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-default);
+      box-shadow: var(--shadow-md);
+    }
+
+    .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .kpi-trend {
+      font-size: 11.5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .trend-up { color: var(--success); }
+    .trend-amber { color: var(--warning); }
+    .trend-neutral { color: var(--text-muted); }
+
+    /* Alert / Triage Strip */
+    .triage-banner {
+      background: var(--warning-surface);
+      border: 1px solid var(--warning-border);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .triage-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .triage-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .triage-text strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .triage-text p {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    /* Process / Worker Table */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table.modern-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12.5px;
+    }
+
+    table.modern-table th {
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    table.modern-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    table.modern-table tr:hover td {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-running {
+      background: var(--success-surface);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .status-warning {
+      background: var(--warning-surface);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    .status-stopped {
+      background: var(--bg-surface-active);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .status-pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ==========================================================================
+       VIEW 2: WORKSPACE (TERMINAL MATRIX)
+       ========================================================================== */
+    .workspace-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 12px 16px !important;
+      gap: 12px !important;
+      overflow: hidden !important;
+    }
+
+    .workspace-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      gap: 16px;
+    }
+
+    .broadcast-input-group {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 4px 10px;
+      gap: 8px;
+    }
+
+    .broadcast-input-group input {
+      background: none;
+      border: none;
+      width: 100%;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .layout-switcher {
+      display: flex;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .layout-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+
+    .layout-btn.active {
+      background: var(--bg-surface-active);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .terminals-matrix {
+      flex: 1;
+      display: grid;
+      gap: 10px;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .grid-1x1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .grid-1x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+    .grid-2x1 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .grid-3x2 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+    .terminal-pane {
+      background: var(--terminal-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: border-color var(--transition-fast);
+    }
+
+    .terminal-pane.active {
+      border-color: var(--brand-primary);
+    }
+
+    .terminal-header {
+      background: var(--terminal-header);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .terminal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .terminal-badge {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--bg-surface);
+      color: var(--text-muted);
+    }
+
+    .terminal-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .terminal-action-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+
+    .terminal-action-btn:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+
+    .terminal-screen {
+      flex: 1;
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-success { color: #34d399; }
+    .log-info { color: #60a5fa; }
+    .log-warn { color: #fbbf24; }
+    .log-error { color: #f87171; }
+    .log-dim { color: #64748b; }
+
+    /* ==========================================================================
+       VIEW 3: NEEDS YOU (DECISION TRIAGE)
+       ========================================================================== */
+    .decision-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .decision-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      display: flex;
+      gap: 16px;
+      transition: all var(--transition-fast);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .decision-card:hover {
+      border-color: var(--border-default);
+      box-shadow: var(--shadow-md);
+    }
+
+    .decision-card.high-risk {
+      border-left: 4px solid var(--danger);
+    }
+
+    .decision-card.medium-risk {
+      border-left: 4px solid var(--warning);
+    }
+
+    .decision-card.low-risk {
+      border-left: 4px solid var(--info);
+    }
+
+    .decision-icon-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .decision-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .decision-top-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .decision-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .decision-snippet {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .decision-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* ==========================================================================
+       VIEW 4: AGENTS & SWARMS
+       ========================================================================== */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .agent-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .agent-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .agent-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-md);
+      background: var(--brand-surface);
+      color: var(--brand-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .agent-progress-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    /* ==========================================================================
+       VIEW 5: RECIPES
+       ========================================================================== */
+    .recipes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .recipe-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+    }
+
+    .recipe-card:hover {
+      border-color: var(--brand-primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .recipe-meta-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .recipe-tag {
+      font-size: 10.5px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--bg-surface-active);
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       VIEW 6: INTEGRATIONS
+       ========================================================================== */
+    .integrations-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .integration-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .integration-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .integration-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand-primary);
+    }
+
+    /* ==========================================================================
+       MODALS & OVERLAYS (Command Palette)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 100px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .command-palette {
+      width: 580px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg), var(--border-highlight);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: modalSlide 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalSlide {
+      from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .palette-search-box {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      gap: 12px;
+    }
+
+    .palette-search-box input {
+      flex: 1;
+      background: none;
+      border: none;
+      font-size: 15px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .palette-results {
+      max-height: 340px;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .palette-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-faint);
+      padding: 8px 12px 4px;
+    }
+
+    .palette-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .palette-item:hover, .palette-item.selected {
+      background: var(--bg-surface-active);
+      color: var(--text-primary);
+    }
+
+    .palette-item-icon {
+      color: var(--text-muted);
+    }
+
+    .palette-item-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .palette-footer {
+      padding: 10px 18px;
+      background: var(--bg-subtle);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Toast Container */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      animation: toastIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <!-- ─── 1. COLLAPSIBLE MODERN SIDEBAR ─── -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <a href="#" class="brand-mark" onclick="switchView('groundstation')">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div class="brand-name">
+            <span class="title">Mission Control</span>
+            <span class="version">v2.19.0 PRO</span>
+          </div>
+        </a>
+        <button class="collapse-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Command Center</div>
+        
+        <button class="nav-item active" data-view="groundstation" onclick="switchView('groundstation')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg>
+          <span>Groundstation</span>
+        </button>
+
+        <button class="nav-item" data-view="workspace" onclick="switchView('workspace')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+          <span>Workspace</span>
+          <span class="nav-badge badge-indigo">4</span>
+        </button>
+
+        <button class="nav-item" data-view="needs" onclick="switchView('needs')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>
+          <span>Needs You</span>
+          <span class="nav-badge badge-amber" id="needsCountBadge">3</span>
+        </button>
+
+        <button class="nav-item" data-view="agents" onclick="switchView('agents')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 9V7a4 4 0 0 1 8 0v2M5 11h14v9H5z"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>
+          <span>Agents & Swarms</span>
+        </button>
+
+        <button class="nav-item" data-view="recipes" onclick="switchView('recipes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Recipes</span>
+        </button>
+
+        <button class="nav-item" data-view="history" onclick="switchView('history')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+          <span>History & Audit</span>
+        </button>
+
+        <div class="nav-section-label" style="margin-top: 8px;">Configuration</div>
+
+        <button class="nav-item" data-view="integrations" onclick="switchView('integrations')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+          <span>Integrations</span>
+        </button>
+
+        <button class="nav-item" data-view="settings" onclick="switchView('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="project-pill" onclick="openCommandPalette()">
+          <span class="project-dot"></span>
+          <div class="project-info">
+            <div class="project-name">nvkh-main</div>
+            <div class="project-branch">git: main (clean)</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── 2. MAIN APPLICATION WORKSPACE ─── -->
+    <main class="app-main">
+      
+      <!-- Universal Top Control Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <div class="view-title-group">
+            <h1 class="view-heading" id="viewTitle">Groundstation</h1>
+            <span class="view-subheading" id="viewSubtitle">Executive Command Center</span>
+          </div>
+
+          <div class="header-search" onclick="openCommandPalette()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="header-search-placeholder">Type a command or search...</span>
+            <span class="kbd-shortcut">⌘K</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <!-- Real-Time System Telemetry Strip -->
+          <div class="system-vitals-strip">
+            <div class="vital-item" title="CPU Usage across all workers">
+              <span>CPU</span>
+              <div class="vital-meter"><div class="vital-bar" style="width: 22%; background: var(--brand-primary);"></div></div>
+              <strong>22%</strong>
+            </div>
+            <div class="vital-item" title="RAM Consumed by PTY engines">
+              <span>RAM</span>
+              <div class="vital-meter"><div class="vital-bar" style="width: 38%; background: var(--success);"></div></div>
+              <strong>4.1 GB</strong>
+            </div>
+            <div class="vital-item">
+              <span>WORKERS</span>
+              <strong>6/6</strong>
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" onclick="openSpawnModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Spawn Process</span>
+          </button>
+
+          <!-- Theme Quick Switcher -->
+          <button class="icon-btn" onclick="cycleTheme()" title="Toggle Theme (Dark / Solar / High Contrast)">
+            <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ─── 3. VIEW CONTAINER: GROUNDSTATION ─── -->
+      <section class="view-container active" id="view-groundstation">
+        
+        <!-- Urgent Pending Action Strip -->
+        <div class="triage-banner" id="urgentTriageBanner">
+          <div class="triage-content">
+            <div class="triage-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4m0 3h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+            </div>
+            <div class="triage-text">
+              <strong>1 Destructive Action Pending Operator Approval</strong>
+              <p>Worker <code>build-optimizer</code> requests authorization to execute <code>rm -rf ./dist && node clean.js</code></p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-secondary" onclick="switchView('needs')">Review Details</button>
+            <button class="btn btn-sm btn-primary" onclick="approveQuickAction()">Approve Now</button>
+          </div>
+        </div>
+
+        <!-- 4 Key Performance Metrics -->
+        <div class="kpi-grid">
+          <div class="kpi-card" onclick="switchView('workspace')">
+            <div class="kpi-header">
+              <span>ACTIVE WORKERS</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">6</div>
+              <span class="kpi-trend trend-up">All 100% OK</span>
+            </div>
+          </div>
+
+          <div class="kpi-card" onclick="switchView('needs')">
+            <div class="kpi-header">
+              <span>DECISIONS QUEUE</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value" id="kpiDecisionVal" style="color: var(--warning);">3</div>
+              <span class="kpi-trend trend-amber">Needs Triage</span>
+            </div>
+          </div>
+
+          <div class="kpi-card" onclick="switchView('agents')">
+            <div class="kpi-header">
+              <span>AI AGENT SWARMS</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">4</div>
+              <span class="kpi-trend trend-up">Autonomous</span>
+            </div>
+          </div>
+
+          <div class="kpi-card" onclick="switchView('integrations')">
+            <div class="kpi-header">
+              <span>CONNECTED BRIDGES</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg>
+            </div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">5</div>
+              <span class="kpi-trend trend-neutral">MCP, VSCode, Mobile</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Worker / Service Registry -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Live Process & Worker Registry</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-sm btn-secondary" onclick="triggerToast('Process registry refreshed')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>Refresh</span>
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="openSpawnModal()">+ Add Process</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="modern-table">
+              <thead>
+                <tr>
+                  <th>Worker Name</th>
+                  <th>Status</th>
+                  <th>Port / Socket</th>
+                  <th>CPU Load</th>
+                  <th>Memory</th>
+                  <th>Uptime</th>
+                  <th style="text-align: right;">Quick Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <strong style="color: var(--text-primary);">vite-dev-server</strong>
+                      <span class="terminal-badge">PID 4192</span>
+                    </div>
+                  </td>
+                  <td><span class="status-pill status-running"><span class="dot"></span> Running</span></td>
+                  <td><code>localhost:5173</code></td>
+                  <td>1.4%</td>
+                  <td>142 MB</td>
+                  <td>4h 22m</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-secondary" onclick="switchView('workspace')">Terminal</button>
+                    <button class="btn btn-sm btn-secondary" onclick="triggerToast('Restarting vite-dev-server...')">Restart</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <strong style="color: var(--text-primary);">fastapi-engine</strong>
+                      <span class="terminal-badge">PID 8920</span>
+                    </div>
+                  </td>
+                  <td><span class="status-pill status-running"><span class="dot"></span> Running</span></td>
+                  <td><code>localhost:8000</code></td>
+                  <td>3.8%</td>
+                  <td>280 MB</td>
+                  <td>4h 22m</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-secondary" onclick="switchView('workspace')">Terminal</button>
+                    <button class="btn btn-sm btn-secondary" onclick="triggerToast('Restarting fastapi-engine...')">Restart</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <strong style="color: var(--text-primary);">docker-postgres</strong>
+                      <span class="terminal-badge">PID 1104</span>
+                    </div>
+                  </td>
+                  <td><span class="status-pill status-running"><span class="dot"></span> Running</span></td>
+                  <td><code>localhost:5432</code></td>
+                  <td>0.8%</td>
+                  <td>512 MB</td>
+                  <td>1d 18h</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-secondary" onclick="switchView('workspace')">Terminal</button>
+                    <button class="btn btn-sm btn-secondary" onclick="triggerToast('Postgres logs inspecting...')">Logs</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <strong style="color: var(--text-primary);">swarm-sentinel</strong>
+                      <span class="terminal-badge">PID 6612</span>
+                    </div>
+                  </td>
+                  <td><span class="status-pill status-running"><span class="dot"></span> Running</span></td>
+                  <td><code>ipc://agent-bus</code></td>
+                  <td>12.6%</td>
+                  <td>680 MB</td>
+                  <td>1h 05m</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-secondary" onclick="switchView('agents')">Inspect Agent</button>
+                    <button class="btn btn-sm btn-secondary" onclick="triggerToast('Agent paused')">Pause</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ─── 4. VIEW CONTAINER: WORKSPACE (MULTI-PANE TERMINAL) ─── -->
+      <section class="view-container workspace-view" id="view-workspace">
+        
+        <!-- Workspace Top Toolbar & Multi-Terminal Broadcast Bar -->
+        <div class="workspace-toolbar">
+          <div class="broadcast-input-group">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <input type="text" id="broadcastInput" placeholder="Broadcast command to all active terminals simultaneously (e.g., git status, pkill)..." onkeydown="handleBroadcast(event)">
+            <span class="kbd-shortcut">↵ Enter</span>
+          </div>
+
+          <div class="layout-switcher">
+            <button class="layout-btn" onclick="setLayout('grid-1x1')">1×1</button>
+            <button class="layout-btn" onclick="setLayout('grid-1x2')">1×2</button>
+            <button class="layout-btn" onclick="setLayout('grid-2x1')">2×1</button>
+            <button class="layout-btn active" id="btnLayout2x2" onclick="setLayout('grid-2x2')">2×2</button>
+            <button class="layout-btn" onclick="setLayout('grid-3x2')">3×2</button>
+          </div>
+
+          <button class="btn btn-sm btn-secondary" onclick="triggerToast('Snapshot taken and saved to context')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Snapshot</span>
+          </button>
+        </div>
+
+        <!-- Multi-Pane Terminal Grid -->
+        <div class="terminals-matrix grid-2x2" id="terminalsGrid">
+          
+          <!-- Terminal 1 -->
+          <div class="terminal-pane active">
+            <div class="terminal-header">
+              <div class="terminal-title-group">
+                <span class="terminal-title">1: vite-dev-server</span>
+                <span class="terminal-badge">:5173</span>
+              </div>
+              <div class="terminal-actions">
+                <button class="terminal-action-btn" title="Clear Buffer" onclick="clearTerm(1)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+                <button class="terminal-action-btn" title="Restart" onclick="restartTerm(1)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="terminal-screen" id="termScreen1">
+<span class="log-info">[vite]</span> connecting to client...
+<span class="log-success">[vite]</span> connected.
+<span class="log-dim">13:14:02 [vite]</span> hmr update <span class="log-info">/src/groundstation/renderer/App.jsx</span>
+<span class="log-success">✓ 14 modules transformed in 42ms.</span>
+<span class="log-dim">13:14:28 [vite]</span> <span class="log-info">GET /api/v1/telemetry/stream</span> 200 OK
+<span class="log-dim">13:14:45 [vite]</span> ready in 218ms.
+<span class="log-success">➜ Local:</span> http://localhost:5173/
+<span class="log-dim">➜ Network:</span> use --host to expose
+            </div>
+          </div>
+
+          <!-- Terminal 2 -->
+          <div class="terminal-pane">
+            <div class="terminal-header">
+              <div class="terminal-title-group">
+                <span class="terminal-title">2: fastapi-backend</span>
+                <span class="terminal-badge">:8000</span>
+              </div>
+              <div class="terminal-actions">
+                <button class="terminal-action-btn" title="Clear Buffer" onclick="clearTerm(2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                <button class="terminal-action-btn" title="Restart" onclick="restartTerm(2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
+              </div>
+            </div>
+            <div class="terminal-screen" id="termScreen2">
+<span class="log-info">INFO:</span>     Uvicorn running on <span class="log-info">http://127.0.0.1:8000</span> (Press CTRL+C to quit)
+<span class="log-info">INFO:</span>     Started reloader process [8920] using WatchFiles
+<span class="log-info">INFO:</span>     Started server process [8924]
+<span class="log-info">INFO:</span>     Waiting for application startup.
+<span class="log-success">INFO:</span>     Application startup complete.
+<span class="log-dim">13:14:10</span>  POST /api/v1/decisions/evaluate - 200 OK (12ms)
+<span class="log-dim">13:14:24</span>  GET /api/v1/metrics/sparkline - 200 OK (4ms)
+            </div>
+          </div>
+
+          <!-- Terminal 3 -->
+          <div class="terminal-pane">
+            <div class="terminal-header">
+              <div class="terminal-title-group">
+                <span class="terminal-title">3: agent-swarm-supervisor</span>
+                <span class="terminal-badge">IPC</span>
+              </div>
+              <div class="terminal-actions">
+                <button class="terminal-action-btn" title="Clear Buffer" onclick="clearTerm(3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                <button class="terminal-action-btn" title="Restart" onclick="restartTerm(3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
+              </div>
+            </div>
+            <div class="terminal-screen" id="termScreen3">
+<span class="log-info">[SwarmEngine]</span> Initializing 4 autonomous subagent worker routines...
+<span class="log-success">✓ Subagent #1 (CodeAuditor):</span> online, listening on socket
+<span class="log-success">✓ Subagent #2 (SecuritySentinel):</span> AST scanner loaded
+<span class="log-warn">⚠ [SecuritySentinel]</span> Flagged candidate action in build pipeline:
+   -> Candidate: `rm -rf ./dist`
+   -> Emitted event: <span class="log-warn">REQUIRE_HUMAN_CONFIRMATION (ID: dec-4091)</span>
+<span class="log-dim">Waiting for operator signoff on Needs You channel...</span>
+            </div>
+          </div>
+
+          <!-- Terminal 4 -->
+          <div class="terminal-pane">
+            <div class="terminal-header">
+              <div class="terminal-title-group">
+                <span class="terminal-title">4: test-runner-vitest</span>
+                <span class="terminal-badge">WATCH</span>
+              </div>
+              <div class="terminal-actions">
+                <button class="terminal-action-btn" title="Clear Buffer" onclick="clearTerm(4)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                <button class="terminal-action-btn" title="Restart" onclick="restartTerm(4)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
+              </div>
+            </div>
+            <div class="terminal-screen" id="termScreen4">
+<span class="log-info">DEV</span>  v2.1.8 /test
+
+<span class="log-success">✓</span> test/decisions.test.cjs (8 tests) <span class="log-dim">44ms</span>
+<span class="log-success">✓</span> test/terminalLayout.test.cjs (12 tests) <span class="log-dim">38ms</span>
+<span class="log-success">✓</span> test/capabilities.test.cjs (6 tests) <span class="log-dim">21ms</span>
+
+<span class="log-success">Test Files</span>  3 passed (3)
+<span class="log-success">     Tests</span>  26 passed (26)
+<span class="log-dim">  Start at</span>  13:14:12
+<span class="log-dim">  Duration</span>  382ms (transform 52ms, setup 0ms, collect 78ms, tests 103ms)
+
+<span class="log-dim">PASS  Waiting for file changes...</span>
+<span class="log-dim">press h to show help, press q to quit</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─── 5. VIEW CONTAINER: NEEDS YOU (DECISIONS TRIAGE) ─── -->
+      <section class="view-container" id="view-needs">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h2 style="font-size: 16px; font-weight: 700;">Human-in-the-Loop Decision Queue</h2>
+            <p style="color: var(--text-muted); font-size: 12.5px;">Pending actions requiring explicit developer approval before execution.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-secondary" onclick="approveAllDecisions()">Approve All Safe</button>
+          </div>
+        </div>
+
+        <div class="decision-feed" id="decisionFeed">
+          
+          <!-- Decision 1: Destructive Command -->
+          <div class="decision-card high-risk" id="card-dec-1">
+            <div class="decision-icon-badge" style="background: var(--danger-surface); color: var(--danger);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="decision-body">
+              <div class="decision-top-meta">
+                <span class="status-pill status-warning">High Risk</span>
+                <span>•</span>
+                <span>Source: <code>build-optimizer (PID 4192)</code></span>
+                <span>•</span>
+                <span>Target: Workspace Root</span>
+              </div>
+              <div class="decision-title">Authorize Destructive Clean Command</div>
+              <div class="decision-snippet">
+                <span>$ rm -rf ./dist && node ./scripts/clean-cache.cjs</span>
+                <span class="kbd-shortcut">DESTRUCTIVE</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12.5px;">Removes the entire generated distribution bundle and wipes temporary worker caches to resolve build collision.</p>
+              <div class="decision-actions">
+                <button class="btn btn-primary" onclick="resolveDecision('card-dec-1', 'Approved destructive clean')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Authorize Execution</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resolveDecision('card-dec-1', 'Rejected command execution')">Reject</button>
+                <button class="btn btn-secondary" onclick="triggerToast('Trace log inspected: clean-cache.cjs line 44')">Inspect AST</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 2: Git Remote Push -->
+          <div class="decision-card medium-risk" id="card-dec-2">
+            <div class="decision-icon-badge" style="background: var(--warning-surface); color: var(--warning);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg>
+            </div>
+            <div class="decision-body">
+              <div class="decision-top-meta">
+                <span class="status-pill status-warning">Protected Branch</span>
+                <span>•</span>
+                <span>Source: <code>git-integration</code></span>
+                <span>•</span>
+                <span>Remote: <code>origin/main</code></span>
+              </div>
+              <div class="decision-title">Push Release v2.19.0 to Protected Main Branch</div>
+              <div class="decision-snippet">
+                <span>$ git push origin main --tags</span>
+                <span class="kbd-shortcut">REMOTE</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12.5px;">Pushing 4 commits: includes UI redesign architecture, bug fixes, and release notes update.</p>
+              <div class="decision-actions">
+                <button class="btn btn-primary" onclick="resolveDecision('card-dec-2', 'Git push authorized')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Authorize Push</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resolveDecision('card-dec-2', 'Push aborted')">Cancel</button>
+                <button class="btn btn-secondary" onclick="triggerToast('Diff preview: 4 commits, 18 files changed')">View Diff</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 3: Agent Budget Increase -->
+          <div class="decision-card low-risk" id="card-dec-3">
+            <div class="decision-icon-badge" style="background: var(--info-surface); color: var(--info);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+            </div>
+            <div class="decision-body">
+              <div class="decision-top-meta">
+                <span class="status-pill status-running">Budget Quota</span>
+                <span>•</span>
+                <span>Source: <code>SwarmAgent-Architect</code></span>
+                <span>•</span>
+                <span>Model: <code>claude-3-7-sonnet</code></span>
+              </div>
+              <div class="decision-title">Authorize $10.00 Token Budget Extension</div>
+              <div class="decision-snippet">
+                <span>Tokens Consumed: 485,000 / 500,000 | Extension: +250,000</span>
+                <span class="kbd-shortcut">API QUOTA</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12.5px;">Architect agent is performing deep cross-file refactoring across 35 React components and requires extended token headroom.</p>
+              <div class="decision-actions">
+                <button class="btn btn-primary" onclick="resolveDecision('card-dec-3', 'Token budget extended by $10.00')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Approve +$10.00</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resolveDecision('card-dec-3', 'Budget request declined')">Decline</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─── 6. VIEW CONTAINER: AGENTS & SWARMS ─── -->
+      <section class="view-container" id="view-agents">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h2 style="font-size: 16px; font-weight: 700;">Mission AI Swarm Fleet</h2>
+            <p style="color: var(--text-muted); font-size: 12.5px;">Coordinated autonomous agents working on codebase analysis, refactoring, and security verification.</p>
+          </div>
+          <button class="btn btn-primary" onclick="triggerToast('Deploying new autonomous subagent...')">+ Add Agent</button>
+        </div>
+
+        <div class="agent-grid">
+          
+          <div class="agent-card">
+            <div class="agent-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="agent-avatar">AR</div>
+                <div>
+                  <strong style="font-size: 13.5px; color: var(--text-primary);">Code Architect</strong>
+                  <div style="font-size: 11px; color: var(--text-muted);">Role: System Refactoring</div>
+                </div>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> Reasoning</span>
+            </div>
+            <div class="agent-progress-box">
+              <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 4px;">CURRENT STEP:</div>
+              <div style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">Refactoring legacy CSS tokens into tokens-bridge.css...</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
+              <span>Model: Claude 3.7 Sonnet</span>
+              <span>Tokens: 142k / 500k</span>
+            </div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="agent-avatar" style="background: var(--success-surface); color: var(--success);">ST</div>
+                <div>
+                  <strong style="font-size: 13.5px; color: var(--text-primary);">Security Sentinel</strong>
+                  <div style="font-size: 11px; color: var(--text-muted);">Role: Static Analysis & PTY Guard</div>
+                </div>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> Monitoring</span>
+            </div>
+            <div class="agent-progress-box">
+              <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 4px;">CURRENT STEP:</div>
+              <div style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">All 4 PTY terminal outputs clean of dangerous commands.</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
+              <span>Latency: 42ms</span>
+              <span>Threat Level: Zero</span>
+            </div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="agent-avatar" style="background: var(--info-surface); color: var(--info);">TR</div>
+                <div>
+                  <strong style="font-size: 13.5px; color: var(--text-primary);">Test Orchestrator</strong>
+                  <div style="font-size: 11px; color: var(--text-muted);">Role: Continuous Test & Coverage</div>
+                </div>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> Active</span>
+            </div>
+            <div class="agent-progress-box">
+              <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 4px;">CURRENT STEP:</div>
+              <div style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">26 unit tests passed. Watching file descriptors.</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
+              <span>Coverage: 91.4%</span>
+              <span>Run Count: 48</span>
+            </div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="agent-avatar" style="background: var(--warning-surface); color: var(--warning);">DOC</div>
+                <div>
+                  <strong style="font-size: 13.5px; color: var(--text-primary);">Documentation Sync</strong>
+                  <div style="font-size: 11px; color: var(--text-muted);">Role: API & Changelog Generator</div>
+                </div>
+              </div>
+              <span class="status-pill status-stopped"><span class="dot"></span> Standby</span>
+            </div>
+            <div class="agent-progress-box">
+              <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 4px;">CURRENT STEP:</div>
+              <div style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">Awaiting git commit event to regenerate RELEASE_NOTES.md.</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
+              <span>Last Run: 2h ago</span>
+              <span>Status: Ready</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─── 7. VIEW CONTAINER: RECIPES ─── -->
+      <section class="view-container" id="view-recipes">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h2 style="font-size: 16px; font-weight: 700;">Workspace Launch Recipes</h2>
+            <p style="color: var(--text-muted); font-size: 12.5px;">Instantly launch tailored stacks of processes, environment variables, and terminal layouts with one click.</p>
+          </div>
+          <button class="btn btn-primary" onclick="triggerToast('Recipe builder opened')">+ Create Recipe</button>
+        </div>
+
+        <div class="recipes-grid">
+          
+          <div class="recipe-card" onclick="launchRecipe('Full Stack Next.js + FastAPI')">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Full Stack Web Dev</h3>
+                <span class="status-pill status-running">3 Processes</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">Frontend Vite server, FastAPI REST backend, and Postgres Docker container in a 1x2 split.</p>
+              <div class="recipe-meta-tags">
+                <span class="recipe-tag">:5173</span>
+                <span class="recipe-tag">:8000</span>
+                <span class="recipe-tag">:5432</span>
+                <span class="recipe-tag">Layout: 1×2</span>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="width: 100%; justify-content: center;">Launch Recipe</button>
+          </div>
+
+          <div class="recipe-card" onclick="launchRecipe('AI Agent Swarm Matrix')">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);">AI Agent Swarm Matrix</h3>
+                <span class="status-pill status-running">4 Processes</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">Spawns 4 dedicated PTY worker terminals for Code Auditor, Security Sentinel, Test Runner, and Docs Sync.</p>
+              <div class="recipe-meta-tags">
+                <span class="recipe-tag">MCP Gateway</span>
+                <span class="recipe-tag">Swarm IPC</span>
+                <span class="recipe-tag">Layout: 2×2</span>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="width: 100%; justify-content: center;">Launch Recipe</button>
+          </div>
+
+          <div class="recipe-card" onclick="launchRecipe('E2E Regression Testing')">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);">E2E Regression Testing</h3>
+                <span class="status-pill status-stopped">2 Processes</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 12px;">Starts mocked backend services, runs Cypress / Playwright test matrices, and outputs video artifacts.</p>
+              <div class="recipe-meta-tags">
+                <span class="recipe-tag">Headless Chrome</span>
+                <span class="recipe-tag">Vitest</span>
+                <span class="recipe-tag">Layout: 1×1</span>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="width: 100%; justify-content: center;">Launch Recipe</button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─── 8. VIEW CONTAINER: INTEGRATIONS ─── -->
+      <section class="view-container" id="view-integrations">
+        <div>
+          <h2 style="font-size: 16px; font-weight: 700;">Bridges & Integrations Hub</h2>
+          <p style="color: var(--text-muted); font-size: 12.5px;">Manage external protocols, editor bridges, and remote interfaces.</p>
+        </div>
+
+        <div class="integrations-grid">
+          
+          <div class="integration-card">
+            <div class="integration-top">
+              <div class="integration-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4 7.55 4.24a1.78 1.78 0 0 0-2.5 1.55v12.42a1.78 1.78 0 0 0 2.5 1.55L16.5 14.6a1.78 1.78 0 0 0 0-3.2z"/></svg>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> Connected</span>
+            </div>
+            <div>
+              <strong style="font-size: 14px; color: var(--text-primary);">VS Code Bridge</strong>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">Bi-directional synchronization between VS Code terminal instances and Mission Control PTY engine.</p>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: auto;">
+              <button class="btn btn-sm btn-secondary" style="flex: 1;" onclick="triggerToast('VS Code connection verified')">Test Ping</button>
+              <button class="btn btn-sm btn-secondary" onclick="triggerToast('Config opened')">Settings</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="integration-top">
+              <div class="integration-icon" style="color: var(--success);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> 3 Servers Online</span>
+            </div>
+            <div>
+              <strong style="font-size: 14px; color: var(--text-primary);">MCP Gateway</strong>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">Model Context Protocol endpoints exposing local filesystem, database schemas, and git repositories to AI agents.</p>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: auto;">
+              <button class="btn btn-sm btn-secondary" style="flex: 1;" onclick="triggerToast('MCP Gateway: 3 tools registered')">Manage Tools</button>
+              <button class="btn btn-sm btn-secondary" onclick="triggerToast('MCP config opened')">Config</button>
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="integration-top">
+              <div class="integration-icon" style="color: var(--info);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </div>
+              <span class="status-pill status-running"><span class="dot"></span> Web Companion</span>
+            </div>
+            <div>
+              <strong style="font-size: 14px; color: var(--text-primary);">Mobile Companion Bridge</strong>
+              <p style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">Monitor builds, approve decisions, and inspect terminal status securely from your phone on the local Wi-Fi.</p>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: auto;">
+              <button class="btn btn-sm btn-primary" style="flex: 1;" onclick="triggerToast('Mobile QR Code generated: Scan to pair')">Show QR Pair</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─── 9. VIEW CONTAINER: HISTORY & AUDIT ─── -->
+      <section class="view-container" id="view-history">
+        <div>
+          <h2 style="font-size: 16px; font-weight: 700;">Audit Trail & Event History</h2>
+          <p style="color: var(--text-muted); font-size: 12.5px;">Immutable record of all terminal actions, worker spawns, approvals, and error recoveries.</p>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="modern-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event Type</th>
+                  <th>Source</th>
+                  <th>Details</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code style="color: var(--text-muted);">13:14:45</code></td>
+                  <td><span class="status-pill status-running">Worker Spawn</span></td>
+                  <td>Operator</td>
+                  <td>Spawned <code>vite-dev-server</code> on port 5173</td>
+                  <td><strong style="color: var(--success);">Success (PID 4192)</strong></td>
+                </tr>
+                <tr>
+                  <td><code style="color: var(--text-muted);">13:12:10</code></td>
+                  <td><span class="status-pill status-warning">Decision Evaluated</span></td>
+                  <td>Operator</td>
+                  <td>Approved git commit & tag v2.19.0</td>
+                  <td><strong style="color: var(--success);">Executed</strong></td>
+                </tr>
+                <tr>
+                  <td><code style="color: var(--text-muted);">12:58:30</code></td>
+                  <td><span class="status-pill status-stopped">Process Terminated</span></td>
+                  <td>Watchdog</td>
+                  <td>Killed stale child process after 120s timeout</td>
+                  <td>Clean Exit 0</td>
+                </tr>
+                <tr>
+                  <td><code style="color: var(--text-muted);">12:45:00</code></td>
+                  <td><span class="status-pill status-running">Recipe Loaded</span></td>
+                  <td>Operator</td>
+                  <td>Loaded recipe "Full Stack Web Dev"</td>
+                  <td>3 Processes Started</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 10. VIEW CONTAINER: SETTINGS ─── -->
+      <section class="view-container" id="view-settings">
+        <div>
+          <h2 style="font-size: 16px; font-weight: 700;">Mission Control Preferences</h2>
+          <p style="color: var(--text-muted); font-size: 12.5px;">Configure themes, terminal behavior, keyboard navigation, and telemetry preferences.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 680px;">
+          
+          <div class="card">
+            <div class="card-header"><span class="card-title">Theme & Visual Experience</span></div>
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong style="color: var(--text-primary);">Interface Theme</strong>
+                  <p style="font-size: 12px; color: var(--text-muted);">Select your preferred visual theme.</p>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-sm btn-secondary" onclick="setTheme('dark')">Obsidian Dark</button>
+                  <button class="btn btn-sm btn-secondary" onclick="setTheme('solar')">Solar Light</button>
+                  <button class="btn btn-sm btn-secondary" onclick="setTheme('contrast')">High Contrast</button>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+                <div>
+                  <strong style="color: var(--text-primary);">Smooth Motion & Micro-animations</strong>
+                  <p style="font-size: 12px; color: var(--text-muted);">Honor OS reduced motion settings.</p>
+                </div>
+                <button class="btn btn-sm btn-secondary" onclick="triggerToast('Motion set to Balanced')">Enabled (Balanced)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Terminal & PTY Defaults</span></div>
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong style="color: var(--text-primary);">Default Shell</strong>
+                  <p style="font-size: 12px; color: var(--text-muted);">Executable used when creating new terminals.</p>
+                </div>
+                <code>powershell.exe</code>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+                <div>
+                  <strong style="color: var(--text-primary);">Scrollback Buffer Limit</strong>
+                  <p style="font-size: 12px; color: var(--text-muted);">Number of lines preserved in memory per pane.</p>
+                </div>
+                <code>10,000 lines</code>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ─── 11. COMMAND PALETTE MODAL (CMD + K) ─── -->
+  <div class="modal-backdrop" id="commandModal" onclick="closePaletteOnBackdrop(event)">
+    <div class="command-palette">
+      <div class="palette-search-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="paletteInput" placeholder="Type a destination, recipe or command..." oninput="filterPalette(this.value)">
+        <span class="kbd-shortcut">ESC</span>
+      </div>
+      <div class="palette-results" id="paletteResults">
+        <div class="palette-group-title">Navigation Destinations</div>
+        <div class="palette-item" onclick="executePalette('groundstation')">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></svg>
+          <span class="palette-item-name">Go to Groundstation (Cockpit Dashboard)</span>
+          <span class="kbd-shortcut">Alt G</span>
+        </div>
+        <div class="palette-item" onclick="executePalette('workspace')">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+          <span class="palette-item-name">Go to Workspace (Terminal Matrix)</span>
+          <span class="kbd-shortcut">Alt W</span>
+        </div>
+        <div class="palette-item" onclick="executePalette('needs')">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>
+          <span class="palette-item-name">Go to Needs You (Decision Queue)</span>
+          <span class="kbd-shortcut">Alt N</span>
+        </div>
+        <div class="palette-item" onclick="executePalette('agents')">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9V7a4 4 0 0 1 8 0v2M5 11h14v9H5z"/></svg>
+          <span class="palette-item-name">Go to Agents & Swarms</span>
+          <span class="kbd-shortcut">Alt A</span>
+        </div>
+
+        <div class="palette-group-title">Quick Actions</div>
+        <div class="palette-item" onclick="openSpawnModal(); closePalette();">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span class="palette-item-name">Spawn New Process</span>
+          <span class="kbd-shortcut">⌘N</span>
+        </div>
+        <div class="palette-item" onclick="cycleTheme(); closePalette();">
+          <svg class="palette-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <span class="palette-item-name">Toggle Theme (Dark / Solar / Contrast)</span>
+          <span class="kbd-shortcut">Alt T</span>
+        </div>
+      </div>
+      <div class="palette-footer">
+        <span>Use <span class="kbd-shortcut">↑</span> <span class="kbd-shortcut">↓</span> to navigate</span>
+        <span>Press <span class="kbd-shortcut">↵ Enter</span> to select</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── 12. SPAWN PROCESS MODAL ─── -->
+  <div class="modal-backdrop" id="spawnModal" onclick="closeSpawnOnBackdrop(event)">
+    <div class="command-palette" style="width: 480px;">
+      <div class="card-header">
+        <span class="card-title">Spawn Process / Terminal Worker</span>
+        <button onclick="closeSpawnModal()" style="color: var(--text-muted);">✕</button>
+      </div>
+      <div class="card-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">WORKER NAME</label>
+          <input type="text" id="spawnWorkerName" value="worker-node-api" style="width: 100%; background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">COMMAND</label>
+          <input type="text" id="spawnCommand" value="npm run dev" style="width: 100%; background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; font-family: 'JetBrains Mono', monospace;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">ASSIGN TO PANE</label>
+          <select style="width: 100%; background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px;">
+            <option>Pane 1 (Replace current)</option>
+            <option>Pane 2</option>
+            <option>Pane 3</option>
+            <option selected>Pane 4 (Available)</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+          <button class="btn btn-secondary" onclick="closeSpawnModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="confirmSpawn()">Launch Worker</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ─── JAVASCRIPT CONTROLLER ─── -->
+  <script>
+    // State
+    let currentTheme = 'dark';
+    let currentView = 'groundstation';
+    let pendingDecisionsCount = 3;
+
+    // View Titles dictionary
+    const VIEW_META = {
+      groundstation: { title: "Groundstation", sub: "Executive Command Center" },
+      workspace: { title: "Workspace", sub: "Interactive Terminal Matrix" },
+      needs: { title: "Needs You", sub: "Decision Queue & Human-in-the-Loop Triage" },
+      agents: { title: "Agents & Swarms", sub: "Mission AI Fleet Oversight" },
+      recipes: { title: "Recipes", sub: "Daily Workspace Launch Stacks" },
+      history: { title: "History & Audit", sub: "Execution Log & Event Timeline" },
+      integrations: { title: "Integrations", sub: "Bridges, MCP Gateway & Mobile Sync" },
+      settings: { title: "Settings", sub: "Preferences, Keybindings & Theme" }
+    };
+
+    // View Switcher
+    function switchView(viewName) {
+      if (!VIEW_META[viewName]) return;
+      
+      // Update sidebar nav state
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.view === viewName);
+      });
+
+      // Update active view container
+      document.querySelectorAll('.view-container').forEach(el => {
+        el.classList.remove('active');
+      });
+      const targetView = document.getElementById(`view-${viewName}`);
+      if (targetView) targetView.classList.add('active');
+
+      // Update header titles
+      document.getElementById('viewTitle').textContent = VIEW_META[viewName].title;
+      document.getElementById('viewSubtitle').textContent = VIEW_META[viewName].sub;
+
+      currentView = viewName;
+    }
+
+    // Sidebar Collapse Toggle
+    function toggleSidebar() {
+      const sidebar = document.getElementById('appSidebar');
+      sidebar.classList.toggle('collapsed');
+    }
+
+    // Theme Management
+    function setTheme(theme) {
+      currentTheme = theme;
+      document.documentElement.setAttribute('data-theme', theme);
+      triggerToast(`Theme switched to: ${theme.toUpperCase()}`);
+    }
+
+    function cycleTheme() {
+      const themes = ['dark', 'solar', 'contrast'];
+      const nextIdx = (themes.indexOf(currentTheme) + 1) % themes.length;
+      setTheme(themes[nextIdx]);
+    }
+
+    // Terminal Grid Layout Switcher
+    function setLayout(layoutClass) {
+      const grid = document.getElementById('terminalsGrid');
+      grid.className = `terminals-matrix ${layoutClass}`;
+      
+      document.querySelectorAll('.layout-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().replace('×', 'x') === layoutClass.replace('grid-', ''));
+      });
+      triggerToast(`Workspace layout: ${layoutClass.replace('grid-', '')}`);
+    }
+
+    // Broadcast Input
+    function handleBroadcast(e) {
+      if (e.key === 'Enter') {
+        const val = e.target.value.trim();
+        if (!val) return;
+        
+        for (let i = 1; i <= 4; i++) {
+          const screen = document.getElementById(`termScreen${i}`);
+          if (screen) {
+            screen.innerHTML += `\n<span style="color: var(--brand-primary); font-weight: 600;">$ ${val}</span>`;
+            screen.scrollTop = screen.scrollHeight;
+          }
+        }
+        triggerToast(`Broadcasted: "${val}" to 4 terminals`);
+        e.target.value = '';
+      }
+    }
+
+    function clearTerm(num) {
+      const screen = document.getElementById(`termScreen${num}`);
+      if (screen) {
+        screen.innerHTML = `<span class="log-dim">Terminal buffer cleared.</span>\n`;
+        triggerToast(`Cleared terminal ${num}`);
+      }
+    }
+
+    function restartTerm(num) {
+      const screen = document.getElementById(`termScreen${num}`);
+      if (screen) {
+        screen.innerHTML += `\n<span class="log-info">[termctl]</span> Restarting worker process PID... Done.\n`;
+        screen.scrollTop = screen.scrollHeight;
+        triggerToast(`Restarted worker in pane ${num}`);
+      }
+    }
+
+    // Decision Resolvers
+    function resolveDecision(cardId, message) {
+      const card = document.getElementById(cardId);
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+          card.remove();
+          pendingDecisionsCount = Math.max(0, pendingDecisionsCount - 1);
+          updateDecisionBadges();
+          triggerToast(message);
+        }, 200);
+      }
+    }
+
+    function updateDecisionBadges() {
+      const badge = document.getElementById('needsCountBadge');
+      if (badge) {
+        badge.textContent = pendingDecisionsCount;
+        if (pendingDecisionsCount === 0) badge.style.display = 'none';
+      }
+      const kpi = document.getElementById('kpiDecisionVal');
+      if (kpi) kpi.textContent = pendingDecisionsCount;
+
+      if (pendingDecisionsCount === 0) {
+        const banner = document.getElementById('urgentTriageBanner');
+        if (banner) banner.style.display = 'none';
+      }
+    }
+
+    function approveQuickAction() {
+      resolveDecision('card-dec-1', 'Destructive clean approved from cockpit banner');
+      const banner = document.getElementById('urgentTriageBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function approveAllDecisions() {
+      ['card-dec-1', 'card-dec-2', 'card-dec-3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      });
+      pendingDecisionsCount = 0;
+      updateDecisionBadges();
+      triggerToast('All pending decisions approved successfully');
+    }
+
+    // Recipes
+    function launchRecipe(recipeName) {
+      triggerToast(`Launching stack: "${recipeName}"...`);
+      setTimeout(() => {
+        switchView('workspace');
+        triggerToast(`Stack "${recipeName}" initialized in Workspace`);
+      }, 500);
+    }
+
+    // Command Palette
+    function openCommandPalette() {
+      const modal = document.getElementById('commandModal');
+      modal.classList.add('open');
+      const input = document.getElementById('paletteInput');
+      input.value = '';
+      input.focus();
+    }
+
+    function closePalette() {
+      document.getElementById('commandModal').classList.remove('open');
+    }
+
+    function closePaletteOnBackdrop(e) {
+      if (e.target.id === 'commandModal') closePalette();
+    }
+
+    function executePalette(view) {
+      closePalette();
+      switchView(view);
+    }
+
+    function filterPalette(query) {
+      const q = query.toLowerCase();
+      document.querySelectorAll('.palette-item').forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    // Spawn Process Modal
+    function openSpawnModal() {
+      document.getElementById('spawnModal').classList.add('open');
+    }
+
+    function closeSpawnModal() {
+      document.getElementById('spawnModal').classList.remove('open');
+    }
+
+    function closeSpawnOnBackdrop(e) {
+      if (e.target.id === 'spawnModal') closeSpawnModal();
+    }
+
+    function confirmSpawn() {
+      const name = document.getElementById('spawnWorkerName').value;
+      const cmd = document.getElementById('spawnCommand').value;
+      closeSpawnModal();
+      triggerToast(`Worker "${name}" spawned: ${cmd}`);
+      switchView('workspace');
+    }
+
+    // Toast System
+    function triggerToast(msg) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--success);"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>${msg}</span>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        toast.style.transition = 'all 0.2s ease';
+        setTimeout(() => toast.remove(), 200);
+      }, 2600);
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        openCommandPalette();
+      }
+      if (e.key === 'Escape') {
+        closePalette();
+        closeSpawnModal();
+      }
+      if (e.altKey) {
+        if (e.key.toLowerCase() === 'g') { e.preventDefault(); switchView('groundstation'); }
+        if (e.key.toLowerCase() === 'w') { e.preventDefault(); switchView('workspace'); }
+        if (e.key.toLowerCase() === 'n') { e.preventDefault(); switchView('needs'); }
+        if (e.key.toLowerCase() === 'a') { e.preventDefault(); switchView('agents'); }
+        if (e.key.toLowerCase() === 'r') { e.preventDefault(); switchView('recipes'); }
+        if (e.key.toLowerCase() === 'i') { e.preventDefault(); switchView('integrations'); }
+        if (e.key.toLowerCase() === 'h') { e.preventDefault(); switchView('history'); }
+        if (e.key.toLowerCase() === 's') { e.preventDefault(); switchView('settings'); }
+        if (e.key.toLowerCase() === 't') { e.preventDefault(); cycleTheme(); }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -20,14 +20,31 @@ function fakeSafeStorage(options = {}) {
 }
 
 function makeStore(t, options = {}) {
+  const { fileSystem = fs, ...storageOptions } = options;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "mission-ai-credentials-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const filePath = path.join(directory, "credentials.json");
-  return { filePath, store: new MissionAiCredentialStore(filePath, { safeStorage: fakeSafeStorage(options) }) };
+  return {
+    filePath,
+    store: new MissionAiCredentialStore(filePath, {
+      fs: fileSystem,
+      safeStorage: fakeSafeStorage(storageOptions)
+    })
+  };
 }
 
 test("Mission AI credentials are OS-encrypted and never persisted as plaintext", t => {
-  const { filePath, store } = makeStore(t);
+  const chmodCalls = [];
+  const fileSystem = new Proxy(fs, {
+    get(target, property, receiver) {
+      if (property !== "chmodSync") return Reflect.get(target, property, receiver);
+      return (filePath, mode) => {
+        chmodCalls.push({ filePath, mode });
+        return target.chmodSync(filePath, mode);
+      };
+    }
+  });
+  const { filePath, store } = makeStore(t, { fileSystem });
   const apiKey = "AIzaSyExampleMissionControlKey123456789";
   const configured = store.configure({ apiKey, includeTerminalEvidence: true });
 
@@ -37,7 +54,10 @@ test("Mission AI credentials are OS-encrypted and never persisted as plaintext",
   assert.equal(configured.protection, "os-encrypted");
   assert.equal(store.apiKey(), apiKey);
   assert.equal(fs.readFileSync(filePath, "utf8").includes(apiKey), false);
-  assert.equal(fs.statSync(filePath).mode & 0o077, 0);
+  assert.deepEqual(chmodCalls, [{ filePath, mode: 0o600 }]);
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(filePath).mode & 0o077, 0);
+  }
 });
 
 test("Mission AI preferences update without requiring or exposing the existing key", t => {
@@ -83,3 +103,55 @@ test("Mission AI credential validation rejects short keys, unsupported models, a
   assert.match(store.status().error, /invalid/);
   assert.throws(() => store.apiKey(), /invalid/);
 });
+
+test("Mission AI dual-key configuration stores and decrypts primary and secondary slots", t => {
+  const { filePath, store } = makeStore(t);
+  const primaryKey = "AIzaSyPrimaryMissionControlKey1234567";
+  const secondaryKey = "AIzaSySecondaryMissionControlKey98765";
+
+  const configured = store.configure({
+    apiKey: primaryKey,
+    apiKeySecondary: secondaryKey,
+    model: "gemini-2.5-pro"
+  });
+
+  assert.equal(configured.configured, true);
+  assert.equal(configured.model, "gemini-2.5-pro");
+  assert.equal(configured.keyState.primary.configured, true);
+  assert.equal(configured.keyState.secondary.configured, true);
+  assert.equal(configured.activeSlot, "primary");
+
+  assert.equal(store.apiKey("primary"), primaryKey);
+  assert.equal(store.apiKey("secondary"), secondaryKey);
+  assert.equal(store.getSlotApiKey("primary").apiKey, primaryKey);
+  assert.equal(store.getSlotApiKey("secondary").apiKey, secondaryKey);
+
+  // Raw file must contain neither key in plaintext
+  const raw = fs.readFileSync(filePath, "utf8");
+  assert.equal(raw.includes(primaryKey), false);
+  assert.equal(raw.includes(secondaryKey), false);
+});
+
+test("Mission AI migrates legacy schema v1 documents to schema v2 transparently", t => {
+  const { filePath, store } = makeStore(t);
+  const legacyKey = "AIzaSyLegacyMissionControlKey123456";
+
+  // Write a schema v1 document directly
+  const v1Doc = {
+    version: 1,
+    encryptedApiKey: Buffer.from(`encrypted:${legacyKey}`, "utf8").toString("base64"),
+    model: "gemini-2.5-flash",
+    includeTerminalEvidence: false,
+    updatedAt: 1000
+  };
+  fs.writeFileSync(filePath, JSON.stringify(v1Doc), "utf8");
+
+  // Loading status should read it seamlessly as primary slot
+  const status = store.status();
+  assert.equal(status.configured, true);
+  assert.equal(status.keyState.primary.configured, true);
+  assert.equal(status.keyState.secondary.configured, false);
+  assert.equal(store.apiKey(), legacyKey);
+  assert.equal(store.apiKey("primary"), legacyKey);
+});
+

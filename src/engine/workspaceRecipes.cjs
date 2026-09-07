@@ -1,6 +1,9 @@
 "use strict";
 
 const RECIPE_LIMIT = 20;
+// T077 — how many finished runs are kept per recipe. Bounded like every other
+// history in the engine; enough to see a recovery and what it recovered from.
+const RECIPE_RUN_HISTORY_LIMIT = 10;
 const MAX_RECIPE_STEPS = 50;
 const MAX_RECIPE_PARALLELISM = 8;
 const MAX_RECIPE_RETRIES = 3;
@@ -98,6 +101,11 @@ function normalizeRecipe(value, sessionIds) {
     retryAttempts: boundedInteger(value.retryAttempts, 0, 0, MAX_RECIPE_RETRIES),
     retryDelayMs: boundedInteger(value.retryDelayMs, 500, 100, 10000),
     readinessTimeoutMs,
+    // T076 — `recipeVersion` is the schema; `revision` is this recipe's own
+    // edit counter, and it is what conflict detection compares. It is carried
+    // forward from the caller only so `saveRecipe` can bump it — a client
+    // cannot choose its own revision.
+    revision: Number.isInteger(value.revision) && value.revision > 0 ? value.revision : 1,
     updatedAt: Date.now()
   };
 }
@@ -116,6 +124,7 @@ function cloneRun(run) {
 }
 
 module.exports = {
+  RECIPE_RUN_HISTORY_LIMIT,
   MAX_RECIPE_PARALLELISM,
   MAX_RECIPE_RETRIES,
   MAX_RECIPE_STEPS,

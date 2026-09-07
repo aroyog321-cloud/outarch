@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 function pathApi(platform = process.platform) {
-  return platform === "win32" ? path.win32 : path;
+  return platform === "win32" ? path.win32 : path.posix;
 }
 
 function canonicalPath(value, platform = process.platform) {

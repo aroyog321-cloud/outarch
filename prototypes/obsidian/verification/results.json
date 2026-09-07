@@ -1,0 +1,111 @@
+{
+  "date": "2026-09-05T14:09:35.114Z",
+  "checks": [
+    {
+      "name": "Groundstation renders local fonts and icons",
+      "passed": true
+    },
+    {
+      "name": "Route: groundstation",
+      "passed": true
+    },
+    {
+      "name": "Route: workspace",
+      "passed": true
+    },
+    {
+      "name": "Route: needs",
+      "passed": true
+    },
+    {
+      "name": "Route: agents",
+      "passed": true
+    },
+    {
+      "name": "Route: recipes",
+      "passed": true
+    },
+    {
+      "name": "Route: history",
+      "passed": true
+    },
+    {
+      "name": "Route: settings",
+      "passed": true
+    },
+    {
+      "name": "Route: ai",
+      "passed": true
+    },
+    {
+      "name": "Route: integrations",
+      "passed": true
+    },
+    {
+      "name": "Route: projects",
+      "passed": true
+    },
+    {
+      "name": "Worker search and empty result recovery",
+      "passed": true
+    },
+    {
+      "name": "Create worker updates the register",
+      "passed": true
+    },
+    {
+      "name": "Acknowledgement leaves failure open, successful retry resolves it",
+      "passed": true
+    },
+    {
+      "name": "Approval requires explicit confirmation",
+      "passed": true
+    },
+    {
+      "name": "Recipe editor validates steps and saves",
+      "passed": true
+    },
+    {
+      "name": "Simulated terminal accepts pwd without execution",
+      "passed": true
+    },
+    {
+      "name": "AI question yields labelled scripted response",
+      "passed": true
+    },
+    {
+      "name": "Vercel dark system is locked and operational state is distinguished",
+      "passed": true
+    },
+    {
+      "name": "Palette works with input and keyboard",
+      "passed": true
+    },
+    {
+      "name": "All routes reflow at 960px",
+      "passed": true
+    },
+    {
+      "name": "All routes reflow at 720px",
+      "passed": true
+    },
+    {
+      "name": "All routes reflow at 390px",
+      "passed": true
+    },
+    {
+      "name": "All routes reflow at 320px",
+      "passed": true
+    },
+    {
+      "name": "No renderer errors or unresolved icon names",
+      "passed": true
+    }
+  ],
+  "consoleErrors": [],
+  "limitations": [
+    "No screen-reader or real-device test",
+    "No production services or process execution",
+    "No formal WCAG conformance claim"
+  ]
+}

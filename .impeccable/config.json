@@ -11,6 +11,24 @@
         ],
         "createdAt": "2026-08-29T06:57:13.866Z",
         "reason": "Matches the user's own reference screenshot for this exact Integrations overview row (colored left bar per row, tone-coded), and mirrors the existing .recipe-card-v2::before phase-accent pattern already in workspaceRecipes2.css"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/redesign/surfaces.css"
+        ],
+        "createdAt": "2026-09-03T11:55:02.454Z",
+        "reason": "false positive: L1139 is .mai-md-blockquote { border-left: 3px solid var(--mc-ai) } — a Markdown blockquote left rule in Mission AI rendered answers, the standard typographic convention, not a card side-tab. Pre-existing code. Re-audit surfaces.css manually during the design-system batch."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/MissionAI.css"
+        ],
+        "createdAt": "2026-09-03T13:13:14.648Z",
+        "reason": "false positive: L47 is .mission-ai-message { border-left: 2px solid rgba(183,227,192,.45) } — a 2px left rule on a small inline status/error callout (alert-bar convention), not a thick side-tab on a card. Pre-existing code; only touched MissionAI.jsx prompt text this session."
       }
     ]
   }

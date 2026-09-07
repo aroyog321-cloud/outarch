@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Obsidian: a new, interactive Mission Control design study. All workspace data and actions are simulated locally.">
+  <title>Mission Control · Obsidian</title>
+  <link rel="stylesheet" href="obsidian.css">
+  <script src="assets/lucide.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div class="ambient" aria-hidden="true"></div>
+  <div class="app-shell" id="shell">
+    <aside class="sidebar glass" id="sidebar" aria-label="Application sidebar"></aside>
+    <div class="main-shell">
+      <header class="topbar" id="topbar"></header>
+      <main id="content" tabindex="-1"></main>
+      <footer class="statusbar" id="statusbar"></footer>
+    </div>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div class="toast-region" id="toasts" role="status" aria-live="polite" aria-atomic="true"></div>
+  <noscript>This interactive prototype needs JavaScript enabled. Open index.html in a modern browser.</noscript>
+</body>
+</html>

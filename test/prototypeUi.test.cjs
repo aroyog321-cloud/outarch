@@ -6,6 +6,16 @@ const { test } = require("node:test");
 const root = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
+
+// T154 — reduced motion is owned by one layer, not repeated per stylesheet.
+// Any component test that used to assert its own copy now asserts the owner.
+function assertReducedMotionIsCentral() {
+  const owner = fs.readFileSync(path.resolve(__dirname, "..", "src", "groundstation", "renderer", "redesign", "surfaces.css"), "utf8");
+  assert.match(owner, /@media \(prefers-reduced-motion: reduce\)/, "the redesign surface layer owns the OS preference");
+  assert.match(owner, /\.shell\.motion-reduced,/, "and the in-app Motion setting resolves to the same rule");
+  assert.match(owner, /--mc-duration-fast: 0ms;/, "stilling the duration tokens is what stops token-driven motion");
+}
+
 test("the consolidated full-app concept is mapped onto the live renderer", () => {
   const app = read("src/groundstation/renderer/App.jsx");
   const main = read("src/groundstation/renderer/main.jsx");
@@ -25,14 +35,14 @@ test("the consolidated full-app concept is mapped onto the live renderer", () =>
   assert.match(base, /grid-template-columns: 212px minmax\(0, 1fr\)/);
   assert.match(workspace, /container: workspace-stage \/ inline-size/);
   assert.match(screens, /2\.19 Groundstation contract/);
-  assert.match(base, /@media \(prefers-reduced-motion: reduce\)/);
+  assertReducedMotionIsCentral();
   assert.match(app, /const workers = sessions\.filter\(session => !session\.id\.startsWith\("agent-"\)\)/);
-  assert.match(app, /workers\.map\(session => <ReferenceManifestRow/);
+  assert.match(app, /workers\.map\(\(session, index\) => <ReferenceManifestRow/);
   assert.match(app, /data-tooltip=\{`Switch project/);
   assert.match(app, /className="app-sidebar__rail-label"/);
   assert.match(app, /pendingCount=\{pendingCount\}/);
   assert.match(status, /status-bar-premium__crumb"><b>\{VIEW_LABELS\[view\]/);
-  assert.match(missionAi, /mode === "ask" \? "Read-only answers" : "Proposal only"/);
+  assert.match(missionAi, /mode === "ask" \? "Read-only answers" : "Approval-gated proposal"/);
 });
 
 test("overview failures open evidence before lifecycle mutation", () => {

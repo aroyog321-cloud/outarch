@@ -5,7 +5,7 @@
   overflow: hidden;
   background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--accent) 18%);
-  border-radius: 11px;
+  border-radius: var(--mc-radius-md);
 }
 
 .memory-resume > header {
@@ -127,10 +127,10 @@
   text-transform: uppercase;
 }
 
-.recovery-chains button.is-retrying > i { background: #d8b16c; }
-.recovery-chains button.is-retrying > b { color: #d8b16c; }
-.recovery-chains button.is-unresolved > b { color: #ef9189; }
-.recovery-chains button.is-recovered > b { color: #77e1b3; }
+.recovery-chains button.is-retrying > i { background: var(--mc-warning); }
+.recovery-chains button.is-retrying > b { color: var(--mc-warning); }
+.recovery-chains button.is-unresolved > b { color: var(--mc-danger); }
+.recovery-chains button.is-recovered > b { color: var(--mc-ok); }
 
 .recovery-chains button small {
   display: -webkit-box;
@@ -140,7 +140,7 @@
   -webkit-line-clamp: 2;
 }
 
-.history-chapters button.is-active > i { box-shadow: 0 0 0 3px rgba(119,225,179,.07); }
+.history-chapters button.is-active > i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-ok) 7%, transparent); }
 
 .history-chapters button small {
   max-width: 260px;
@@ -159,9 +159,9 @@
 
 .history-chapter-context.is-recovered,
 .history-chapter-context.is-completed,
-.history-chapter-context.is-active { border-left-color: #77e1b3; }
-.history-chapter-context.is-unresolved { border-left-color: #ef9189; }
-.history-chapter-context.is-retrying { border-left-color: #d8b16c; }
+.history-chapter-context.is-active { border-left-color: var(--mc-ok); }
+.history-chapter-context.is-unresolved { border-left-color: var(--mc-danger); }
+.history-chapter-context.is-retrying { border-left-color: var(--mc-warning); }
 
 .history-chapter-context > span {
   color: var(--muted);
@@ -194,8 +194,4 @@
   .memory-resume > div { grid-template-columns: 1fr; }
   .memory-resume > div > button { border-top: 1px solid var(--line); border-left: 0; }
   .memory-resume > div > button:first-child { border-top: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .memory-resume > div > button { transition: none; }
 }

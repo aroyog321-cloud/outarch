@@ -559,6 +559,185 @@ class SecureMcpGateway extends EventEmitter {
     }
   }
 
+  #renderDiscoveryHtml(port, stored) {
+    const scopes = stored.scopes || [];
+    const activeTools = TOOL_DEFINITIONS.filter(t => scopes.includes(t.scope));
+    const toolsHtml = activeTools.map(t => `<div class="card">
+      <div class="card-head">
+        <strong>${t.name}</strong>
+        <span class="badge ${t.scope.includes("request") ? "badge-approval" : "badge-read"}">${t.scope.includes("request") ? "APPROVAL GATED" : "READ ONLY"}</span>
+      </div>
+      <p>${t.description}</p>
+      <code>Scope: ${t.scope}</code>
+    </div>`).join("\n");
+
+    const sampleClaudeConfig = JSON.stringify({
+      mcpServers: {
+        "mission-control": {
+          command: "npx",
+          args: ["-y", "mcp-remote", `http://127.0.0.1:${port}/mcp`, "--header", "Authorization: Bearer <TOKEN>"]
+        }
+      }
+    }, null, 2);
+
+    const sampleCursorConfig = JSON.stringify({
+      name: "mission-control",
+      type: "http",
+      url: `http://127.0.0.1:${port}/mcp`,
+      headers: {
+        Authorization: "Bearer <TOKEN>"
+      }
+    }, null, 2);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control · Secure MCP Gateway</title>
+<style>
+  :root {
+    --bg: #090d0b;
+    --surface: #101612;
+    --surface-2: #161e19;
+    --border: #223227;
+    --text: #e1ede4;
+    --text-dim: #7f9986;
+    --accent: #4ade80;
+    --accent-dim: #22c55e33;
+    --amber: #f59e0b;
+    --font-mono: "SFMono-Regular", Consolas, Menlo, Monaco, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    padding: 32px 20px;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title-group { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 42px; height: 42px; border-radius: 8px;
+    background: #15261b; color: var(--accent);
+    display: grid; place-items: center; font-family: var(--font-mono);
+    font-weight: 700; font-size: 18px; border: 1px solid var(--border);
+  }
+  h1 { font-size: 20px; font-weight: 650; }
+  p.subtitle { font-size: 13px; color: var(--text-dim); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 9999px;
+    background: var(--accent-dim); border: 1px solid #22c55e44;
+    color: var(--accent); font-size: 12px; font-weight: 600;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .grid-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px; margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  .stat-value { font-size: 15px; font-weight: 600; font-family: var(--font-mono); margin-top: 4px; color: var(--text); }
+  section { margin-bottom: 32px; }
+  h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .tools-list { display: grid; gap: 10px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .card-head strong { font-family: var(--font-mono); font-size: 13px; color: var(--accent); }
+  .card p { font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .card code { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+  .badge-read { background: #1b2e21; color: var(--accent); border: 1px solid #285435; }
+  .badge-approval { background: #2e2614; color: var(--amber); border: 1px solid #544520; }
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; overflow-x: auto;
+    font-family: var(--font-mono); font-size: 12px; color: #bfe3ca; line-height: 1.45;
+  }
+  .note {
+    background: var(--surface-2); border-left: 3px solid var(--accent);
+    padding: 12px 14px; border-radius: 0 6px 6px 0; font-size: 13px;
+    color: var(--text-dim); margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="title-group">
+      <div class="logo">MC</div>
+      <div>
+        <h1>Mission Control Secure MCP Gateway</h1>
+        <p class="subtitle">Model Context Protocol 2026-07-28 · JSON-RPC 2.0</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span>Active · 127.0.0.1:${port}</span>
+    </div>
+  </header>
+
+  <div class="grid-stats">
+    <div class="stat-card">
+      <div class="stat-label">Endpoint</div>
+      <div class="stat-value">/mcp</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Transport</div>
+      <div class="stat-value">HTTP POST + JSON-RPC</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Scopes</div>
+      <div class="stat-value">${scopes.length} enabled</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Protection</div>
+      <div class="stat-value">${stored.protection || "OS-encrypted"}</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Registered MCP Tools (${activeTools.length})</h2>
+    <div class="tools-list">
+      ${toolsHtml || "<div class='card'><p>No tools enabled. Configure permissions in Mission Control Settings.</p></div>"}
+    </div>
+  </section>
+
+  <section>
+    <h2>Claude Desktop Setup (claude_desktop_config.json)</h2>
+    <pre><code>${sampleClaudeConfig}</code></pre>
+  </section>
+
+  <section>
+    <h2>Cursor Setup (.cursor/mcp.json)</h2>
+    <pre><code>${sampleCursorConfig}</code></pre>
+    <div class="note">
+      <strong>Authentication:</strong> Copy your one-time token from the Mission Control app settings (<strong>Integrations &rarr; MCP Gateway &rarr; Rotate token</strong>) and replace <code>&lt;TOKEN&gt;</code>.
+    </div>
+  </section>
+</div>
+</body>
+</html>`;
+  }
+
   #audit(record) {
     try { this.store.appendAudit({ ...record, id: `mcp-audit-${this.randomUUID()}`, at: this.now() }); }
     catch { /* Gateway operation remains available if bounded audit persistence fails. */ }
@@ -603,7 +782,20 @@ class SecureMcpGateway extends EventEmitter {
     };
     if (request.url !== MCP_ENDPOINT_PATH) return send(404, jsonRpcError(null, new McpGatewayError(-32601, "MCP endpoint not found", 404)));
     if (!allowedOrigin(request.headers.origin)) return send(403, jsonRpcError(null, new McpGatewayError(-32003, "Origin is not allowed", 403)));
-    if (request.method !== "POST") return send(405, jsonRpcError(null, new McpGatewayError(-32601, "Only POST is supported", 405)), { Allow: "POST" });
+
+    if (request.method === "GET") {
+      const stored = this.store.status();
+      const port = this.address?.port || stored.port;
+      const html = this.#renderDiscoveryHtml(port, stored);
+      response.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff"
+      });
+      return response.end(html);
+    }
+
+    if (request.method !== "POST") return send(405, jsonRpcError(null, new McpGatewayError(-32601, "Only POST is supported for JSON-RPC", 405)), { Allow: "GET, POST" });
     const authorization = request.headers.authorization || "";
     let expected;
     try { expected = `Bearer ${this.store.token()}`; }

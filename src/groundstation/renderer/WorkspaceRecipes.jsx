@@ -18,7 +18,13 @@ const GATES = [
   { value: "healthy", label: "Engine health signal" }
 ];
 
-const RECIPE_AI_PROMPT = "Explain Mission Control Workspace Recipes to a beginner. A recipe is a saved Daily Workspace that reuses existing EngineAPI-owned workers without creating duplicate PTYs. Explain one-by-one versus parallel startup, worker order, readiness gates, start-after dependencies, timeout, retries, reuse-running, failure policy, recovery/rollback, saved terminal layout, Launch, Pause, Cancel, Recover and Delete. Then help me design a practical recipe for my current project. Do not claim that any action has executed.";
+const RECIPE_AI_PROMPT = "Explain Mission Control Workspace Recipes to a beginner. A recipe is a repeatable workspace launch that reuses existing EngineAPI-owned workers without creating duplicate PTYs. Explain one-by-one versus parallel startup, worker order, readiness gates, start-after dependencies, timeout, retries, reuse-running, failure policy, recovery/rollback, saved terminal layout, Launch, Pause, Cancel, Recover and Delete. Then help me design a practical recipe for my current project. Do not claim that any action has executed.";
+
+const MODE_COPY = {
+  create: { title: "Save a repeatable workspace launch", save: "Save recipe" },
+  edit: { title: "Edit this recipe", save: "Update recipe" },
+  duplicate: { title: "Duplicate this recipe", save: "Save as new recipe" }
+};
 
 function RecipeSelect({ value, onChange, options, label = "Recipe policy" }) {
   return <Select.Root value={String(value)} onValueChange={onChange}><Select.Trigger className="recipe-select" aria-label={label}><Select.Value/><Select.Icon>⌄</Select.Icon></Select.Trigger><Select.Portal><Select.Content className="recipe-select-content" position="popper" sideOffset={6}><Select.Viewport>{options.map(option => <Select.Item className="recipe-select-item" value={String(option.value)} key={option.value}><Select.ItemText>{option.label}</Select.ItemText><Select.ItemIndicator>✓</Select.ItemIndicator></Select.Item>)}</Select.Viewport></Select.Content></Select.Portal></Select.Root>;
@@ -30,16 +36,43 @@ function DependencyPicker({ step, steps, sessionsById, onChange }) {
   return <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="recipe-dependency-trigger"><span>{label}</span><b>⌄</b></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="recipe-dependency-menu" align="end" sideOffset={6}><DropdownMenu.Label>START ONLY AFTER</DropdownMenu.Label>{available.length ? available.map(candidate => <DropdownMenu.CheckboxItem key={candidate.workerId} checked={step.dependsOn.includes(candidate.workerId)} onCheckedChange={() => onChange(candidate.workerId)} onSelect={event => event.preventDefault()}><DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator><span>{sessionsById.get(candidate.workerId)?.name || candidate.workerId}</span></DropdownMenu.CheckboxItem>) : <DropdownMenu.Item disabled>No other selected workers</DropdownMenu.Item>}</DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>;
 }
 
-function runTone(phase) {
-  if (["failed", "blocked"].includes(phase)) return "failed";
-  if (phase === "ready") return "ready";
-  if (["starting", "retrying", "retry-wait"].includes(phase)) return "active";
-  return "idle";
+// Persisted recipe -> builder form state. Falls back to a session-derived draft
+// for the create flow so a first recipe still starts populated.
+function draftFromRecipe(recipe, sessions) {
+  if (recipe && Array.isArray(recipe.steps) && recipe.steps.length) {
+    return {
+      name: String(recipe.name || ""),
+      steps: recipe.steps.map(step => ({
+        workerId: step.workerId,
+        dependsOn: Array.isArray(step.dependsOn) ? [...step.dependsOn] : [],
+        readiness: step.readiness || "running",
+        timeoutMs: Number(step.timeoutMs) || Number(recipe.readinessTimeoutMs) || 10000
+      })),
+      templateId: "custom",
+      failurePolicy: recipe.failurePolicy || "stop",
+      recoveryPolicy: recipe.recoveryPolicy || "keep-running",
+      restartPolicy: recipe.restartPolicy || "reuse-running",
+      maxParallel: String(recipe.maxParallel || 2),
+      retryAttempts: String(recipe.retryAttempts ?? 1),
+      readinessTimeoutMs: String(recipe.readinessTimeoutMs || 10000)
+    };
+  }
+  const initial = sessions.map(session => ({ workerId: session.id, dependsOn: [], readiness: "running", timeoutMs: 10000 }));
+  return {
+    name: "",
+    steps: applyRecipeTemplate("sequential", initial),
+    templateId: "sequential",
+    failurePolicy: "stop",
+    recoveryPolicy: "keep-running",
+    restartPolicy: "reuse-running",
+    maxParallel: "2",
+    retryAttempts: "1",
+    readinessTimeoutMs: "10000"
+  };
 }
 
-export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId, sessionIds, onClose, onLaunch, onAskAI }) {
+export default function WorkspaceRecipes({ open, mode = "create", editRecipe = null, projectKey, sessions, layoutId, sessionIds, onClose, onLaunch, onAskAI, onReload }) {
   const sessionIdentity = sessions.map(session => session.id).join("\u0000");
-  const [recipes, setRecipes] = React.useState([]);
   const [name, setName] = React.useState("");
   const [steps, setSteps] = React.useState([]);
   const [templateId, setTemplateId] = React.useState("sequential");
@@ -51,17 +84,61 @@ export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId,
   const [readinessTimeoutMs, setReadinessTimeoutMs] = React.useState("10000");
   const [advanced, setAdvanced] = React.useState(false);
   const [error, setError] = React.useState("");
-  const refresh = React.useCallback(() => missionApi().request("recipe.list").then(value => { setRecipes(Array.isArray(value) ? value : []); setError(""); }).catch(value => setError(value.message || String(value))), []);
+  const [dirty, setDirty] = React.useState(false);
+  const [conflict, setConflict] = React.useState(false);
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const dirtyGuard = React.useRef(true); // skip the first change after a (re)load
 
+  // T075: a recipe with a live run must not be mutated in place. Editing one that
+  // is running/paused/cancelling is saved as a new recipe instead, leaving the
+  // active run untouched.
+  const RUN_LOCKED = ["running", "paused", "cancelling"].includes(editRecipe?.run?.phase);
+  const runLocked = mode === "edit" && RUN_LOCKED;
+  const editingId = mode === "edit" && editRecipe && !runLocked ? editRecipe.id : null;
+  const copy = runLocked
+    ? { title: "Edit a running recipe", save: "Save as a new recipe" }
+    : (MODE_COPY[mode] || MODE_COPY.create);
+
+  // (Re)load the form whenever the dialog opens or its subject changes.
   React.useEffect(() => {
-    const initial = sessions.map(session => ({ workerId: session.id, dependsOn: [], readiness: "running", timeoutMs: 10000 }));
-    setSteps(applyRecipeTemplate("sequential", initial));
-    setTemplateId("sequential");
-  }, [projectKey, sessionIdentity]);
-  React.useEffect(() => { if (open) void refresh(); }, [open, projectKey, refresh]);
+    if (!open) return;
+    const draft = draftFromRecipe(mode === "create" ? null : editRecipe, sessions);
+    dirtyGuard.current = true;
+    setName(mode === "duplicate" && editRecipe ? `${editRecipe.name} copy` : draft.name);
+    setSteps(draft.steps);
+    setTemplateId(draft.templateId);
+    setFailurePolicy(draft.failurePolicy);
+    setRecoveryPolicy(draft.recoveryPolicy);
+    setRestartPolicy(draft.restartPolicy);
+    setMaxParallel(draft.maxParallel);
+    setRetryAttempts(draft.retryAttempts);
+    setReadinessTimeoutMs(draft.readinessTimeoutMs);
+    setAdvanced(mode !== "create");
+    setDirty(false);
+    setError("");
+    setDiscardOpen(false);
+  }, [open, mode, editRecipe?.id, projectKey, mode === "create" ? sessionIdentity : ""]);
+
+  // Any field change after a load marks the form dirty for the close guard.
+  React.useEffect(() => {
+    if (dirtyGuard.current) { dirtyGuard.current = false; return; }
+    setDirty(true);
+  }, [name, steps, templateId, failurePolicy, recoveryPolicy, restartPolicy, maxParallel, retryAttempts, readinessTimeoutMs]);
 
   const sessionById = React.useMemo(() => new Map(sessions.map(session => [session.id, session])), [sessions]);
   const workerIds = steps.map(step => step.workerId);
+  // T078/T079: a plain-language read of what launching this recipe will do.
+  const rootCount = steps.filter(step => !step.dependsOn.length).length;
+  const chainedCount = steps.length - rootCount;
+  const layoutLabel = TERMINAL_LAYOUTS.find(item => item.id === layoutId)?.label || layoutId;
+  const planSummary = steps.length
+    ? `Opens ${steps.length} terminal${steps.length === 1 ? "" : "s"}. ${rootCount} start${rootCount === 1 ? "s" : ""} together` +
+      `${chainedCount ? `; ${chainedCount} wait${chainedCount === 1 ? "s" : ""} for a dependency to become ready` : ""}. ` +
+      `Up to ${maxParallel} run at once, each gets ${retryAttempts} readiness retr${retryAttempts === "1" ? "y" : "ies"}. ` +
+      `On a failed readiness check it ${failurePolicy === "stop" ? "stops starting anything new" : "keeps independent branches going"}; ` +
+      `recovery ${recoveryPolicy === "rollback-started" ? "stops the workers this recipe started" : "leaves started workers running"}. ` +
+      `Reuses any worker already running and restores the ${layoutLabel} terminal layout — never a duplicate PTY.`
+    : "Select at least one worker to see what this recipe will do.";
   const applyTemplate = id => { setTemplateId(id); setSteps(current => applyRecipeTemplate(id, current)); setError(""); };
   const toggleWorker = id => setSteps(current => {
     if (current.some(step => step.workerId === id)) return current.filter(step => step.workerId !== id).map(step => ({ ...step, dependsOn: step.dependsOn.filter(dependency => dependency !== id) }));
@@ -85,6 +162,11 @@ export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId,
   });
   const changeGate = (workerId, readiness) => setSteps(current => current.map(step => step.workerId === workerId ? { ...step, readiness } : step));
 
+  const requestClose = () => {
+    if (dirty) { setDiscardOpen(true); return; }
+    onClose();
+  };
+
   // A design request, not a conversation: Mission AI is handed the real
   // workers and the current draft so the answer is about this project rather
   // than a generic recipe. It may only propose — the closing sentence keeps it
@@ -96,7 +178,7 @@ export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId,
     });
     const available = sessions.map(session => `${session.name} (${session.command})`);
     onAskAI?.([
-      "Help me design a Mission Control Daily Workspace (recipe) for this project.",
+      "Help me design a Mission Control recipe (a repeatable workspace launch) for this project.",
       `Workers available in this project: ${available.join("; ") || "none configured yet"}.`,
       chosen.length ? `Currently selected, in launch order: ${chosen.join(" ")}` : "No workers are selected yet.",
       `Startup template: ${templateId}. Terminal layout: ${layoutId}. Maximum parallel workers: ${maxParallel}. Readiness retries: ${retryAttempts}. Gate timeout: ${readinessTimeoutMs} ms.`,
@@ -109,33 +191,44 @@ export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId,
     const trimmed = name.trim();
     if (!trimmed || !steps.length) return;
     const recipe = {
-      id: globalThis.crypto?.randomUUID?.() || `recipe-${Date.now()}`,
+      // Edit keeps the same id (recipe.save is an upsert); create and duplicate get a fresh one.
+      id: editingId || globalThis.crypto?.randomUUID?.() || `recipe-${Date.now()}`,
       name: trimmed.slice(0, 60),
       workerIds,
       steps: steps.map(step => ({ ...step, timeoutMs: Number(readinessTimeoutMs) })),
-      layoutId,
-      sessionIds,
+      layoutId: mode === "edit" && editRecipe?.layoutId ? editRecipe.layoutId : layoutId,
+      sessionIds: mode === "edit" && Array.isArray(editRecipe?.sessionIds) ? editRecipe.sessionIds : sessionIds,
       failurePolicy,
       recoveryPolicy,
       restartPolicy,
       maxParallel: Number(maxParallel),
       retryAttempts: Number(retryAttempts),
       retryDelayMs: 500,
-      readinessTimeoutMs: Number(readinessTimeoutMs)
+      readinessTimeoutMs: Number(readinessTimeoutMs),
+      // T076 — the revision this edit started from. The engine rejects the save
+      // if the stored copy has moved on, so a second window is told rather than
+      // silently overwritten. Only an edit carries one; create and duplicate are
+      // new recipes and have nothing to conflict with.
+      ...(mode === "edit" && Number.isInteger(editRecipe?.revision) ? { baseRevision: editRecipe.revision } : {})
     };
-    try { await missionApi().request("recipe.save", { recipe }); setName(""); await refresh(); }
-    catch (value) { setError(value.message || String(value)); }
-  };
-  const runAction = async (method, recipeId, params = {}) => {
-    try { await missionApi().request(method, { recipeId, ...params }); await refresh(); }
-    catch (value) { setError(value.message || String(value)); }
+    try {
+      await missionApi().request("recipe.save", { recipe });
+      setDirty(false);
+      onClose();
+    } catch (value) {
+      // A conflict is not a malformed edit — someone else saved first. It gets
+      // its own state so the operator is offered the current copy instead of
+      // being told to fix input that was never wrong.
+      setConflict(value?.code === "RECIPE_CONFLICT");
+      setError(value.message || String(value));
+    }
   };
 
-  return <Dialog.Root open={open} onOpenChange={value => !value && onClose()}><Dialog.Portal><Dialog.Overlay className="recipes-backdrop dialog-backdrop"/><Dialog.Content className="recipes-dialog recipes-dialog-v2 pm-dialog" aria-describedby="recipes-description">
-      <header><div><span className="section-kicker">DAILY WORKSPACES</span><Dialog.Title id="recipes-title">Start the same project setup in one click</Dialog.Title><Dialog.Description id="recipes-description">Choose existing workers, decide their order, save once, and launch without duplicating a running terminal.</Dialog.Description></div><div className="recipe-header-actions"><button className="recipe-ai-help" onClick={() => onAskAI?.(RECIPE_AI_PROMPT)}><span>AI</span> Explain recipes</button><Dialog.Close asChild><button aria-label="Close workspace recipes">×</button></Dialog.Close></div></header>
+  return <Dialog.Root open={open} onOpenChange={value => { if (!value) requestClose(); }}><Dialog.Portal><Dialog.Overlay className="recipes-backdrop dialog-backdrop"/><Dialog.Content className="recipes-dialog recipes-dialog-v2 pm-dialog" aria-describedby="recipes-description" onEscapeKeyDown={event => { event.preventDefault(); requestClose(); }} onInteractOutside={event => { event.preventDefault(); requestClose(); }}>
+      <header><div><span className="section-kicker">RECIPE BUILDER</span><Dialog.Title id="recipes-title">{copy.title}</Dialog.Title><Dialog.Description id="recipes-description">Choose existing workers, decide their order, save once, and launch without duplicating a running terminal.</Dialog.Description></div><div className="recipe-header-actions"><button className="recipe-ai-help" onClick={() => onAskAI?.(RECIPE_AI_PROMPT)}><span>AI</span> Explain recipes</button><button type="button" aria-label="Close recipe builder" onClick={requestClose}>×</button></div></header>
       <div className="recipes-content">
         <form className="recipe-builder pm-card pm-card--feat-recipe" onSubmit={save}>
-          <div className="recipe-builder__intro"><div><span>NEW DAILY WORKSPACE</span><strong>Choose what should open together</strong><small>{TERMINAL_LAYOUTS.find(item => item.id === layoutId)?.label || layoutId} layout · {workerIds.length} selected</small></div><button type="button" className="recipe-ai-design" onClick={askMissionAiToDesign} title="Ask Mission AI to propose the workers, order and readiness gates for this recipe"><span aria-hidden="true">AI</span> Ask Mission AI</button></div>
+          <div className="recipe-builder__intro"><div><span>{mode === "edit" ? "EDITING RECIPE" : mode === "duplicate" ? "DUPLICATING RECIPE" : "NEW RECIPE"}</span><strong>Choose what should open together</strong><small>{TERMINAL_LAYOUTS.find(item => item.id === layoutId)?.label || layoutId} layout · {workerIds.length} selected{dirty ? " · unsaved changes" : ""}</small></div><button type="button" className="recipe-ai-design" onClick={askMissionAiToDesign} title="Ask Mission AI to propose the workers, order and readiness gates for this recipe"><span aria-hidden="true">AI</span> Ask Mission AI</button></div>
           <label><span>Recipe name</span><input autoFocus maxLength="60" value={name} onChange={event => setName(event.target.value)} placeholder="Morning development stack" /></label>
           <div className="recipe-template-strip"><span>HOW SHOULD IT START?</span><div>{RECIPE_TEMPLATES.map(template => <button type="button" key={template.id} className={templateId === template.id ? "is-current" : ""} onClick={() => applyTemplate(template.id)}><strong>{template.label}</strong><small>{template.detail}</small></button>)}</div></div>
           <section className="recipe-simple-workers"><header><div><span>WORKERS IN THIS RECIPE</span><strong>Select terminals and arrange the launch order</strong></div><small>Running workers are reused by default</small></header><div>{sessions.map(session => { const selectedIndex = workerIds.indexOf(session.id); const step = steps.find(item => item.workerId === session.id); const dependencyNames = (step?.dependsOn || []).map(id => sessionById.get(id)?.name || id); return <article key={session.id} className={selectedIndex >= 0 ? "is-selected" : ""}><label><input type="checkbox" checked={selectedIndex >= 0} onChange={() => toggleWorker(session.id)}/><span><strong>{session.name}</strong><small>{session.command}</small></span></label>{selectedIndex >= 0 && <><span className="recipe-simple-order"><b>{selectedIndex + 1}</b><small>{dependencyNames.length ? `Starts after ${dependencyNames.join(", ")}` : "Starts first"}</small></span><div><button type="button" aria-label={`Move ${session.name} earlier`} disabled={selectedIndex === 0} onClick={() => moveWorker(selectedIndex, -1)}>↑</button><button type="button" aria-label={`Move ${session.name} later`} disabled={selectedIndex === workerIds.length - 1} onClick={() => moveWorker(selectedIndex, 1)}>↓</button></div></>}</article>; })}</div></section>
@@ -144,13 +237,25 @@ export default function WorkspaceRecipes({ open, projectKey, sessions, layoutId,
           <div className="recipe-worker-list recipe-dag-editor" aria-label="Worker startup order and parallel dependency graph editor">
             {sessions.map(session => { const selectedIndex = workerIds.indexOf(session.id); const step = steps.find(item => item.workerId === session.id); return <div key={session.id} className={selectedIndex >= 0 ? "is-selected" : ""}><label><input type="checkbox" checked={selectedIndex >= 0} onChange={() => toggleWorker(session.id)}/><span><strong>{session.name}</strong><small>{session.command}</small></span></label>{selectedIndex >= 0 && <><div className="recipe-step-order"><b>{selectedIndex + 1}</b><button type="button" aria-label={`Move ${session.name} earlier`} disabled={selectedIndex === 0} onClick={() => moveWorker(selectedIndex, -1)}>↑</button><button type="button" aria-label={`Move ${session.name} later`} disabled={selectedIndex === workerIds.length - 1} onClick={() => moveWorker(selectedIndex, 1)}>↓</button></div><div className="recipe-step-policy"><RecipeSelect value={step.readiness} onChange={value => changeGate(session.id, value)} label={`${session.name} readiness gate`} options={GATES}/><DependencyPicker step={step} steps={steps} sessionsById={sessionById} onChange={dependencyId => changeDependency(session.id, dependencyId)}/></div></>}</div>; })}
           </div></>}
-          <div className="recipe-dag-summary"><span><b>{steps.filter(step => !step.dependsOn.length).length}</b> parallel roots</span><span><b>{steps.reduce((total, step) => total + step.dependsOn.length, 0)}</b> dependency edges</span><span><b>{maxParallel}</b> worker limit</span><span><b>{retryAttempts}</b> retries</span></div>
-          {error && <p className="recipe-error" role="alert">{error}</p>}<button className="recipe-save btn-primary feat-recipe" disabled={!name.trim() || !workerIds.length}>Save Daily Workspace</button>
+          <div className="recipe-dag-summary"><span><b>{rootCount}</b> parallel roots</span><span><b>{steps.reduce((total, step) => total + step.dependsOn.length, 0)}</b> dependency edges</span><span><b>{maxParallel}</b> worker limit</span><span><b>{retryAttempts}</b> retries</span></div>
+          <p className="recipe-plan-summary">{planSummary}</p>
+          {runLocked && <p className="recipe-run-locked" role="status">This recipe has a live run ({editRecipe.run.phase}). Changes are saved as a new recipe so the active run is not disturbed.</p>}
+          {error && <div className={`recipe-error${conflict ? " is-conflict" : ""}`} role="alert"><p>{error}</p>{conflict && onReload && <button type="button" onClick={() => { setError(""); setConflict(false); onReload(); }}>Reload the saved copy</button>}</div>}
+          <div className="recipe-builder__actions">
+            <button type="button" className="btn-ghost" onClick={requestClose}>Cancel</button>
+            <button type="submit" className="recipe-save btn-primary feat-recipe" disabled={!name.trim() || !workerIds.length}>{copy.save}</button>
+          </div>
         </form>
-        <div className="recipe-launch-grid">
-          <div className="recipe-library__head" style={{gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: "600", letterSpacing: "0.5px", color: "var(--text-muted-semantic)", marginBottom: "16px"}}><span>SAVED DAILY WORKSPACES</span><small>{recipes.length}/20 in this project</small></div>
-          {recipes.length ? recipes.map(recipe => { const available = recipe.workerIds.filter(id => sessionById.has(id)); const layout = TERMINAL_LAYOUTS.find(item => item.id === recipe.layoutId); const active = ["running","paused","cancelling"].includes(recipe.run?.phase); return <article key={recipe.id} className={`recipe-launch-card pm-card pm-card--interactive pm-card--feat-recipe phase-${recipe.run?.phase || "idle"}`}><div><header><strong>{recipe.name}</strong>{recipe.run?.phase && <span>{recipe.run.phase}</span>}</header><div className="recipe-chain" aria-label={`${recipe.name} dependency graph`}>{(recipe.steps || []).map((step, index) => { const phase = recipe.run?.stepStates?.[step.workerId]?.phase; return <React.Fragment key={step.workerId}>{index > 0 && <span className="recipe-chain__arrow">→</span>}<span className={`recipe-chain__node is-${runTone(phase)}`}><b>{sessionById.get(step.workerId)?.name || step.workerId}</b><small>{step.dependsOn.length ? `after ${step.dependsOn.length}` : "root"}</small></span></React.Fragment>; })}</div><small className="recipe-launch-meta">{layout?.label || "Custom"} · max {recipe.maxParallel || 1} parallel</small>{recipe.run?.rollback && <p className="recipe-rollback-status">Recovery {recipe.run.rollback.phase} · {recipe.run.rollback.stoppedCount} stop requests</p>}</div><footer className="recipe-launch-actions">{active && <button className="recipe-pause btn-secondary" disabled={recipe.run.phase === "cancelling"} onClick={() => runAction(recipe.run.phase === "paused" ? "recipe.resume" : "recipe.pause", recipe.id)}>{recipe.run.phase === "paused" ? "Resume" : recipe.run.phase === "cancelling" ? "Cancelling…" : "Pause"}</button>}{active && recipe.run.phase !== "cancelling" && <button className="recipe-cancel btn-secondary" onClick={() => runAction("recipe.cancel", recipe.id)}>Cancel run</button>}<button className="recipe-delete btn-danger" disabled={active} onClick={() => runAction("recipe.delete", recipe.id)}>Delete</button><button className="recipe-launch-btn btn-primary feat-recipe" disabled={!available.length || active} onClick={() => onLaunch(recipe, { recover: recipe.run?.phase === "failed" })}>{recipe.run?.phase === "paused" ? "Paused" : recipe.run?.phase === "running" ? "Running" : recipe.run?.phase === "failed" ? "Recover failed run" : "Launch recipe"}</button></footer></article>; }) : <div className="recipe-empty empty-state pm-card"><strong>No shared recipes yet</strong><p>Choose a template, edit the dependency graph, and save it into the project workspace.</p></div>}
-        </div>
       </div>
+      {discardOpen && <div className="recipe-discard-guard" role="alertdialog" aria-label="Discard unsaved recipe changes">
+        <div>
+          <strong>Discard unsaved changes?</strong>
+          <p>The edits to this recipe have not been saved.</p>
+          <div>
+            <button type="button" className="btn-ghost" onClick={() => setDiscardOpen(false)}>Keep editing</button>
+            <button type="button" className="btn-danger" onClick={() => { setDiscardOpen(false); setDirty(false); onClose(); }}>Discard changes</button>
+          </div>
+        </div>
+      </div>}
     </Dialog.Content></Dialog.Portal></Dialog.Root>;
 }

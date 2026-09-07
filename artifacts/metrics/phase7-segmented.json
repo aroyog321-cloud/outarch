@@ -1,0 +1,264 @@
+{
+  "width": 1440,
+  "height": 900,
+  "themes": [
+    "orbital"
+  ],
+  "routes": [
+    "groundstation",
+    "needs",
+    "history",
+    "settings"
+  ],
+  "sections": [
+    "scroll",
+    "announce"
+  ],
+  "results": [
+    {
+      "theme": "orbital",
+      "route": "groundstation",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-groundstation",
+            "overflowPx": 768,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      },
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "Groundstation"
+        },
+        {
+          "node": "header.mc-gs-statusbar.tone-danger",
+          "role": "region",
+          "live": null,
+          "name": "Project status"
+        },
+        {
+          "node": "section.mc-gs-attention",
+          "role": "region",
+          "live": null,
+          "name": "Attention queue; 5 decisions waiting"
+        },
+        {
+          "node": "section.mc-ref-section.mc-gs-register",
+          "role": "region",
+          "live": null,
+          "name": "Supervised workers"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Project operations"
+        },
+        {
+          "node": "div.mc-ref-manifest",
+          "role": "grid",
+          "live": null,
+          "name": "Supervised workers"
+        },
+        {
+          "node": "section.mc-ref-section.mc-gs-register",
+          "role": "region",
+          "live": null,
+          "name": "Assigned AI agents"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "AI crew"
+        },
+        {
+          "node": "div.mc-ref-manifest",
+          "role": "grid",
+          "live": null,
+          "name": "Assigned AI agents"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "NOW — what's happening"
+        },
+        {
+          "node": "div.mc-gs-feed",
+          "role": "div",
+          "live": "polite",
+          "name": ""
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Recipes"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Mission dependencies"
+        },
+        {
+          "node": "aside.mc-gs-inspector.state-ok",
+          "role": "complementary",
+          "live": null,
+          "name": "Selected worker details"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Web dev server"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "needs",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-needs",
+            "overflowPx": 717,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      },
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "Needs You"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "5 decisions waiting"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Queue worker failed"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "restart · API gateway"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Claude - refactor auth needs a decision"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Approve 2 supervisor actions"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Unit tests (watch) needs a decision"
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "history",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": [
+          {
+            "node": "div.experience.view-history",
+            "overflowPx": 3706,
+            "nestedInsideScrollers": 0,
+            "alsoInsidePageScroll": false
+          }
+        ]
+      },
+      "announce": [
+        {
+          "node": "h1.sr-only",
+          "role": "h1",
+          "live": null,
+          "name": "History"
+        },
+        {
+          "node": "h2",
+          "role": "h2",
+          "live": null,
+          "name": "Investigate how the work unfolded"
+        },
+        {
+          "node": "p.history-export__note",
+          "role": "status",
+          "live": null,
+          "name": ""
+        },
+        {
+          "node": "aside.history-evidence",
+          "role": "aside",
+          "live": null,
+          "name": ""
+        }
+      ]
+    },
+    {
+      "theme": "orbital",
+      "route": "settings",
+      "scroll": {
+        "pageScrolls": false,
+        "pageOverflowPx": 0,
+        "scrollers": []
+      },
+      "announce": [
+        {
+          "node": "h1",
+          "role": "h1",
+          "live": null,
+          "name": "Settings"
+        },
+        {
+          "node": "nav.settings-hub__groups",
+          "role": "nav",
+          "live": null,
+          "name": "Settings groups"
+        },
+        {
+          "node": "h2.sr-only",
+          "role": "h2",
+          "live": null,
+          "name": "Appearance & accessibility"
+        },
+        {
+          "node": "h3",
+          "role": "h3",
+          "live": null,
+          "name": "Appearance and accessibility"
+        }
+      ]
+    }
+  ]
+}

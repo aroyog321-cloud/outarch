@@ -10,6 +10,12 @@ export const TERMINAL_LAYOUTS = Object.freeze([
 
 const DEFAULT_LAYOUT_ID = "grid-2x2";
 const STORAGE_PREFIX = "mission-control:terminal-layout:v1:";
+// T089 — named pane sets live beside the active layout, keyed by the same
+// project identity, so "my debugging arrangement" survives a restart and does
+// not leak between projects. Device-local like every other layout preference:
+// which panes you like open is not a fact about the project.
+const PANE_SET_PREFIX = "mission-control:pane-sets:v1:";
+const MAX_PANE_SETS = 12;
 
 // A pane split may never fall below this fraction of its axis. It guarantees
 // that dragging a handle to the edge still leaves a usable terminal on both
@@ -20,17 +26,20 @@ export const MAX_SPLIT = 75;
 // Every axis a layout can resize. `col` is the first vertical split (columns),
 // `row` the first horizontal split (rows). The 3×2 grid resizes its first
 // column and its row midline; the remaining columns share what is left.
-const RATIO_KEYS = Object.freeze(["col", "row"]);
-const DEFAULT_RATIOS = Object.freeze({ col: 50, row: 50 });
+const RATIO_KEYS = Object.freeze(["col", "row", "col2"]);
+const DEFAULT_RATIOS = Object.freeze({ col: 50, row: 50, col2: 50 });
 export const DEFAULT_RATIOS_BY_LAYOUT = Object.freeze({
-  single: Object.freeze({ col: 50, row: 50 }),
-  horizontal: Object.freeze({ col: 50, row: 50 }),
-  vertical: Object.freeze({ col: 50, row: 50 }),
-  "grid-2x2": Object.freeze({ col: 50, row: 50 }),
+  single: Object.freeze({ col: 50, row: 50, col2: 50 }),
+  horizontal: Object.freeze({ col: 50, row: 50, col2: 50 }),
+  vertical: Object.freeze({ col: 50, row: 50, col2: 50 }),
+  "grid-2x2": Object.freeze({ col: 50, row: 50, col2: 50 }),
   // A three-column canvas must begin with three balanced panes. The previous
   // 50/25/25 split made the first pane dominate and could force the last pane
   // beyond the visible canvas once minimum widths were applied.
-  "grid-3x2": Object.freeze({ col: 34, row: 50 })
+  // T096 — the three columns start balanced. `col2` is the middle column's own
+  // share of the whole grid, so the third column is whatever remains and the
+  // second boundary can be dragged without disturbing the first.
+  "grid-3x2": Object.freeze({ col: 34, row: 50, col2: 33 })
 });
 
 export function clampSplit(value, fallback = 50) {
@@ -55,6 +64,7 @@ export function layoutHandles(layoutId) {
     ];
     case "grid-3x2": return [
       { id: "col", axis: "x", ratio: "col" },
+      { id: "col2", axis: "x", ratio: "col2" },
       { id: "row", axis: "y", ratio: "row" }
     ];
     default: return [];
@@ -67,11 +77,18 @@ function normalizeRatios(value, layoutId = DEFAULT_LAYOUT_ID) {
   const ratios = {};
   for (const key of RATIO_KEYS) {
     const normalized = clampSplit(source[key], defaults[key]);
-    // In 3×2, leave at least 28% for each of the two columns sharing the
-    // remaining width. Other layouts retain the broader 25–75% range.
-    ratios[key] = layoutId === "grid-3x2" && key === "col"
+    // In 3×2, the first two columns each keep a usable share and must together
+    // leave room for the third. Other layouts retain the broader 25–75% range,
+    // and `col2` is inert for them.
+    ratios[key] = layoutId === "grid-3x2" && (key === "col" || key === "col2")
       ? Math.min(44, Math.max(28, normalized))
       : normalized;
+  }
+  if (layoutId === "grid-3x2") {
+    // The third column is what is left. Bound the pair so it can never be
+    // squeezed out of existence by dragging both handles the same way.
+    const maxPair = 100 - 22;
+    if (ratios.col + ratios.col2 > maxPair) ratios.col2 = Math.max(28, maxPair - ratios.col);
   }
   return ratios;
 }
@@ -139,6 +156,7 @@ export function layoutStyle(preference) {
   return {
     "--pane-primary": `${ratios.col}%`,
     "--col-ratio": `${ratios.col}%`,
+    "--col2-ratio": `${ratios.col2}%`,
     "--row-ratio": `${ratios.row}%`
   };
 }
@@ -148,10 +166,41 @@ function storageKey(workspace) {
   return identity ? `${STORAGE_PREFIX}${identity}` : null;
 }
 
+function paneSetKey(workspace) {
+  const identity = workspace?.path || null;
+  return identity ? `${PANE_SET_PREFIX}${identity}` : null;
+}
+
+// A stored set is untrusted input: it survives across releases and can name
+// workers that no longer exist, so it is re-normalised against the live session
+// list on every read rather than trusted as written.
+function normalizePaneSets(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const sets = [];
+  for (const entry of value) {
+    const id = String(entry?.id || "").trim();
+    const name = String(entry?.name || "").trim().slice(0, 40);
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    sets.push({
+      id,
+      name,
+      layoutId: layoutById(entry?.layoutId).id,
+      sessionIds: Array.isArray(entry?.sessionIds) ? entry.sessionIds.slice(0, 6).map(item => (item == null ? null : String(item))) : [],
+      savedAt: Number(entry?.savedAt) || 0
+    });
+    if (sets.length >= MAX_PANE_SETS) break;
+  }
+  return sets;
+}
+
 export default function useTerminalLayout(workspace, sessions) {
   const key = storageKey(workspace);
   const [preference, setPreference] = React.useState(() => normalizeTerminalLayout(null, sessions));
   const [hydratedKey, setHydratedKey] = React.useState(null);
+  const [paneSets, setPaneSets] = React.useState([]);
+  const setsKey = paneSetKey(workspace);
 
   React.useEffect(() => {
     let stored = null;
@@ -203,6 +252,49 @@ export default function useTerminalLayout(workspace, sessions) {
     setPreference(current => setLayoutRatio(current, "col", paneRatio, sessions));
   }, [sessions]);
 
+  React.useEffect(() => {
+    let stored = null;
+    if (setsKey) {
+      try { stored = JSON.parse(window.localStorage.getItem(setsKey)); } catch { stored = null; }
+    }
+    setPaneSets(normalizePaneSets(stored));
+  }, [setsKey]);
+
+  const persistPaneSets = React.useCallback(next => {
+    setPaneSets(next);
+    if (!setsKey) return;
+    try { window.localStorage.setItem(setsKey, JSON.stringify(next)); }
+    catch { /* Pane sets are a convenience and must never block terminal control. */ }
+  }, [setsKey]);
+
+  const savePaneSet = React.useCallback(name => {
+    const label = String(name || "").trim().slice(0, 40);
+    if (!label) return null;
+    const entry = {
+      id: globalThis.crypto?.randomUUID?.() || `set-${Date.now()}`,
+      name: label,
+      layoutId: preference.layoutId,
+      sessionIds: [...preference.sessionIds],
+      savedAt: Date.now()
+    };
+    // Saving over a name replaces it rather than accumulating duplicates the
+    // operator then has to tell apart.
+    const rest = paneSets.filter(item => item.name.toLowerCase() !== label.toLowerCase());
+    persistPaneSets([entry, ...rest].slice(0, MAX_PANE_SETS));
+    return entry;
+  }, [paneSets, persistPaneSets, preference]);
+
+  const applyPaneSet = React.useCallback(id => {
+    const entry = paneSets.find(item => item.id === id);
+    if (!entry) return false;
+    setPreference(current => normalizeTerminalLayout({ ...current, layoutId: entry.layoutId, sessionIds: entry.sessionIds }, sessions));
+    return true;
+  }, [paneSets, sessions]);
+
+  const deletePaneSet = React.useCallback(id => {
+    persistPaneSets(paneSets.filter(item => item.id !== id));
+  }, [paneSets, persistPaneSets]);
+
   return {
     layout: layoutById(preference.layoutId),
     sessionIds: preference.sessionIds,
@@ -210,6 +302,10 @@ export default function useTerminalLayout(workspace, sessions) {
     paneRatio: preference.ratios.col,
     style: layoutStyle(preference),
     handles: layoutHandles(preference.layoutId),
+    paneSets,
+    savePaneSet,
+    applyPaneSet,
+    deletePaneSet,
     setLayoutId,
     setSlotSession,
     setRatio,

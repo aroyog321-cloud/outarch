@@ -5,10 +5,13 @@ const {
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeImage,
+  Notification,
   safeStorage,
   screen,
   shell
 } = require("electron");
+if (process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) app.disableHardwareAcceleration();
 const { EngineHost } = require("../../service/engineHost.cjs");
 const { DiagnosticStore } = require("../../service/diagnosticStore.cjs");
 const { ProjectCoordinator } = require("../../service/projectCoordinator.cjs");
@@ -16,6 +19,8 @@ const { ProjectRegistry } = require("../../service/projectRegistry.cjs");
 const { GroundstationRecoveryService } = require("../../service/recoveryController.cjs");
 const { RendererRecoverySupervisor } = require("../../service/rendererRecoverySupervisor.cjs");
 const { VSCodeBridge } = require("../../service/vscodeBridge.cjs");
+const { NotificationService } = require("../../service/notificationService.cjs");
+const { PortInspector } = require("../../service/portInspector.cjs");
 const { MissionContextService } = require("../../service/missionContext.cjs");
 const { ProjectSupervisionService } = require("../../service/projectSupervision.cjs");
 const { MissionAiCredentialStore } = require("../../service/missionAiCredentialStore.cjs");
@@ -34,6 +39,8 @@ const { parseGroundstationArgs } = require("./options.cjs");
 let mainWindow = null;
 let engineHost = null;
 let ipcHost = null;
+let notifications = null;
+let portInspector = null;
 let projectCoordinator = null;
 let recoveryService = null;
 let rendererRecovery = null;
@@ -48,6 +55,78 @@ let shutdownComplete = false;
 let shutdownInProgress = false;
 let recoveryDialogOpen = false;
 let rendererFailureDuringShutdown = null;
+let visualCaptureStarted = false;
+
+const VISUAL_CAPTURE_ROUTES = ["groundstation", "workspace", "needs", "agents", "recipes", "history", "settings", "integrations"];
+const VISUAL_CAPTURE_THEMES = ["orbital", "solar", "contrast"];
+const VISUAL_CAPTURE_VIEWPORTS = [
+  // 720px remains an exploratory lower bound; production accepts 800x680.
+  { width: 720, height: 900, label: "720" },
+  { width: 800, height: 680, label: "800x680" },
+  { width: 960, height: 680, label: "960x680" },
+  { width: 1280, height: 900, label: "1280" },
+  { width: 1600, height: 900, label: "1600" }
+];
+
+const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+async function captureVisualMatrix(window, outputDirectory) {
+  const target = path.resolve(outputDirectory);
+  await fs.promises.mkdir(target, { recursive: true });
+  await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+    const started = Date.now();
+    const poll = () => {
+      if (document.querySelector('.shell')) return resolve(true);
+      if (Date.now() - started > 15000) return reject(new Error('Groundstation shell did not become ready'));
+      setTimeout(poll, 100);
+    };
+    poll();
+  })`);
+
+  const captures = [];
+  for (const viewport of VISUAL_CAPTURE_VIEWPORTS) {
+    const { width, height, label } = viewport;
+    window.setBounds({ width, height });
+    await delay(120);
+    for (const theme of VISUAL_CAPTURE_THEMES) {
+      for (const route of VISUAL_CAPTURE_ROUTES) {
+        const ready = await window.webContents.executeJavaScript(`(() => {
+          const shell = document.querySelector('.shell');
+          const destination = document.querySelector('[data-nav-id="${route}"]');
+          if (!shell || !destination) return false;
+          shell.classList.remove('theme-orbital', 'theme-solar', 'theme-contrast');
+          shell.classList.add('theme-${theme}');
+          destination.click();
+          return true;
+        })()`);
+        if (!ready) throw new Error(`Visual capture route is unavailable: ${route}`);
+        await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+          const started = Date.now();
+          const poll = () => {
+            if (document.querySelector('.experience.view-${route}')) return resolve(true);
+            if (Date.now() - started > 10000) return reject(new Error('Route did not settle: ${route}'));
+            setTimeout(poll, 50);
+          };
+          poll();
+        })`);
+        await window.webContents.executeJavaScript("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+        // The first software-rendered capture can still expose Chromium's prior
+        // compositor frame after a route swap. Prime it, then persist the next.
+        await window.webContents.capturePage();
+        await delay(50);
+        const filename = `${label}-${theme}-${route}.png`;
+        const image = await window.webContents.capturePage();
+        await fs.promises.writeFile(path.join(target, filename), image.toPNG());
+        captures.push({ filename, route, theme, width, height });
+      }
+    }
+  }
+
+  const cards = captures.map(item => `<figure><img loading="lazy" src="${item.filename}" alt="${item.route} in ${item.theme} at ${item.width} by ${item.height}px"><figcaption>${item.route} / ${item.theme} / ${item.width}x${item.height}px</figcaption></figure>`).join("\n");
+  const contactSheet = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Mission Control visual matrix</title><style>body{margin:0;padding:24px;background:#101314;color:#edf2ef;font:13px Inter,system-ui,sans-serif}header{position:sticky;top:0;z-index:2;padding:12px 0 20px;background:#101314}h1{margin:0 0 5px;font-size:20px}p{margin:0;color:#a8b0ac}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}figure{margin:0;padding:8px;border:1px solid #303735;background:#171b1a;border-radius:10px}img{display:block;width:100%;height:auto;border-radius:6px}figcaption{padding:8px 2px 2px;color:#c7ceca}</style><header><h1>Mission Control visual matrix</h1><p>8 routes / 3 themes / ${VISUAL_CAPTURE_VIEWPORTS.length} viewports / ${captures.length} captures</p></header><main class="grid">${cards}</main></html>`;
+  await fs.promises.writeFile(path.join(target, "index.html"), contactSheet, "utf8");
+  return { target, count: captures.length };
+}
 
 function rendererEntry() {
   return path.resolve(__dirname, "../../../dist/groundstation/renderer/index.html");
@@ -102,17 +181,28 @@ function scheduleRendererRecovery(window, details = {}) {
 }
 
 function createWindow(options = {}) {
+  const visualCapture = Boolean(process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR);
   const workArea = screen.getPrimaryDisplay().workAreaSize;
   const width = Math.min(1480, Math.max(960, Math.floor(workArea.width * 0.94)));
   const height = Math.min(940, Math.max(640, Math.floor(workArea.height * 0.92)));
   const window = new BrowserWindow({
     width,
     height,
-    minWidth: Math.min(1040, width),
+    // T139 — the renderer's responsive layer (redesign/*.css) collapses the
+    // 2-column route splits and the recipe / attention-policy grids at
+    // max-width: 900px, and the workspace title at 720px, with no page-level
+    // horizontal scroll down to 720. 800 is the smallest fully-accepted width.
+    minWidth: visualCapture ? 640 : Math.min(800, width),
     minHeight: Math.min(680, height),
     center: true,
     backgroundColor: "#080a09",
     title: "Mission Control Groundstation",
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#0a0b0d",
+      symbolColor: "#cbd0dc",
+      height: 42
+    },
     show: false,
     webPreferences: {
       preload: path.resolve(__dirname, "../preload/index.cjs"),
@@ -125,6 +215,7 @@ function createWindow(options = {}) {
 
   window.removeMenu();
   window.once("ready-to-show", () => {
+    if (visualCapture) return;
     window.maximize();
     window.show();
   });
@@ -145,7 +236,20 @@ function createWindow(options = {}) {
     }
     void scheduleRendererRecovery(window, details || {});
   });
-  window.webContents.on("did-finish-load", () => rendererRecovery?.rendererLoaded());
+  window.webContents.on("did-finish-load", () => {
+    rendererRecovery?.rendererLoaded();
+    const outputDirectory = process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR;
+    if (!outputDirectory || visualCaptureStarted) return;
+    visualCaptureStarted = true;
+    void captureVisualMatrix(window, outputDirectory)
+      .then(result => console.log(`Captured ${result.count} Groundstation views to ${result.target}`))
+      .then(() => shutdownAndClose(window))
+      .catch(error => {
+        console.error(`Visual capture failed: ${error.message}`);
+        process.exitCode = 1;
+        void shutdownAndClose(window);
+      });
+  });
 
   window.on("close", event => {
     if (shutdownComplete) return;
@@ -167,11 +271,30 @@ function createWindow(options = {}) {
   return window;
 }
 
+function pendingOverlayIcon(count) {
+  const label = count > 9 ? "9+" : String(count);
+  const size = label.length > 1 ? 10 : 12;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#eaa544" stroke="#11151c" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="${size}" font-weight="700" fill="#11151c">${label}</text></svg>`;
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`).resize({ width: 16, height: 16 });
+}
+
+function assertTrustedMainFrame(event) {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    event?.sender !== mainWindow.webContents ||
+    (event.senderFrame && event.senderFrame !== event.sender.mainFrame)
+  ) {
+    throw new Error("IPC request is accepted only from the Groundstation main frame");
+  }
+}
+
 async function shutdownAndClose(window) {
   if (shutdownInProgress) return;
   shutdownInProgress = true;
   let result;
   try {
+    try { notifications?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
     try { await mcpGateway?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
     try { await mobileCompanion?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
     result = await engineHost.shutdown();
@@ -214,7 +337,13 @@ async function shutdownAndClose(window) {
   void mobileCompanion?.dispose();
   pluginPlatform?.dispose();
   vscodeBridge?.dispose();
-  ipcHost?.dispose();
+  // Keep the process-wide IPC handler bound through WebContents teardown.
+  // Renderer effects can have invokes already queued when destroy() runs;
+  // removing the handler here turns an otherwise clean shutdown into false
+  // "No handler registered" failures. The operating system reclaims the
+  // process-scoped handler immediately after `window-all-closed`; per-renderer
+  // protocol connections are independently disposed by the WebContents
+  // `destroyed` hook, reload handling and recovery.
   window.destroy();
   return result;
 }
@@ -294,10 +423,23 @@ async function start() {
       return { manifest, source: path.basename(filePath) };
     }
   });
-  ipcMain.handle("mission-control:open-external", async (_event, url) => {
+  ipcMain.handle("mission-control:open-external", async (event, url) => {
+    assertTrustedMainFrame(event);
     const allowed = new Set(["https://github.com/radix-ui/primitives", "https://github.com/pacocoursey/cmdk"]);
     if (!allowed.has(url)) throw new Error("External resource is not allow-listed");
     await shell.openExternal(url);
+    return true;
+  });
+  ipcMain.handle("mission-control:set-pending-badge", async (event, rawCount) => {
+    assertTrustedMainFrame(event);
+    const count = Number(rawCount);
+    if (!Number.isInteger(count) || count < 0 || count > 999) throw new TypeError("pending badge count must be an integer from 0 to 999");
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (process.platform === "win32") {
+      mainWindow.setOverlayIcon(count ? pendingOverlayIcon(count) : null, count ? `${count} decisions need attention` : "No pending decisions");
+    } else if (typeof app.setBadgeCount === "function") {
+      app.setBadgeCount(count);
+    }
     return true;
   });
   recoveryService = new GroundstationRecoveryService({
@@ -336,6 +478,22 @@ async function start() {
   }
 
   mainWindow = createWindow({ load: false });
+  // T033/T036 — the notifier is main-process because only the main process owns
+  // the OS notification surface and the window a click has to bring forward.
+  notifications = new NotificationService({
+    Notification,
+    getEngineApi: () => engineHost?.engineApi || null,
+    focusWindow: () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+  notifications.start();
+  // T026 — read-only port-owner inspection. It is given the engine only so it
+  // can prove ownership; it has no path that terminates anything.
+  portInspector = new PortInspector({ getEngineApi: () => engineHost?.engineApi || null });
   ipcHost = new GroundstationIpcHost({
     ipcMain,
     getEngineApi: () => engineHost.engineApi,
@@ -349,7 +507,9 @@ async function start() {
     projectSupervision,
     mcpGateway,
     mobileCompanion,
-    pluginPlatform
+    pluginPlatform,
+    notifications,
+    portInspector
   });
   ipcHost.bind();
   try { await mcpGateway.start(); }
@@ -398,6 +558,7 @@ app.on("web-contents-created", (_event, contents) => {
 
 module.exports = {
   beginRendererLoad,
+  captureVisualMatrix,
   createWindow,
   loadRenderer,
   rendererEntry,

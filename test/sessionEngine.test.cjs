@@ -555,3 +555,66 @@ test("stopAll reports a stuck PTY and keeps it tracked", async t => {
   assert.equal(engine.get("stuck") !== undefined, true);
   assert.equal(factory.instances.length, 1);
 });
+
+// T069 — a completed build belongs in History, not in the decision queue.
+//
+// Attention inferred from a log line is a guess, and a later success from the
+// same worker supersedes it. Attention raised by the lifecycle is a fact about
+// a dead process and must survive any amount of later text.
+test("a later success clears attention that was inferred from output", t => {
+  const factory = makeFakePtyFactory();
+  const engine = new SessionEngine({ ptyFactory: factory });
+  t.after(() => engine.dispose());
+  engine.create({ id: "web", name: "Web server", command: "x", cwd: "." });
+  const events = [];
+  engine.on("session:supervision", event => events.push(event));
+
+  factory.last().emitData("Error: build failed\n");
+  assert.equal(engine.getSnapshot("web").attentionRequired, true);
+
+  // Progress still must not clear it — only a reported success does.
+  factory.last().emitData("Compiling modules\n");
+  assert.equal(engine.getSnapshot("web").attentionRequired, true, "progress is not recovery");
+
+  factory.last().emitData("Compiled successfully in 812ms\n");
+  const snapshot = engine.getSnapshot("web");
+  assert.equal(snapshot.attentionRequired, false, "a watch-mode server that recovered is not a pending decision");
+  assert.equal(snapshot.attentionReason, null);
+  assert.equal(snapshot.activity, "nominal");
+  assert.equal(events.at(-1).attentionRequired, false, "the clearing must be published, not just stored");
+});
+
+test("a non-zero exit is never cleared by later output", t => {
+  const factory = makeFakePtyFactory();
+  const engine = new SessionEngine({ ptyFactory: factory });
+  t.after(() => engine.dispose());
+  engine.create({ id: "tests", name: "Test suite", command: "x", cwd: "." });
+
+  factory.last().emitExit(1);
+  assert.equal(engine.getSnapshot("tests").attentionRequired, true);
+  assert.equal(engine.getSnapshot("tests").status, "failed");
+
+  // Output arriving after the process died cannot argue it away.
+  factory.last().emitData("All checks passed\n");
+  const snapshot = engine.getSnapshot("tests");
+  assert.equal(snapshot.attentionRequired, true, "a dead process is a fact, not an inference");
+  assert.match(snapshot.attentionReason, /exited with code 1/);
+});
+
+test("output that looked bad and then really failed stops being clearable", t => {
+  const factory = makeFakePtyFactory();
+  const engine = new SessionEngine({ ptyFactory: factory });
+  t.after(() => engine.dispose());
+  engine.create({ id: "api", name: "API", command: "x", cwd: "." });
+
+  factory.last().emitData("Error: connection refused\n");
+  factory.last().emitExit(2);
+  assert.equal(engine.getSnapshot("api").attentionRequired, true);
+
+  factory.last().emitData("listening on 3000\n");
+  assert.equal(
+    engine.getSnapshot("api").attentionRequired,
+    true,
+    "the origin must upgrade to lifecycle so a later nominal line cannot clear a real exit"
+  );
+});

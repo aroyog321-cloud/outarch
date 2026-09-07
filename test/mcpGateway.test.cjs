@@ -149,4 +149,18 @@ test("Secure MCP HTTP transport binds locally, authenticates, validates Origin, 
   assert.equal(mismatch.body.error.code, -32020);
   assert.equal(allowedOrigin("null"), false);
   assert.equal(allowedOrigin("http://localhost:3000"), true);
+
+  const getDiscovery = await new Promise((resolve, reject) => {
+    const req = http.request({ hostname: "127.0.0.1", port, path: "/mcp", method: "GET" }, res => {
+      const chunks = [];
+      res.on("data", chunk => chunks.push(chunk));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString("utf8") }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(getDiscovery.status, 200);
+  assert.match(getDiscovery.headers["content-type"], /text\/html/);
+  assert.match(getDiscovery.body, /Mission Control Secure MCP Gateway/);
+  assert.match(getDiscovery.body, /claude_desktop_config\.json/);
 });

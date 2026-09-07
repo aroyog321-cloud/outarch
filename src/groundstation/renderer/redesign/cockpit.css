@@ -136,7 +136,7 @@
 }
 /* The Agents inspector titles the selected agent; it is a subject line, not a
    billboard. */
-#root#root .shell .experience .agent-detail-title h1 {
+#root#root .shell .experience .agent-detail-title :is(h1, h2) {
   margin: 0 !important;
   font-size: 15px !important;
   font-weight: 640 !important;
@@ -708,23 +708,28 @@
 }
 
 #root#root .shell .view-workspace .workspace-actions {
-  display: flex !important;
+  display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--mc-space-1);
   margin-left: auto;
 }
 #root#root .shell .view-workspace .workspace-actions button {
-  min-height: 30px !important;
-  padding: 0 var(--mc-space-2) !important;
-  color: var(--mc-text-soft) !important;
-  background: var(--mc-surface-2) !important;
-  border: 1px solid var(--mc-border) !important;
-  border-radius: var(--mc-radius-sm) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 29px;
+  padding: 0 9px;
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
   font-size: 11.5px;
   font-weight: 560;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 #root#root .shell .view-workspace .workspace-actions button:hover {
   color: var(--mc-text) !important;
@@ -810,6 +815,101 @@
 }
 #root#root .shell .view-workspace .terminal-session-trigger span { flex: 0 0 auto; color: var(--mc-text-dim); }
 
+/* Multi-color role status indicators for terminal panes */
+#root#root .shell .terminal-pane .status-dot {
+  position: relative;
+  display: inline-block;
+  width: 7.5px;
+  height: 7.5px;
+  flex: 0 0 7.5px;
+  border-radius: 50%;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+#root#root .shell .terminal-pane .status-dot.role-agent,
+#root#root .shell .terminal-pane.role-agent .status-dot {
+  background: color-mix(in srgb, var(--mc-ai) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ai) 60%, transparent), 0 0 6px color-mix(in srgb, var(--mc-ai) 25%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-terminal,
+#root#root .shell .terminal-pane.role-terminal .status-dot {
+  background: color-mix(in srgb, var(--mc-ok) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ok) 60%, transparent), 0 0 6px color-mix(in srgb, var(--mc-ok) 25%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-git,
+#root#root .shell .terminal-pane.role-git .status-dot {
+  background: color-mix(in srgb, var(--mc-warning) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-warning) 60%, transparent), 0 0 6px color-mix(in srgb, var(--mc-warning) 25%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-service,
+#root#root .shell .terminal-pane.role-service .status-dot {
+  background: color-mix(in srgb, var(--mc-accent) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-accent) 60%, transparent), 0 0 6px color-mix(in srgb, var(--mc-accent) 25%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-test,
+#root#root .shell .terminal-pane.role-test .status-dot {
+  background: color-mix(in srgb, var(--mc-danger) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-danger) 60%, transparent), 0 0 6px color-mix(in srgb, var(--mc-danger) 25%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-database,
+#root#root .shell .terminal-pane.role-database .status-dot {
+  background: color-mix(in srgb, var(--mc-ok) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ok) 70%, transparent), 0 0 6px color-mix(in srgb, var(--mc-ok) 30%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-build,
+#root#root .shell .terminal-pane.role-build .status-dot {
+  background: color-mix(in srgb, var(--mc-warning) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-warning) 70%, transparent), 0 0 6px color-mix(in srgb, var(--mc-warning) 30%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot.role-container,
+#root#root .shell .terminal-pane.role-container .status-dot {
+  background: color-mix(in srgb, var(--mc-ai) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ai) 70%, transparent), 0 0 6px color-mix(in srgb, var(--mc-ai) 30%, transparent);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-agent,
+#root#root .shell .terminal-pane.role-agent .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-ai);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ai) 80%, transparent), 0 0 9px var(--mc-ai);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-terminal,
+#root#root .shell .terminal-pane.role-terminal .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-ok);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ok) 80%, transparent), 0 0 9px var(--mc-ok);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-git,
+#root#root .shell .terminal-pane.role-git .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-warning);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-warning) 80%, transparent), 0 0 9px var(--mc-warning);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-service,
+#root#root .shell .terminal-pane.role-service .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-accent) 80%, transparent), 0 0 9px var(--mc-accent);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-test,
+#root#root .shell .terminal-pane.role-test .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-danger) 80%, transparent), 0 0 9px var(--mc-danger);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-database,
+#root#root .shell .terminal-pane.role-database .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-ok);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ok) 80%, transparent), 0 0 9px var(--mc-ok);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-build,
+#root#root .shell .terminal-pane.role-build .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-warning);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-warning) 80%, transparent), 0 0 9px var(--mc-warning);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-running, .status-live).role-container,
+#root#root .shell .terminal-pane.role-container .status-dot:is(.status-running, .status-live) {
+  background: var(--mc-ai);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-ai) 80%, transparent), 0 0 9px var(--mc-ai);
+}
+#root#root .shell .terminal-pane .status-dot:is(.status-failed, .status-error) {
+  background: var(--mc-danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc-danger) 80%, transparent), 0 0 8px var(--mc-danger);
+}
+
 /* Only the working directory may shrink; a status or a role tag is either
    fully legible or absent. */
 #root#root .shell .terminal-pane__facts > :is(em, b) { flex: 0 0 auto; }
@@ -845,10 +945,46 @@
   letter-spacing: 0 !important;
   text-transform: none !important;
 }
+#root#root .shell .view-workspace .terminal-pane__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
 #root#root .shell .view-workspace .terminal-pane__actions > :is(button, .icon-button) {
-  min-height: 26px !important;
-  padding: 0 var(--mc-space-2) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  height: 24px;
+  width: auto;
+  padding: 0 var(--mc-space-2);
   font-size: 10.5px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--mc-radius-sm);
+  color: var(--mc-text-dim);
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+#root#root .shell .view-workspace .terminal-pane__actions > :is(.terminal-drag-handle, .icon-button, .terminal-more, .terminal-expand-button) {
+  width: 24px;
+  min-width: 24px;
+  max-width: 24px;
+  padding: 0;
+}
+#root#root .shell .view-workspace .terminal-pane__actions > :is(button, .icon-button):hover {
+  color: var(--mc-text);
+  background: var(--mc-surface-3);
+  border-color: var(--mc-hairline);
+}
+#root#root .shell .view-workspace .terminal-pane__actions > :is(button, .icon-button):active {
+  background: var(--mc-surface-4);
+  transform: scale(0.94);
+}
+#root#root .shell .view-workspace .terminal-pane__actions .terminal-drag-handle {
+  cursor: grab;
+}
+#root#root .shell .view-workspace .terminal-pane__actions .terminal-drag-handle:active {
+  cursor: grabbing;
 }
 #root#root .shell .view-workspace .terminal-pane__telemetry {
   flex: 0 0 auto;
@@ -1510,10 +1646,16 @@
   border-color: var(--mc-border-strong);
 }
 
-@container groundstation (max-width: 900px) {
+@media (max-width: 900px) {
   #root#root .shell .experience .recipes-page-layout { grid-template-columns: minmax(0, 1fr); }
-  #root#root .shell .experience .recipe-row { grid-template-columns: minmax(0, 1fr); }
+  #root#root .shell .experience .recipe-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   #root#root .shell .experience .recipe-row > footer { justify-content: flex-end; }
+  #root#root .shell .experience .attention-policy { grid-template-columns: minmax(0, 1fr); }
+}
+
+.history-hero-redesigned {
+  flex-direction: row !important;
+  justify-content: flex-start !important;
 }
 
 /* ==========================================================================
@@ -1737,9 +1879,9 @@
   --accent-mobile: var(--cyan-300);
   --accent-plugin: var(--rose-300);
   --accent-recipe: var(--teal-300);
-  --accent-warning: var(--amber-300);
-  --accent-danger: var(--red-300);
-  --accent-attention: var(--orange-300);
+  --accent-warning: var(--mc-warning);
+  --accent-danger: var(--mc-danger);
+  --accent-attention: var(--mc-warning);
   --accent-connection: var(--blue-300);
   --status-running: var(--accent-healthy);
   --status-starting: var(--accent-warning);

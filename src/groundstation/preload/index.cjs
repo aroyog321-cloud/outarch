@@ -8,7 +8,26 @@ const EVENT_CHANNEL = "mission-control:event";
 const MAX_BUFFERED_EVENTS = 512;
 let requestSequence = 0;
 let bufferedEvents = [];
-const subscribers = new Set();
+const subscribers = new Map();
+
+function matchesEventFilter(message, filter) {
+  if (!filter) return true;
+  if (typeof filter === "string") {
+    return message.type === filter || message.channel === filter;
+  }
+  if (Array.isArray(filter)) {
+    return filter.includes(message.type) || filter.includes(message.channel);
+  }
+  if (typeof filter === "object") {
+    if (filter.type && message.type !== filter.type) return false;
+    if (Array.isArray(filter.types) && !filter.types.includes(message.type)) return false;
+    if (filter.sessionId && message.sessionId !== filter.sessionId) return false;
+    if (filter.channel && message.channel !== filter.channel) return false;
+    if (filter.integration && message.integration !== filter.integration) return false;
+    return true;
+  }
+  return true;
+}
 
 function request(method, params = {}) {
   const id = `renderer-${Date.now()}-${++requestSequence}`;
@@ -20,19 +39,27 @@ function request(method, params = {}) {
   });
 }
 
-function subscribe(callback) {
+function subscribe(callback, filter = null) {
   if (typeof callback !== "function") throw new TypeError("subscribe requires a callback");
-  subscribers.add(callback);
+  subscribers.set(callback, filter);
   if (bufferedEvents.length) {
     const pending = bufferedEvents;
     bufferedEvents = [];
-    for (const message of pending) callback(message);
+    for (const message of pending) {
+      if (matchesEventFilter(message, filter)) {
+        try { callback(message); } catch {}
+      }
+    }
   }
   return () => subscribers.delete(callback);
 }
 
 function openExternal(url) {
   return ipcRenderer.invoke("mission-control:open-external", url);
+}
+
+function setPendingBadge(count) {
+  return ipcRenderer.invoke("mission-control:set-pending-badge", count);
 }
 
 ipcRenderer.on(EVENT_CHANNEL, (_event, message) => {
@@ -44,11 +71,13 @@ ipcRenderer.on(EVENT_CHANNEL, (_event, message) => {
     }
     return;
   }
-  for (const callback of [...subscribers]) {
-    try {
-      callback(message);
-    } catch (error) {
-      // A renderer observer must not starve other observers.
+  for (const [callback, filter] of subscribers) {
+    if (matchesEventFilter(message, filter)) {
+      try {
+        callback(message);
+      } catch (error) {
+        // A renderer observer must not starve other observers.
+      }
     }
   }
 });
@@ -57,5 +86,6 @@ contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: PROTOCOL_VERSION,
   request,
   openExternal,
+  setPendingBadge,
   subscribe
 }));

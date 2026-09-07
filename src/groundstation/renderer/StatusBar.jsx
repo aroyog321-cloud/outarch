@@ -31,9 +31,9 @@ export default function StatusBar({ state, workspace, sessions, activity, health
       <span className="status-bar-premium__crumb"><b>{VIEW_LABELS[view] || "Mission Control"}</b></span>
     </div>
     <div className="status-bar-premium__right">
-      <span className="status-bar-premium__meta">Protocol v{state?.contractVersion || "—"}</span>
-      <span className="status-bar-premium__meta">Last signal {age(last?.timestamp)}</span>
-      <span className={`status-bar-premium__meta ${pendingCount ? "is-warn" : ""}`}><b>Needs you</b>{pendingCount || "—"}</span>
+      <span className="status-bar-premium__meta status-bar-pill status-bar-pill--protocol">Protocol v{state?.contractVersion || "—"}</span>
+      <span className="status-bar-premium__meta status-bar-pill status-bar-pill--signal"><i className="signal-dot"/>Last signal {age(last?.timestamp)}</span>
+      <span className={`status-bar-premium__meta status-bar-pill status-bar-pill--needs ${pendingCount ? "is-warn" : ""}`}><b>Needs you</b>{pendingCount || "—"}</span>
       <button className="status-bar-premium__help" onClick={onHelp} aria-label="Open keyboard help">Help <kbd>F1</kbd></button>
     </div>
   </header>;

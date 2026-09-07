@@ -14,3 +14,11 @@ dist/
 
 # Claude Code — local-only overrides (per-machine API keys, etc.) should not be committed
 .claude/settings.local.json
+
+# Scratch and temporary profiling dumps
+scratch_*
+step_*
+measured_*
+all_edits.json
+__pycache__/
+*.pyc

@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Groundstation Modern Redesign Prototype</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --mc-canvas: #090a0d;
+      --mc-surface: #0e1014;
+      --mc-surface-card: rgba(18, 21, 27, 0.75);
+      --mc-surface-elevated: #1a1d24;
+      --mc-surface-hover: #222631;
+      --mc-border: rgba(255, 255, 255, 0.08);
+      --mc-border-strong: rgba(255, 255, 255, 0.16);
+      
+      --mc-text: #f4f5f8;
+      --mc-text-soft: #c8cbd6;
+      --mc-text-muted: #848896;
+      --mc-text-dim: #545766;
+
+      --mc-accent: #3b82f6;
+      --mc-accent-strong: #60a5fa;
+      --mc-accent-glow: rgba(59, 130, 246, 0.28);
+
+      --mc-ok: #10b981;
+      --mc-ok-soft: rgba(16, 185, 129, 0.14);
+      --mc-ok-glow: rgba(16, 185, 129, 0.45);
+
+      --mc-warning: #f59e0b;
+      --mc-warning-soft: rgba(245, 158, 11, 0.14);
+      --mc-warning-glow: rgba(245, 158, 11, 0.4);
+
+      --mc-danger: #ef4444;
+      --mc-danger-soft: rgba(239, 68, 68, 0.14);
+      --mc-danger-glow: rgba(239, 68, 68, 0.45);
+
+      --mc-ai: #8b5cf6;
+      --mc-ai-soft: rgba(139, 92, 246, 0.14);
+      --mc-ai-glow: rgba(139, 92, 246, 0.35);
+
+      --mc-radius-xs: 4px;
+      --mc-radius-sm: 6px;
+      --mc-radius-md: 10px;
+      --mc-radius-lg: 14px;
+      --mc-radius-pill: 9999px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #11141c 0%, var(--mc-canvas) 60%);
+      color: var(--mc-text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    code, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ---------------------------------------------------- TOP TITLEBAR / STATUSBAR */
+    .app-topbar {
+      height: 38px;
+      background: rgba(10, 12, 16, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--mc-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .app-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: -0.01em;
+      color: var(--mc-text);
+    }
+
+    .app-brand-badge {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: var(--mc-radius-xs);
+      letter-spacing: 0.05em;
+    }
+
+    .project-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 9px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-pill);
+      font-size: 11px;
+      color: var(--mc-text-soft);
+    }
+
+    .project-pill strong {
+      color: var(--mc-text);
+      font-weight: 600;
+    }
+
+    /* Vibrant topbar dot */
+    .topbar-dot-live {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--mc-ok);
+      box-shadow: 0 0 8px var(--mc-ok);
+      animation: pulse-dot 2.2s infinite ease-in-out;
+    }
+
+    .topbar-crumb {
+      font-size: 11px;
+      color: var(--mc-text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .topbar-crumb::before {
+      content: "›";
+      color: var(--mc-text-dim);
+    }
+    .topbar-crumb b {
+      color: var(--mc-accent-strong);
+      font-weight: 600;
+    }
+
+    /* TELEMETRY MICRO-PILLS ON THE RIGHT */
+    .app-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .telemetry-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-pill);
+      font-size: 10.5px;
+      color: var(--mc-text-muted);
+      transition: all 0.2s ease;
+    }
+    .telemetry-pill:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--mc-border-strong);
+      color: var(--mc-text);
+    }
+
+    .telemetry-pill.protocol {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--mc-accent-strong);
+      background: var(--mc-accent-soft);
+      border-color: rgba(59, 130, 246, 0.25);
+    }
+
+    .telemetry-pill.signal {
+      color: var(--mc-text-soft);
+    }
+    .signal-pulse {
+      width: 5px;
+      height: 5px;
+      background: var(--mc-ok);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--mc-ok);
+      animation: pulse-dot 1.8s infinite ease-in-out;
+    }
+
+    .telemetry-pill.needs-you {
+      font-weight: 600;
+      color: var(--mc-ok);
+    }
+    .telemetry-pill.needs-you.has-pending {
+      color: var(--mc-warning);
+      background: var(--mc-warning-soft);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .telemetry-pill.help-btn {
+      cursor: pointer;
+      padding: 2px 8px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .telemetry-pill.help-btn kbd {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--mc-text);
+    }
+
+    .window-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: 10px;
+      padding-left: 12px;
+      border-left: 1px solid var(--mc-border);
+      color: var(--mc-text-dim);
+      font-size: 13px;
+    }
+    .window-controls span {
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .window-controls span:hover {
+      color: var(--mc-text);
+    }
+    .window-controls span.close:hover {
+      color: var(--mc-danger);
+    }
+
+    /* ---------------------------------------------------- MAIN LAYOUT */
+    .app-shell {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR */
+    .app-sidebar {
+      width: 204px;
+      background: rgba(12, 14, 18, 0.7);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--mc-border);
+      display: flex;
+      flex-direction: column;
+      padding: 12px 8px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-project-header {
+      padding: 8px 10px 14px;
+      border-bottom: 1px solid var(--mc-border);
+      margin-bottom: 8px;
+    }
+    .sidebar-project-header small {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--mc-text-dim);
+      text-transform: uppercase;
+    }
+    .sidebar-project-header span {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--mc-text);
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 12px;
+      border-radius: var(--mc-radius-sm);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--mc-text-muted);
+      text-decoration: none;
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .nav-item:hover {
+      color: var(--mc-text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .nav-item.active {
+      color: #fff;
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.04));
+      border-left: 3px solid var(--mc-accent);
+      font-weight: 600;
+    }
+    .nav-item svg {
+      width: 15px;
+      height: 15px;
+      opacity: 0.8;
+    }
+
+    .sidebar-footer {
+      padding-top: 8px;
+      border-top: 1px solid var(--mc-border);
+    }
+
+    /* ---------------------------------------------------- GROUNDSTATION CONTENT */
+    .groundstation-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: var(--mc-canvas);
+    }
+
+    .groundstation-main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 1. COCKPIT HEADER WITH BREATHING NEON PULSE GLOW */
+    .cockpit-statusbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 18px;
+      background: var(--mc-surface-card);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-md);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .cockpit-identity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* THE RADIANT BREATHING GLOW INDICATOR */
+    .reactor-health-beacon {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0.04) 70%, transparent 100%);
+    }
+
+    .beacon-core {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--mc-ok);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35),
+                  0 0 14px 2px var(--mc-ok),
+                  0 0 28px 6px rgba(16, 185, 129, 0.4);
+      animation: mc-reactor-pulse 2.6s infinite ease-in-out;
+    }
+
+    @keyframes mc-reactor-pulse {
+      0%, 100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3),
+                    0 0 14px 2px var(--mc-ok),
+                    0 0 28px 4px rgba(16, 185, 129, 0.35);
+      }
+      50% {
+        transform: scale(1.15);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.5),
+                    0 0 22px 5px var(--mc-ok),
+                    0 0 42px 10px rgba(16, 185, 129, 0.6);
+      }
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.2); opacity: 1; filter: brightness(1.3); }
+    }
+
+    .cockpit-title-block h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cockpit-title-block p {
+      font-size: 11.5px;
+      color: var(--mc-text-muted);
+      margin-top: 1px;
+    }
+
+    /* INSTRUMENT CLUSTER (COUNT BUTTONS) */
+    .cockpit-counts {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.28);
+      padding: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--mc-radius-sm);
+    }
+
+    .count-chip {
+      padding: 4px 12px;
+      border-radius: var(--mc-radius-xs);
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--mc-text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .count-chip:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--mc-text);
+    }
+    .count-chip.active {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--mc-text);
+    }
+    .count-chip b {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--mc-text);
+      line-height: 1.1;
+    }
+    .count-chip b small {
+      font-size: 10px;
+      color: var(--mc-text-dim);
+      font-weight: 500;
+    }
+    .count-chip span {
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--mc-text-muted);
+      margin-top: 2px;
+    }
+    .count-chip.running b { color: var(--mc-ok); }
+    .count-chip.crew b { color: var(--mc-ai); }
+
+    /* ACTION BUTTONS IN COCKPIT */
+    .cockpit-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--mc-radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--mc-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--mc-text-soft);
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: var(--mc-border-strong);
+      color: #fff;
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, #3b82f6, #2563eb);
+      border-color: #1d4ed8;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(180deg, #60a5fa, #3b82f6);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5);
+    }
+    .btn-ai {
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.16), rgba(139, 92, 246, 0.08));
+      border-color: rgba(139, 92, 246, 0.3);
+      color: #d8b4fe;
+    }
+    .btn-ai:hover {
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.28), rgba(139, 92, 246, 0.14));
+      border-color: rgba(139, 92, 246, 0.5);
+      color: #fff;
+    }
+    .ai-badge {
+      background: #8b5cf6;
+      color: #fff;
+      font-size: 8.5px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* 2. REPLACED: SLIM MODERN NOMINAL WATERLINE (NO DUPLICATE BOX!) */
+    .nominal-waterline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.07) 0%, rgba(14, 16, 20, 0.6) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: var(--mc-radius-sm);
+      backdrop-filter: blur(12px);
+    }
+
+    .nominal-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nominal-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--mc-ok);
+      background: var(--mc-ok-soft);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 7px;
+      border-radius: var(--mc-radius-pill);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .nominal-tag i {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--mc-ok);
+      box-shadow: 0 0 6px var(--mc-ok);
+    }
+
+    .nominal-text {
+      font-size: 11.5px;
+      color: var(--mc-text-soft);
+    }
+    .nominal-text strong {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .nominal-action-link {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--mc-accent-strong);
+      text-decoration: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--mc-radius-xs);
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      transition: all 0.15s;
+    }
+    .nominal-action-link:hover {
+      background: rgba(59, 130, 246, 0.18);
+      color: #fff;
+    }
+
+    /* 3. WORKER OPERATIONS REGISTER (TABLE) */
+    .register-card {
+      background: var(--mc-surface-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-md);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .register-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--mc-border);
+    }
+
+    .register-head h2 {
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+    .register-head span {
+      font-size: 11px;
+      color: var(--mc-text-muted);
+    }
+
+    .register-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--mc-border);
+      gap: 12px;
+    }
+
+    .filter-pills {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .filter-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--mc-radius-pill);
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--mc-text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-pill:hover {
+      color: var(--mc-text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .filter-pill.active {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .search-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-sm);
+      padding: 4px 10px;
+      width: 220px;
+    }
+    .search-input-wrap input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 11.5px;
+      width: 100%;
+    }
+    .search-input-wrap input::placeholder {
+      color: var(--mc-text-dim);
+    }
+
+    /* DATA GRID */
+    .operations-grid {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .operations-grid th {
+      padding: 8px 16px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--mc-text-dim);
+      border-bottom: 1px solid var(--mc-border);
+    }
+
+    .operations-grid td {
+      padding: 10px 16px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      vertical-align: middle;
+    }
+
+    .operations-grid tr {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .operations-grid tr:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .operations-grid tr.selected {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.02));
+      border-left: 2px solid var(--mc-accent-strong);
+    }
+
+    .worker-name-cell strong {
+      display: block;
+      color: #fff;
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+    .worker-name-cell code {
+      font-size: 10.5px;
+      color: var(--mc-text-dim);
+    }
+
+    /* GLOWING WORKER STATUS CHIPS */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 10px;
+      border-radius: var(--mc-radius-pill);
+      font-size: 11px;
+      font-weight: 650;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    /* RUNNING: GLOWING CYBER-EMERALD BEACON */
+    .status-badge.running {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.36);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    .status-badge.running .beacon-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4),
+                  0 0 10px #10b981;
+      animation: beacon-pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes beacon-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4), 0 0 8px #10b981;
+      }
+      50% {
+        transform: scale(1.25);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.6), 0 0 16px #10b981;
+      }
+    }
+
+    /* IDLE: CLEAN CRISP SLATE STANDBY */
+    .status-badge.idle {
+      color: var(--mc-text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .status-badge.idle .beacon-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1.5px solid var(--mc-text-dim);
+    }
+
+    .role-badge {
+      font-size: 11px;
+      color: var(--mc-text-muted);
+    }
+
+    .activity-cell {
+      font-size: 11.5px;
+      color: var(--mc-text-soft);
+    }
+
+    .resources-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--mc-text-muted);
+    }
+
+    .action-btn-sm {
+      padding: 3px 10px;
+      border-radius: var(--mc-radius-xs);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mc-text-muted);
+      background: transparent;
+      border: 1px solid var(--mc-border);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .action-btn-sm:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--mc-border-strong);
+      color: #fff;
+    }
+
+    /* ---------------------------------------------------- RIGHT INSPECTOR PANEL */
+    .inspector-panel {
+      width: 320px;
+      background: rgba(13, 16, 20, 0.88);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-left: 1px solid var(--mc-border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    .inspector-head {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--mc-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .inspector-kicker {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--mc-accent-strong);
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+
+    .inspector-head h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .inspector-head code {
+      font-size: 11px;
+      color: var(--mc-text-dim);
+      display: block;
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .close-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--mc-border);
+      color: var(--mc-text-muted);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    /* TERMINAL SUMMARY CARD */
+    .inspector-summary-card {
+      margin: 14px 16px 10px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--mc-border);
+      border-radius: var(--mc-radius-sm);
+    }
+    .inspector-summary-card small {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--mc-text-dim);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .inspector-summary-card p {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--mc-text-soft);
+    }
+
+    /* FACTS GRID */
+    .inspector-facts-grid {
+      margin: 0 16px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .fact-box {
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: var(--mc-radius-xs);
+    }
+    .fact-box dt {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mc-text-dim);
+    }
+    .fact-box dd {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--mc-text-soft);
+      margin-top: 2px;
+    }
+
+    /* RECENT TIMELINE */
+    .inspector-timeline {
+      padding: 0 16px 16px;
+      flex: 1;
+    }
+    .timeline-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--mc-text-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .timeline-item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+    }
+    .timeline-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--mc-text-dim);
+      width: 24px;
+      flex-shrink: 0;
+    }
+    .timeline-event {
+      color: var(--mc-text-muted);
+    }
+
+    /* 4. REDESIGNED 2-TIER COMMAND DECK FOOTER */
+    .inspector-footer {
+      margin-top: auto;
+      padding: 14px 16px;
+      background: rgba(10, 12, 16, 0.95);
+      border-top: 1px solid var(--mc-border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .footer-tier-1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-tier-1 .btn-open-terminal {
+      flex: 1.4;
+      justify-content: center;
+      padding: 8px 12px;
+      background: linear-gradient(180deg, #3b82f6, #2563eb);
+      color: #fff;
+      font-weight: 600;
+      font-size: 12px;
+      border: 1px solid #1d4ed8;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+    }
+    .footer-tier-1 .btn-open-terminal:hover {
+      background: linear-gradient(180deg, #60a5fa, #3b82f6);
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45);
+    }
+
+    .footer-tier-1 .btn-start-action {
+      flex: 1;
+      justify-content: center;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      border: 1px solid var(--mc-border);
+      font-size: 12px;
+    }
+    .footer-tier-1 .btn-start-action:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--mc-border-strong);
+    }
+
+    .footer-tier-2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-pin {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      color: var(--mc-text-muted);
+    }
+    .btn-pin.pinned {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-ask-ai-full {
+      flex: 1;
+      justify-content: center;
+      padding: 6px 12px;
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.16), rgba(139, 92, 246, 0.08));
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: #d8b4fe;
+      font-size: 11.5px;
+      white-space: nowrap;
+    }
+    .btn-ask-ai-full:hover {
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.28), rgba(139, 92, 246, 0.15));
+      border-color: rgba(139, 92, 246, 0.5);
+      color: #fff;
+    }
+
+    /* INTERACTION SIMULATION BANNER */
+    .prototype-banner {
+      position: fixed;
+      bottom: 12px;
+      left: 216px;
+      background: rgba(18, 21, 28, 0.92);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      padding: 6px 14px;
+      border-radius: var(--mc-radius-pill);
+      font-size: 11px;
+      color: var(--mc-text-soft);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .prototype-banner strong {
+      color: var(--mc-accent-strong);
+    }
+    .prototype-tag {
+      background: #2563eb;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: var(--mc-radius-pill);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP APPLICATION TITLEBAR WITH TELEMETRY MICRO-PILLS -->
+  <header class="app-topbar">
+    <div class="app-topbar-left">
+      <div class="app-brand">
+        <span>Mission Control</span>
+        <span class="app-brand-badge">2.19</span>
+      </div>
+      <div class="project-pill">
+        <span class="topbar-dot-live"></span>
+        <strong>first</strong>
+      </div>
+      <span class="topbar-crumb"><b>Groundstation</b></span>
+    </div>
+
+    <!-- TRANSFORMED: SLEEK TELEMETRY MICRO-PILLS -->
+    <div class="app-topbar-right">
+      <span class="telemetry-pill protocol">⚡ Protocol v1</span>
+      <span class="telemetry-pill signal">
+        <span class="signal-pulse"></span>
+        <span>7m ago</span>
+      </span>
+      <span class="telemetry-pill needs-you">✓ 0 pending</span>
+      <button class="telemetry-pill help-btn">Help <kbd>F1</kbd></button>
+
+      <div class="window-controls">
+        <span>―</span>
+        <span>◻</span>
+        <span class="close">✕</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-shell">
+    
+    <!-- NAVIGATION SIDEBAR -->
+    <aside class="app-sidebar">
+      <div class="sidebar-project-header">
+        <small>Project</small>
+        <span>first</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Groundstation
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          Workspace
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          Needs You
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Agents
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          Recipes
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          History
+        </a>
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Settings
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Integrations
+        </a>
+      </div>
+    </aside>
+
+    <!-- GROUNDSTATION DASHBOARD STAGE -->
+    <main class="groundstation-container">
+      <div class="groundstation-main">
+
+        <!-- 1. COCKPIT STATUSBAR WITH RADIANT NEON BEACON -->
+        <section class="cockpit-statusbar">
+          <div class="cockpit-identity">
+            <!-- VIBRANT PULSING EMERALD HEALTH GLOW -->
+            <div class="reactor-health-beacon" title="All systems reporting nominally">
+              <div class="beacon-core"></div>
+            </div>
+            <div class="cockpit-title-block">
+              <h1>first</h1>
+              <p>Healthy · All decision sources reported nominally</p>
+            </div>
+          </div>
+
+          <!-- COMPACT INSTRUMENT CLUSTER -->
+          <div class="cockpit-counts">
+            <button class="count-chip running active">
+              <b>1<small>/2</small></b>
+              <span>Running</span>
+            </button>
+            <button class="count-chip">
+              <b>1</b>
+              <span>Idle</span>
+            </button>
+            <button class="count-chip crew">
+              <b>0<small>/2</small></b>
+              <span>AI Crew</span>
+            </button>
+            <button class="count-chip">
+              <b>0</b>
+              <span>Needs You</span>
+            </button>
+          </div>
+
+          <!-- ACTIONS -->
+          <div class="cockpit-actions">
+            <button class="btn btn-primary">▶ Run recipe</button>
+            <button class="btn">Workspace</button>
+            <button class="btn btn-ai">
+              <span class="ai-badge">AI</span>
+              Ask Mission AI
+            </button>
+          </div>
+        </section>
+
+        <!-- 2. REPLACED: SLIM MODERN NOMINAL WATERLINE (NO REPETITIVE GIANT BOX) -->
+        <section class="nominal-waterline">
+          <div class="nominal-info">
+            <span class="nominal-tag"><i></i> Nominal</span>
+            <span class="nominal-text"><strong>All systems clear</strong> · 1 worker active in background · No operator action waiting</span>
+          </div>
+          <a class="nominal-action-link" onclick="alert('Navigating to Workspace terminal grid...')">
+            Open Workspace ↗
+          </a>
+        </section>
+
+        <!-- 3. WORKER OPERATIONS REGISTER -->
+        <section class="register-card">
+          <div class="register-head">
+            <h2>Project operations</h2>
+            <span>2 of 2 shown · 1 live</span>
+          </div>
+          <div class="register-toolbar">
+            <div class="filter-pills">
+              <button class="filter-pill active">All 4</button>
+              <button class="filter-pill">Live 1</button>
+              <button class="filter-pill">Idle 3</button>
+              <button class="filter-pill">Review 0</button>
+              <button class="filter-pill">Failed 0</button>
+            </div>
+            <div class="search-input-wrap">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" placeholder="Search name or command...">
+            </div>
+          </div>
+
+          <table class="operations-grid">
+            <thead>
+              <tr>
+                <th style="width: 24px;"></th>
+                <th>Worker</th>
+                <th>Role</th>
+                <th>State</th>
+                <th>Current Activity</th>
+                <th>Resources</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- RUNNING WORKER WITH PULSING EMERALD GLOW -->
+              <tr onclick="selectWorker('shell')">
+                <td style="color: var(--mc-text-dim);">☆</td>
+                <td class="worker-name-cell">
+                  <strong>Project shell</strong>
+                  <code>powershell.exe</code>
+                </td>
+                <td class="role-badge">Terminal</td>
+                <td>
+                  <!-- LIVE GLOWING BEACON -->
+                  <span class="status-badge running">
+                    <span class="beacon-dot"></span>
+                    Running
+                  </span>
+                </td>
+                <td class="activity-cell">Output 2m ago</td>
+                <td class="resources-cell">0.2% · 62 MB</td>
+                <td style="text-align: right;">
+                  <button class="action-btn-sm" onclick="event.stopPropagation()">Restart</button>
+                </td>
+              </tr>
+
+              <!-- SELECTED WORKER (GIT STATUS) -->
+              <tr class="selected" onclick="selectWorker('git')">
+                <td style="color: #fbbf24;">★</td>
+                <td class="worker-name-cell">
+                  <strong>Git status</strong>
+                  <code>git status --short --branch</code>
+                </td>
+                <td class="role-badge">Git</td>
+                <td>
+                  <!-- CLEAN REFINED SLATE STANDBY CHIP -->
+                  <span class="status-badge idle">
+                    <span class="beacon-dot"></span>
+                    Idle
+                  </span>
+                </td>
+                <td class="activity-cell">Start when ready</td>
+                <td class="resources-cell">—</td>
+                <td style="text-align: right;">
+                  <button class="action-btn-sm" onclick="event.stopPropagation()">Start</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- AI CREW SECTION -->
+        <section class="register-card">
+          <div class="register-head">
+            <h2>AI crew</h2>
+            <span>0 active · 2 configured</span>
+          </div>
+          <table class="operations-grid">
+            <thead>
+              <tr>
+                <th style="width: 24px;"></th>
+                <th>Worker</th>
+                <th>Role</th>
+                <th>State</th>
+                <th>Current Activity</th>
+                <th>Resources</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr onclick="selectWorker('claude')">
+                <td style="color: var(--mc-text-dim);">☆</td>
+                <td class="worker-name-cell">
+                  <strong>Claude Code agent</strong>
+                  <code>C:\Users\satish kumar\.local\bin\claude.exe</code>
+                </td>
+                <td class="role-badge">AI agent</td>
+                <td>
+                  <span class="status-badge idle"><span class="beacon-dot"></span>Idle</span>
+                </td>
+                <td class="activity-cell">Start when ready</td>
+                <td class="resources-cell">—</td>
+                <td style="text-align: right;">
+                  <button class="action-btn-sm" onclick="event.stopPropagation()">Start</button>
+                </td>
+              </tr>
+
+              <tr onclick="selectWorker('gemini')">
+                <td style="color: var(--mc-text-dim);">☆</td>
+                <td class="worker-name-cell">
+                  <strong>Gemini CLI agent</strong>
+                  <code>cmd.exe /d /s /c gemini</code>
+                </td>
+                <td class="role-badge">AI agent</td>
+                <td>
+                  <span class="status-badge idle"><span class="beacon-dot"></span>Idle</span>
+                </td>
+                <td class="activity-cell">Start when ready</td>
+                <td class="resources-cell">—</td>
+                <td style="text-align: right;">
+                  <button class="action-btn-sm" onclick="event.stopPropagation()">Start</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+      </div>
+
+      <!-- 4. RIGHT TERMINAL INSPECTOR PANEL (SUMMARISATION + 2-TIER COMMAND DECK) -->
+      <aside class="inspector-panel" id="inspector">
+        <div class="inspector-head">
+          <div>
+            <span class="inspector-kicker">Git · Inferred</span>
+            <h3 id="insp-name">Git status</h3>
+            <code id="insp-cmd">git status --short --branch</code>
+          </div>
+          <button class="close-btn" title="Close inspector" onclick="toggleInspector()">✕</button>
+        </div>
+
+        <!-- TERMINAL SUMMARY CARD -->
+        <div class="inspector-summary-card">
+          <small>Terminal Summary</small>
+          <p id="insp-desc">Git status is ready on standby. Starting will run git branch analysis inside an engine-owned PTY and stream output directly into the workspace.</p>
+        </div>
+
+        <!-- FACTS SPECS GRID -->
+        <div class="inspector-facts-grid">
+          <div class="fact-box">
+            <dt>State</dt>
+            <dd id="insp-state">Idle</dd>
+          </div>
+          <div class="fact-box">
+            <dt>Runtime</dt>
+            <dd id="insp-runtime">—</dd>
+          </div>
+          <div class="fact-box">
+            <dt>Ownership</dt>
+            <dd>Engine PTY</dd>
+          </div>
+          <div class="fact-box">
+            <dt>Directory</dt>
+            <dd>D:\first</dd>
+          </div>
+        </div>
+
+        <!-- RECENT EVIDENCE TIMELINE -->
+        <div class="inspector-timeline">
+          <span class="timeline-title">Recent Evidence</span>
+          <div class="timeline-item">
+            <span class="timeline-time">7m</span>
+            <span class="timeline-event">session · created</span>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-time">48m</span>
+            <span class="timeline-event">session · created</span>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-time">1h</span>
+            <span class="timeline-event">session · created</span>
+          </div>
+          <div class="timeline-item">
+            <span class="timeline-time">2h</span>
+            <span class="timeline-event">session · created</span>
+          </div>
+        </div>
+
+        <!-- REDESIGNED 2-TIER FOOTER: CLEAN, SPACIOUS, UNCLUTTERED -->
+        <div class="inspector-footer">
+          <!-- TIER 1: PRIMARY ACTIONS -->
+          <div class="footer-tier-1">
+            <button class="btn btn-start-action" id="insp-btn-action" onclick="toggleWorkerState()">
+              ▶ Start
+            </button>
+            <button class="btn btn-open-terminal" onclick="alert('Opening terminal pane...')">
+              Open terminal ↗
+            </button>
+          </div>
+
+          <!-- TIER 2: UTILITIES & AI -->
+          <div class="footer-tier-2">
+            <button class="btn btn-pin pinned" id="insp-star-btn" title="Pin to top" onclick="togglePin()">
+              ★
+            </button>
+            <button class="btn btn-ask-ai-full" onclick="alert('Asking Mission AI: Analyze Git status worker...')">
+              ✨ Ask Mission AI
+            </button>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <!-- INTERACTION GUIDE -->
+  <div class="prototype-banner">
+    <span class="prototype-tag">PREVIEW</span>
+    <span><strong>Interactive Prototype:</strong> Click any worker row to inspect · Click "Start" to see the live neon pulse!</span>
+  </div>
+
+  <script>
+    let isRunning = false;
+    let isPinned = true;
+
+    function selectWorker(type) {
+      const name = document.getElementById('insp-name');
+      const cmd = document.getElementById('insp-cmd');
+      const state = document.getElementById('insp-state');
+      const runtime = document.getElementById('insp-runtime');
+      const desc = document.getElementById('insp-desc');
+      const actionBtn = document.getElementById('insp-btn-action');
+
+      if (type === 'shell') {
+        name.innerText = 'Project shell';
+        cmd.innerText = 'powershell.exe';
+        state.innerText = 'Running';
+        runtime.innerText = '42m 18s';
+        desc.innerText = 'Active interactive PowerShell session in workspace root. Engine PTY healthy with 62 MB allocated.';
+        actionBtn.innerText = '⟳ Restart';
+        isRunning = true;
+      } else if (type === 'git') {
+        name.innerText = 'Git status';
+        cmd.innerText = 'git status --short --branch';
+        state.innerText = 'Idle';
+        runtime.innerText = '—';
+        desc.innerText = 'Git status is ready on standby. Starting will run git branch analysis inside an engine-owned PTY.';
+        actionBtn.innerText = '▶ Start';
+        isRunning = false;
+      } else if (type === 'claude') {
+        name.innerText = 'Claude Code agent';
+        cmd.innerText = 'C:\\Users\\satish kumar\\.local\\bin\\claude.exe';
+        state.innerText = 'Idle';
+        runtime.innerText = '—';
+        desc.innerText = 'Autonomous Claude code generation assistant. Supervised by Mission Control engine with verified checkpoint receipts.';
+        actionBtn.innerText = '▶ Start';
+        isRunning = false;
+      } else if (type === 'gemini') {
+        name.innerText = 'Gemini CLI agent';
+        cmd.innerText = 'cmd.exe /d /s /c gemini';
+        state.innerText = 'Idle';
+        runtime.innerText = '—';
+        desc.innerText = 'Google Gemini reasoning and analysis subagent. Ready to assist with refactoring, tests, and deep inspection.';
+        actionBtn.innerText = '▶ Start';
+        isRunning = false;
+      }
+    }
+
+    function toggleWorkerState() {
+      isRunning = !isRunning;
+      const state = document.getElementById('insp-state');
+      const actionBtn = document.getElementById('insp-btn-action');
+      if (isRunning) {
+        state.innerText = 'Running';
+        state.style.color = '#34d399';
+        actionBtn.innerText = '⟳ Restart';
+      } else {
+        state.innerText = 'Idle';
+        state.style.color = 'var(--mc-text-soft)';
+        actionBtn.innerText = '▶ Start';
+      }
+    }
+
+    function togglePin() {
+      isPinned = !isPinned;
+      const star = document.getElementById('insp-star-btn');
+      if (isPinned) {
+        star.classList.add('pinned');
+        star.innerText = '★';
+      } else {
+        star.classList.remove('pinned');
+        star.innerText = '☆';
+      }
+    }
+
+    function toggleInspector() {
+      const panel = document.getElementById('inspector');
+      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    }
+  </script>
+</body>
+</html>

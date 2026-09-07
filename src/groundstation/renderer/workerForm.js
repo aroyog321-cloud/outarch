@@ -94,11 +94,28 @@ export function buildWorkerPatch(draft) {
   return patch;
 }
 
+// Produce a worker ID that will not collide with an already-registered session.
+// The engine rejects a duplicate `def.id` outright, so the create dialog must not
+// present one. Comparison is case-insensitive to avoid `terminal`/`Terminal`
+// ambiguity even though the engine key match itself is exact.
+export function nextAvailableWorkerId(base, existingIds = []) {
+  const taken = new Set((existingIds || []).map(id => String(id || "").trim().toLowerCase()).filter(Boolean));
+  const root = (String(base || "").trim() || "terminal").replace(/[^A-Za-z0-9._-]/g, "-").replace(/^[^A-Za-z0-9]+/, "") || "terminal";
+  if (!taken.has(root.toLowerCase())) return root;
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${root}-${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${root}-${Date.now()}`;
+}
+
 export function initialWorkerDraft(configuration = null) {
   if (!configuration) {
+    // Mirror the visibly preselected "Project shell" template so the primary
+    // create path submits successfully without an intermediate template click.
     return {
-      id: "",
-      name: "",
+      id: "terminal",
+      name: "Project shell",
       command: "powershell.exe",
       argsText: "[]",
       cwd: ".",

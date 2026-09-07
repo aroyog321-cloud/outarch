@@ -1,7 +1,11 @@
 const crypto = require("node:crypto");
 const { CommandRouter } = require("../engine/commandRouter.cjs");
+const { buildDecisionQuery, parseDecisionId, CONFIRMED_SOURCES } = require("./decisionBroker.cjs");
+const { buildHistoryModel, exportHistory } = require("./historyExport.cjs");
 const { createAgentDefinition, listAgentAdapters } = require("../service/agentAdapters.cjs");
 const { MissionContextService } = require("../service/missionContext.cjs");
+const { planBroadcast, MAX_BROADCAST_TARGETS } = require("../service/broadcastGuard.cjs");
+const { describePortOwner } = require("../service/portOwnership.cjs");
 const { ProjectSupervisionService } = require("../service/projectSupervision.cjs");
 
 const PROTOCOL_VERSION = 1;
@@ -13,20 +17,54 @@ const MAX_TERMINAL_BATCH_BYTES = 64 * 1024;
 const MAX_EVENT_QUEUE = 1000;
 const MAX_TERMINAL_DIMENSION = 1000;
 const MAX_OPEN_TERMINALS = 64;
+const CAPABILITY_STATES = Object.freeze(["unavailable", "disabled", "loading", "error", "ready"]);
+const CONFIRMATION_TTL_MS = 60 * 1000;
+const MAX_PENDING_CONFIRMATIONS = 128;
+const CONFIRMATION_METHODS = new Set([
+  "terminal.broadcast",
+  "missionAi.clear",
+  "missionSupervisor.approval.resolve",
+  "vscode.terminal.create",
+  "vscode.terminal.write",
+  "vscode.terminal.close",
+  "mcp.rotateToken",
+  "mcp.approval.resolve",
+  "mobile.invite",
+  "mobile.device.revoke",
+  "mobile.approval.resolve",
+  "plugin.install",
+  "plugin.configure",
+  "plugin.uninstall",
+  "plugin.approval.resolve",
+  "recipe.delete",
+  "automation.delete",
+  "automation.approval.resolve",
+  "mission.transition",
+  "mission.checkpoint.verify",
+  "mission.approval.resolve",
+  "decisions.resolve",
+  "project.open",
+  "project.initialize",
+  "action.dispatch"
+]);
 
 const METHODS = Object.freeze([
   "system.hello",
+  "confirmation.request",
   "system.recovery.get",
   "state.get",
   "events.activate",
   "activity.get",
   "memory.summary",
+  "history.model",
+  "history.export",
   "context.snapshot",
   "supervision.get",
   "missionAi.status",
   "missionAi.configure",
   "missionAi.ask",
   "missionAi.clear",
+  "missionAi.audit.list",
   "missionSupervisor.status",
   "missionSupervisor.plan",
   "missionSupervisor.approval.list",
@@ -42,9 +80,12 @@ const METHODS = Object.freeze([
   "vscode.terminal.focus",
   "vscode.terminal.close",
   "vscode.disconnect",
+  "vscode.audit.list",
   "mcp.status",
   "mcp.configure",
   "mcp.rotateToken",
+  "mcp.tools.list",
+  "mcp.tool.call",
   "mcp.approval.list",
   "mcp.approval.resolve",
   "mcp.audit.list",
@@ -78,6 +119,7 @@ const METHODS = Object.freeze([
   "automation.delete",
   "automation.test",
   "automation.approval.resolve",
+  "automation.audit.list",
   "session.get",
   "session.configuration.get",
   "preset.list",
@@ -92,8 +134,13 @@ const METHODS = Object.freeze([
   "mission.approval.request",
   "mission.approval.resolve",
   "attention.list",
+  "notification.status",
+  "notification.test",
   "attention.transition",
   "attention.preferences.save",
+  "decisions.list",
+  "decisions.acknowledge",
+  "decisions.resolve",
   "projects.list",
   "project.choose",
   "project.open",
@@ -103,6 +150,9 @@ const METHODS = Object.freeze([
   "terminal.open",
   "terminal.activate",
   "terminal.write",
+  "terminal.broadcast.preview",
+  "terminal.broadcast",
+  "crashlens.port.inspect",
   "terminal.resize",
   "terminal.close",
   "system.shutdown"
@@ -120,6 +170,20 @@ function isPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+function stableConfirmationValue(value) {
+  if (Array.isArray(value)) return value.map(stableConfirmationValue);
+  if (isPlainObject(value)) {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableConfirmationValue(value[key])]));
+  }
+  return value;
+}
+
+function confirmationBinding(method, params) {
+  const boundedParams = { ...params };
+  delete boundedParams.confirmation;
+  return crypto.createHash("sha256").update(JSON.stringify([method, stableConfirmationValue(boundedParams)]), "utf8").digest("hex");
 }
 
 function byteLength(value) {
@@ -324,6 +388,10 @@ function createProtocolConnection(engineApi, options = {}) {
   const mcpGateway = options.mcpGateway || null;
   const mobileCompanion = options.mobileCompanion || null;
   const pluginPlatform = options.pluginPlatform || null;
+  const notifications = options.notifications || null;
+  const portInspector = options.portInspector || null;
+  const now = options.now || Date.now;
+  const randomBytes = options.randomBytes || crypto.randomBytes;
   const missionContext = options.missionContext || new MissionContextService({
     getEngineApi: () => engineApi,
     getVSCodeStatus: () => typeof vscodeBridge?.status === "function" ? vscodeBridge.status() : null
@@ -336,6 +404,120 @@ function createProtocolConnection(engineApi, options = {}) {
   let snapshotSequence = null;
   let eventQueue = [];
   let eventDroppedThrough = 0;
+  const pendingConfirmations = new Map();
+
+  function recordConfirmation(kind, operation, outcomeCode) {
+    try {
+      engineApi.recordConfirmationEvent?.(kind, {
+        operation,
+        ...(outcomeCode ? { outcomeCode } : {})
+      });
+    } catch {
+      // Audit persistence must not broaden protocol authority or turn an
+      // otherwise valid operation into a second failure path.
+    }
+  }
+
+  function confirmationIsRequired(method, params) {
+    if (!CONFIRMATION_METHODS.has(method)) return false;
+    if (method === "action.dispatch") return isPlainObject(params.action) && router.riskTier(params.action.type) === "destructive";
+    if (method === "decisions.resolve") {
+      if (typeof params.id !== "string") return false;
+      try { return CONFIRMED_SOURCES.has(parseDecisionId(params.id).source); }
+      catch { return false; }
+    }
+    return true;
+  }
+
+  function pruneConfirmations(currentTime = now()) {
+    for (const [token, record] of pendingConfirmations) {
+      if (record.expiresAt <= currentTime) {
+        pendingConfirmations.delete(token);
+        recordConfirmation("expired", record.method, "CONFIRMATION_EXPIRED");
+      }
+    }
+    while (pendingConfirmations.size >= MAX_PENDING_CONFIRMATIONS) {
+      pendingConfirmations.delete(pendingConfirmations.keys().next().value);
+    }
+  }
+
+  function issueConfirmation(method, params) {
+    if (typeof method !== "string" || !confirmationIsRequired(method, params)) {
+      throw new ProtocolError("INVALID_PARAMS", "targetMethod must identify an operation that requires confirmation");
+    }
+    const issuedAt = now();
+    pruneConfirmations(issuedAt);
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = issuedAt + CONFIRMATION_TTL_MS;
+    pendingConfirmations.set(token, { method, binding: confirmationBinding(method, params), expiresAt });
+    recordConfirmation("requested", method);
+    return { token, expiresAt, method, confirmationProtocolVersion: 2 };
+  }
+
+  function requireConfirmation(method, params) {
+    const token = typeof params.confirmation === "string" ? params.confirmation : "";
+    if (!token) {
+      recordConfirmation("rejected", method, "CONFIRMATION_REQUIRED");
+      throw new ProtocolError("CONFIRMATION_REQUIRED", "a server-issued confirmation token is required");
+    }
+    const record = pendingConfirmations.get(token);
+    if (!record) {
+      recordConfirmation("rejected", method, "CONFIRMATION_INVALID");
+      throw new ProtocolError("CONFIRMATION_INVALID", "confirmation token is invalid or has already been used");
+    }
+    pendingConfirmations.delete(token);
+    if (record.expiresAt <= now()) {
+      recordConfirmation("expired", record.method, "CONFIRMATION_EXPIRED");
+      throw new ProtocolError("CONFIRMATION_EXPIRED", "confirmation token has expired");
+    }
+    if (record.method !== method || record.binding !== confirmationBinding(method, params)) {
+      recordConfirmation("rejected", method, "CONFIRMATION_MISMATCH");
+      throw new ProtocolError("CONFIRMATION_MISMATCH", "confirmation token does not authorize this exact operation");
+    }
+    recordConfirmation("confirmed", method);
+  }
+
+  const methodsWithPrefix = prefix => METHODS.filter(method => method.startsWith(prefix));
+  const capabilityDefinitions = [
+    { id: "engine", service: engineApi, methods: ["state.get", "events.activate", "activity.get", "session.get", "session.configuration.get", "preset.list", "action.dispatch", "terminal.open", "terminal.activate", "terminal.write", "terminal.resize", "terminal.close"], state: () => "ready" },
+    { id: "projects", service: projectService, methods: [...new Set([...methodsWithPrefix("project"), "projects.list"])], state: () => "ready" },
+    { id: "intelligence", service: missionAi, methods: methodsWithPrefix("missionAi."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.busy ? "loading" : value?.configured ? "ready" : "disabled" },
+    { id: "mission-supervisor", service: missionSupervisor, methods: methodsWithPrefix("missionSupervisor."), state: () => "ready" },
+    { id: "vscode", service: vscodeBridge, methods: methodsWithPrefix("vscode."), state: value => value?.lastError && !value?.connected ? "error" : value?.awaitingHandshake ? "loading" : value?.connected ? "ready" : "disabled" },
+    { id: "mcp", service: mcpGateway, methods: methodsWithPrefix("mcp."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.enabled && !value?.running ? "loading" : value?.running ? "ready" : "disabled" },
+    { id: "automation", service: engineApi, methods: methodsWithPrefix("automation."), state: () => "ready" },
+    { id: "companion", service: mobileCompanion, methods: methodsWithPrefix("mobile."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.enabled && !value?.running ? "loading" : value?.running ? "ready" : "disabled" },
+    { id: "extensions", service: pluginPlatform, methods: methodsWithPrefix("plugin."), state: value => value?.available === false ? "unavailable" : "ready" },
+    { id: "notifications", service: notifications, methods: methodsWithPrefix("notification."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.running ? "ready" : "disabled" },
+    { id: "terminal-broadcast", service: engineApi, methods: ["terminal.broadcast.preview", "terminal.broadcast"], state: () => "ready" },
+    { id: "crashlens-free-port", service: portInspector, methods: ["crashlens.port.inspect"], state: value => value?.available === false ? "unavailable" : "ready" }
+  ];
+
+  async function inspectCapability(definition) {
+    const checkedAt = now();
+    if (!definition.service) {
+      return { id: definition.id, support: "unavailable", state: "unavailable", methods: [], reason: definition.reason, checkedAt };
+    }
+    try {
+      const value = typeof definition.service.status === "function" ? await definition.service.status() : null;
+      const state = definition.state(value);
+      return {
+        id: definition.id,
+        support: "supported",
+        state: CAPABILITY_STATES.includes(state) ? state : "ready",
+        methods: [...definition.methods],
+        reason: state === "unavailable" ? String(value?.error || value?.lastError || "Required platform support is unavailable").slice(0, 240) : null,
+        checkedAt
+      };
+    } catch (error) {
+      return { id: definition.id, support: "supported", state: "error", methods: [...definition.methods], reason: String(error?.message || error).slice(0, 240), checkedAt };
+    }
+  }
+
+  async function capabilitySnapshot() {
+    const entries = await Promise.all(capabilityDefinitions.map(inspectCapability));
+    return Object.fromEntries(entries.map(entry => [entry.id, entry]));
+  }
 
   function safeSend(message) {
     if (disposed) return false;
@@ -349,7 +531,12 @@ function createProtocolConnection(engineApi, options = {}) {
   }
 
   function eventFrame(event) {
-    return { version: PROTOCOL_VERSION, type: "engine:event", event };
+    return {
+      version: PROTOCOL_VERSION,
+      type: "engine:event",
+      sequence: Number.isInteger(event?.sequence) ? event.sequence : null,
+      event
+    };
   }
 
   function onEngineEvent(event) {
@@ -396,6 +583,16 @@ function createProtocolConnection(engineApi, options = {}) {
         type: "integration:event",
         integration: "plugins",
         status
+      }))
+    : null;
+  // T036 — clicking a native notification has to land on the thing it is about.
+  const unsubscribeNotifications = typeof notifications?.subscribe === "function"
+    ? notifications.subscribe(payload => safeSend({
+        version: PROTOCOL_VERSION,
+        type: "notification:activate",
+        route: payload?.route || "needs",
+        attentionId: payload?.attentionId || null,
+        sessionId: payload?.sessionId || null
       }))
     : null;
 
@@ -526,6 +723,31 @@ function createProtocolConnection(engineApi, options = {}) {
     }
   }
 
+  // T114 — the three record sets that together are "what happened", read from
+  // the same services the individual screens use. `decisions.list` already
+  // isolates a failing source rather than counting it as zero, and the model
+  // carries that judgement through instead of re-deciding it.
+  async function readHistoryModel(params = {}) {
+    const limit = Number.isInteger(params.limit) && params.limit > 0 ? Math.min(params.limit, 500) : 200;
+    const activity = engineApi.getActivity({ limit });
+    let decisions = [];
+    try {
+      const query = await buildDecisionQuery({ engineApi, missionSupervisor, mcpGateway, mobileCompanion, pluginPlatform });
+      decisions = Array.isArray(query?.records) ? query.records : [];
+    } catch {
+      // buildDecisionQuery isolates its own sources; a throw here means the
+      // query itself failed, which the model reports as a blind source.
+      decisions = null;
+    }
+    let recipes = null;
+    try { recipes = engineApi.listRecipes(); } catch { recipes = null; }
+    return buildHistoryModel({
+      activity: Array.isArray(activity?.events) ? activity.events : null,
+      decisions,
+      recipes
+    });
+  }
+
   async function callMissionAi(method, operation) {
     if (!missionAi || typeof missionAi[method] !== "function") {
       throw new ProtocolError("UNAVAILABLE", "Built-in Mission AI is not available on this connection");
@@ -599,11 +821,22 @@ function createProtocolConnection(engineApi, options = {}) {
     switch (method) {
       case "system.hello": {
         const state = engineApi.getState();
+        const capabilities = await capabilitySnapshot();
         return {
           result: {
             protocolVersion: PROTOCOL_VERSION,
             engineContractVersion: state.contractVersion,
             methods: [...METHODS],
+            capabilities,
+            confirmation: {
+              version: 2,
+              method: "confirmation.request",
+              binding: "method-and-exact-params",
+              singleUse: true,
+              legacyPredictableTokens: false,
+              ttlMs: CONFIRMATION_TTL_MS,
+              maxPendingPerConnection: MAX_PENDING_CONFIRMATIONS
+            },
             limits: {
               maxRequestBytes: MAX_REQUEST_BYTES,
               maxTerminalInputBytes: MAX_TERMINAL_INPUT_BYTES,
@@ -612,6 +845,11 @@ function createProtocolConnection(engineApi, options = {}) {
             }
           }
         };
+      }
+      case "confirmation.request": {
+        const targetMethod = requireString(params, "targetMethod");
+        if (!isPlainObject(params.targetParams)) throw new ProtocolError("INVALID_PARAMS", "targetParams is required");
+        return { result: issueConfirmation(targetMethod, params.targetParams) };
       }
       case "system.recovery.get": {
         if (!recoveryService || typeof recoveryService.getStatus !== "function") {
@@ -636,6 +874,28 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: engineApi.getActivity(params) };
       case "memory.summary":
         return { result: engineApi.getProjectMemory({ afterSequence: params.afterSequence }) };
+      // T114 - activity, decisions and recipe runs answered as one model, so
+      // "what happened on this project" stops being three different screens.
+      case "history.model":
+        return { result: await readHistoryModel(params) };
+      // T113 - the export is rendered here because the redactor lives here.
+      // A renderer-side writer would be a second, unaudited copy of the rules.
+      case "history.export": {
+        const format = params.format === undefined ? "json" : requireString(params, "format");
+        try {
+          return {
+            result: exportHistory({
+              model: await readHistoryModel(params),
+              format,
+              filter: isPlainObject(params.filter) ? params.filter : {},
+              project: typeof params.project === "string" && params.project.trim() ? params.project : "Project"
+            })
+          };
+        } catch (error) {
+          if (error instanceof TypeError) throw new ProtocolError("INVALID_PARAMS", error.message);
+          throw error;
+        }
+      }
       case "context.snapshot": {
         try {
           return { result: missionContext.snapshot(params) };
@@ -667,9 +927,14 @@ function createProtocolConnection(engineApi, options = {}) {
         const question = requireString(params, "question");
         return { result: await callMissionAi("ask", ask => ask({ question, afterSequence: params.afterSequence })) };
       }
+      // T115 - Mission AI, VS Code and Automation now answer the same audit
+      // question MCP, Mobile and Plugins already did. All three reads are
+      // metadata-only; none can expose a question, a key, editor text or
+      // terminal output.
+      case "missionAi.audit.list":
+        return { result: await callMissionAi("listAudit", listAudit => listAudit(params.limit)) };
       case "missionAi.clear": {
-        const expected = "confirm:missionAi.clear";
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("missionAi.clear", params);
         return { result: await callMissionAi("clear", clear => clear()) };
       }
       case "missionSupervisor.status":
@@ -683,8 +948,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "missionSupervisor.approval.resolve": {
         const approvalId = requireString(params, "approvalId");
         if (!["approve", "deny"].includes(params.decision)) throw new ProtocolError("INVALID_PARAMS", "decision must be approve or deny");
-        const expected = `confirm:missionSupervisor.approval:${approvalId}:${params.decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("missionSupervisor.approval.resolve", params);
         return { result: await callMissionSupervisor("resolve", resolve => resolve(approvalId, params.decision)) };
       }
       case "workspace.get":
@@ -706,6 +970,8 @@ function createProtocolConnection(engineApi, options = {}) {
       }
       case "vscode.status":
         return { result: await callVSCode("status", status => status()) };
+      case "vscode.audit.list":
+        return { result: await callVSCode("listAudit", listAudit => listAudit(params.limit)) };
       case "vscode.launch":
         return { result: await callVSCode("launch", launch => launch()) };
       case "vscode.openFile": {
@@ -715,16 +981,14 @@ function createProtocolConnection(engineApi, options = {}) {
       case "vscode.openProblems":
         return { result: await callVSCode("openProblems", openProblems => openProblems()) };
       case "vscode.terminal.create": {
-        const expected = "confirm:vscode.terminal.create";
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("vscode.terminal.create", params);
         return { result: await callVSCode("createManagedTerminal", create => create({ name: params.name, cwd: params.cwd })) };
       }
       case "vscode.terminal.write": {
         const terminalId = requireString(params, "terminalId");
         const input = requireString(params, "input");
         if (byteLength(input) > 4096 || /[\0\r\n]/.test(input)) throw new ProtocolError("INVALID_PARAMS", "input must be one terminal command of at most 4096 bytes");
-        const expected = `confirm:vscode.terminal.write:${terminalId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("vscode.terminal.write", params);
         return { result: await callVSCode("writeManagedTerminal", write => write({ terminalId, input, addNewLine: params.addNewLine })) };
       }
       case "vscode.terminal.focus": {
@@ -733,8 +997,7 @@ function createProtocolConnection(engineApi, options = {}) {
       }
       case "vscode.terminal.close": {
         const terminalId = requireString(params, "terminalId");
-        const expected = `confirm:vscode.terminal.close:${terminalId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("vscode.terminal.close", params);
         return { result: await callVSCode("closeManagedTerminal", close => close({ terminalId })) };
       }
       case "vscode.disconnect":
@@ -746,17 +1009,30 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: await callMcp("configure", configure => configure(params.configuration)) };
       }
       case "mcp.rotateToken": {
-        const expected = "confirm:mcp.rotateToken";
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mcp.rotateToken", params);
         return { result: await callMcp("rotateToken", rotateToken => rotateToken()) };
+      }
+      case "mcp.tools.list":
+        return {
+          result: await callMcp("dispatchRequest", dispatchRequest =>
+            dispatchRequest({ jsonrpc: "2.0", id: "ui-list", method: "tools/list", params: {} }, { protocolVersion: "2026-07-28", client: "Groundstation In-App Tester" })
+          )
+        };
+      case "mcp.tool.call": {
+        const name = requireString(params, "name");
+        const toolArgs = isPlainObject(params.arguments) ? params.arguments : {};
+        return {
+          result: await callMcp("dispatchRequest", dispatchRequest =>
+            dispatchRequest({ jsonrpc: "2.0", id: "ui-call", method: "tools/call", params: { name, arguments: toolArgs } }, { protocolVersion: "2026-07-28", client: "Groundstation In-App Tester" })
+          )
+        };
       }
       case "mcp.approval.list":
         return { result: await callMcp("listApprovals", listApprovals => listApprovals()) };
       case "mcp.approval.resolve": {
         const approvalId = requireString(params, "approvalId");
         const decision = requireString(params, "decision");
-        const expected = `confirm:mcp.approval:${approvalId}:${decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mcp.approval.resolve", params);
         return { result: await callMcp("resolveApproval", resolveApproval => resolveApproval(approvalId, decision)) };
       }
       case "mcp.audit.list":
@@ -768,16 +1044,14 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: await callMobile("configure", configure => configure(params.configuration)) };
       }
       case "mobile.invite": {
-        const expected = "confirm:mobile.invite";
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mobile.invite", params);
         return { result: await callMobile("createInvitation", createInvitation => createInvitation()) };
       }
       case "mobile.device.list":
         return { result: await callMobile("listDevices", listDevices => listDevices()) };
       case "mobile.device.revoke": {
         const deviceId = requireString(params, "deviceId");
-        const expected = `confirm:mobile.device.revoke:${deviceId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mobile.device.revoke", params);
         return { result: await callMobile("revokeDevice", revokeDevice => revokeDevice(deviceId)) };
       }
       case "mobile.approval.list":
@@ -785,8 +1059,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "mobile.approval.resolve": {
         const approvalId = requireString(params, "approvalId");
         const decision = requireString(params, "decision");
-        const expected = `confirm:mobile.approval:${approvalId}:${decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mobile.approval.resolve", params);
         return { result: await callMobile("resolveApproval", resolveApproval => resolveApproval(approvalId, decision)) };
       }
       case "mobile.audit.list":
@@ -796,21 +1069,18 @@ function createProtocolConnection(engineApi, options = {}) {
       case "plugin.list":
         return { result: await callPlugin("list", list => list()) };
       case "plugin.install": {
-        const expected = "confirm:plugin.install";
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("plugin.install", params);
         return { result: await callPlugin("chooseAndInstall", chooseAndInstall => chooseAndInstall()) };
       }
       case "plugin.configure": {
         const pluginId = requireString(params, "pluginId");
         if (!isPlainObject(params.configuration)) throw new ProtocolError("INVALID_PARAMS", "configuration is required");
-        const expected = `confirm:plugin.configure:${pluginId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("plugin.configure", params);
         return { result: await callPlugin("configure", configure => configure(pluginId, params.configuration)) };
       }
       case "plugin.uninstall": {
         const pluginId = requireString(params, "pluginId");
-        const expected = `confirm:plugin.uninstall:${pluginId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("plugin.uninstall", params);
         return { result: await callPlugin("uninstall", uninstall => uninstall(pluginId)) };
       }
       case "plugin.resource.read": {
@@ -828,8 +1098,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "plugin.approval.resolve": {
         const approvalId = requireString(params, "approvalId");
         const decision = requireString(params, "decision");
-        const expected = `confirm:plugin.approval:${approvalId}:${decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("plugin.approval.resolve", params);
         return { result: await callPlugin("resolveApproval", resolveApproval => resolveApproval(approvalId, decision)) };
       }
       case "plugin.audit.list":
@@ -839,11 +1108,16 @@ function createProtocolConnection(engineApi, options = {}) {
       case "recipe.save": {
         if (!isPlainObject(params.recipe)) throw new ProtocolError("INVALID_PARAMS", "recipe is required");
         const result = engineApi.saveRecipe(params.recipe);
+        // T076 — a conflict is a distinct outcome from a validation failure: the
+        // edit was well-formed, someone else just got there first. Its own code
+        // lets a client offer "reload" instead of "fix your input".
+        if (result?.conflict) throw new ProtocolError("RECIPE_CONFLICT", result.error);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "recipe could not be saved");
         return { result };
       }
       case "recipe.delete": {
         const recipeId = requireString(params, "recipeId");
+        requireConfirmation("recipe.delete", params);
         const result = engineApi.deleteRecipe(recipeId);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "recipe could not be deleted");
         return { result };
@@ -860,6 +1134,12 @@ function createProtocolConnection(engineApi, options = {}) {
       }
       case "automation.list":
         return { result: engineApi.listAutomations() };
+      case "automation.audit.list": {
+        // The engine already keeps this ring; it simply had no way out.
+        const limit = Number.isInteger(params.limit) && params.limit > 0 ? Math.min(params.limit, 50) : 50;
+        const audit = engineApi.listAutomations()?.audit;
+        return { result: Array.isArray(audit) ? audit.slice(0, limit) : [] };
+      }
       case "automation.save": {
         if (!isPlainObject(params.automation)) throw new ProtocolError("INVALID_PARAMS", "automation is required");
         const result = engineApi.saveAutomation(params.automation);
@@ -868,8 +1148,7 @@ function createProtocolConnection(engineApi, options = {}) {
       }
       case "automation.delete": {
         const automationId = requireString(params, "automationId");
-        const expected = `confirm:automation.delete:${automationId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("automation.delete", params);
         const result = engineApi.deleteAutomation(automationId);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "automation could not be deleted");
         return { result };
@@ -883,8 +1162,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "automation.approval.resolve": {
         const approvalId = requireString(params, "approvalId");
         const decision = requireString(params, "decision");
-        const expected = `confirm:automation.approval:${approvalId}:${decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("automation.approval.resolve", params);
         const result = await engineApi.resolveAutomationApproval(approvalId, decision);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "automation approval could not be resolved");
         return { result };
@@ -936,8 +1214,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "mission.transition": {
         const missionId = requireString(params, "missionId");
         const state = requireString(params, "state");
-        const expected = `confirm:mission.transition:${missionId}:${state}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mission.transition", params);
         const result = engineApi.transitionMission(missionId, state);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "mission transition failed");
         return { result };
@@ -945,8 +1222,7 @@ function createProtocolConnection(engineApi, options = {}) {
       case "mission.checkpoint.verify": {
         const missionId = requireString(params, "missionId");
         const checkpointId = requireString(params, "checkpointId");
-        const expected = `confirm:mission.checkpoint:${missionId}:${checkpointId}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mission.checkpoint.verify", params);
         const result = engineApi.verifyMissionCheckpoint(missionId, checkpointId);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "mission checkpoint could not be verified");
         return { result };
@@ -963,14 +1239,89 @@ function createProtocolConnection(engineApi, options = {}) {
         const missionId = requireString(params, "missionId");
         const approvalId = requireString(params, "approvalId");
         const decision = requireString(params, "decision");
-        const expected = `confirm:mission.approval:${missionId}:${approvalId}:${decision}`;
-        if (params.confirmation !== expected) throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
+        requireConfirmation("mission.approval.resolve", params);
         const result = engineApi.resolveMissionApproval(missionId, approvalId, decision);
         if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "mission approval could not be resolved");
         return { result };
       }
       case "attention.list":
         return { result: engineApi.listAttention() };
+      // T033/T037 — delivery lives in the main process because only it owns the
+      // OS notification surface and the window to focus. The renderer reads its
+      // state and can ask it to prove itself; it can never raise one directly.
+      case "notification.status": {
+        if (!notifications || typeof notifications.status !== "function") {
+          return { result: { available: false, running: false, delivered: 0, suppressed: 0, lastDeliveryAt: null, lastSuppressedReason: null, lastError: null } };
+        }
+        return { result: notifications.status() };
+      }
+      case "notification.test": {
+        if (!notifications || typeof notifications.test !== "function") {
+          throw new ProtocolError("CAPABILITY_UNAVAILABLE", "desktop notifications are not available in this build");
+        }
+        return { result: notifications.test() };
+      }
+      case "decisions.list":
+        return {
+          result: await buildDecisionQuery({
+            engineApi,
+            missionSupervisor,
+            mcpGateway,
+            mobileCompanion,
+            pluginPlatform
+          })
+        };
+      case "decisions.acknowledge": {
+        // Read/visibility state only — never resolves a decision.
+        const { source, nativeId } = parseDecisionId(requireString(params, "id"));
+        if (source === "session") {
+          const result = engineApi.transitionAttention(nativeId, "seen");
+          return { result: result?.ok ? result : { ok: true, acknowledged: false } };
+        }
+        // External sources carry no engine-side "seen" flag yet; the renderer
+        // tracks acknowledgement locally. Report success without mutating anything.
+        return { result: { ok: true, acknowledged: false, scope: "renderer-local" } };
+      }
+      case "decisions.resolve": {
+        const id = requireString(params, "id");
+        const actionId = requireString(params, "actionId");
+        const { source, nativeId } = parseDecisionId(id);
+        if (CONFIRMED_SOURCES.has(source)) {
+          if (!["approve", "deny"].includes(actionId)) {
+            throw new ProtocolError("INVALID_PARAMS", "actionId must be approve or deny");
+          }
+          requireConfirmation("decisions.resolve", params);
+        }
+        switch (source) {
+          case "missionSupervisor":
+            return { result: await callMissionSupervisor("resolve", resolve => resolve(nativeId, actionId)) };
+          case "mission": {
+            const missionId = requireString(params, "missionId");
+            const result = engineApi.resolveMissionApproval(missionId, nativeId, actionId);
+            if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "mission approval could not be resolved");
+            return { result };
+          }
+          case "mcp":
+            return { result: await callMcp("resolveApproval", resolveApproval => resolveApproval(nativeId, actionId)) };
+          case "automation": {
+            const result = await engineApi.resolveAutomationApproval(nativeId, actionId);
+            if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "automation approval could not be resolved");
+            return { result };
+          }
+          case "mobile":
+            return { result: await callMobile("resolveApproval", resolveApproval => resolveApproval(nativeId, actionId)) };
+          case "plugin":
+            return { result: await callPlugin("resolveApproval", resolveApproval => resolveApproval(nativeId, actionId)) };
+          case "session": {
+            const state = actionId === "acknowledge" ? "seen" : actionId;
+            const result = engineApi.transitionAttention(nativeId, state, { snoozedUntil: params.snoozedUntil });
+            if (!result?.ok) throw new ProtocolError("ACTION_FAILED", result?.error || "attention lifecycle could not be updated");
+            return { result };
+          }
+          default:
+            throw new ProtocolError("INVALID_PARAMS", `unknown decision source: ${source || "(none)"}`);
+        }
+      }
       case "attention.transition": {
         const attentionId = requireString(params, "attentionId");
         const state = requireString(params, "state");
@@ -990,20 +1341,14 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: await callProject("choose", choose => choose()) };
       case "project.open": {
         const selector = projectSelector(params);
-        const expected = `confirm:project.open:${selector}`;
-        if (params.confirmation !== expected) {
-          throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
-        }
+        requireConfirmation("project.open", params);
         const result = await callProject("open", open => open(params));
         if (result?.changed !== false) vscodeBridge?.workspaceChanged?.();
         return { result };
       }
       case "project.initialize": {
         const selectionToken = requireString(params, "selectionToken");
-        const expected = `confirm:project.initialize:${selectionToken}`;
-        if (params.confirmation !== expected) {
-          throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
-        }
+        requireConfirmation("project.initialize", params);
         const result = await callProject("initialize", initialize => initialize(params));
         if (result?.changed !== false) vscodeBridge?.workspaceChanged?.();
         return { result };
@@ -1021,10 +1366,7 @@ function createProtocolConnection(engineApi, options = {}) {
         }
         const riskTier = router.riskTier(params.action.type);
         if (riskTier === "destructive") {
-          const expected = `confirm:${params.action.type}:${sessionId}`;
-          if (params.confirmation !== expected) {
-            throw new ProtocolError("CONFIRMATION_REQUIRED", `confirmation must equal ${expected}`);
-          }
+          requireConfirmation("action.dispatch", params);
         }
         const result = await router.dispatch(sessionId, params.action);
         if (!result?.ok) {
@@ -1138,6 +1480,69 @@ function createProtocolConnection(engineApi, options = {}) {
         }
         return { result: { written: true } };
       }
+      // T023 — broadcast is the one action that multiplies a mistake by the
+      // number of workers, so it is split in two: a preview anybody can ask for,
+      // and a dispatch that requires a token bound to the exact plan the preview
+      // described. `broadcastGuard` owns the rules; this owns authority.
+      case "terminal.broadcast.preview": {
+        const plan = planBroadcast({
+          sessions: engineApi.list(),
+          sessionIds: params.sessionIds,
+          input: params.input
+        });
+        return { result: { ...plan, limit: MAX_BROADCAST_TARGETS } };
+      }
+      case "terminal.broadcast": {
+        const plan = planBroadcast({
+          sessions: engineApi.list(),
+          sessionIds: params.sessionIds,
+          input: params.input
+        });
+        if (!plan.ok) throw new ProtocolError("BROADCAST_REFUSED", plan.error);
+        // A destructive command still goes through, but only when the operator
+        // has said so explicitly — the confirmation dialog alone is a habit.
+        if (plan.requiresAcknowledgement && params.acknowledgeDestructive !== true) {
+          throw new ProtocolError(
+            "BROADCAST_ACKNOWLEDGEMENT_REQUIRED",
+            `This command contains ${plan.destructive.map(item => item.label).join(" and ")}. Acknowledge the consequence for all ${plan.targets.length} workers before sending.`
+          );
+        }
+        if (byteLength(params.input) > MAX_TERMINAL_INPUT_BYTES) {
+          throw new ProtocolError("TERMINAL_INPUT_TOO_LARGE", `terminal input cannot exceed ${MAX_TERMINAL_INPUT_BYTES} bytes`);
+        }
+        // Bound to the exact target list and input, so a token issued for a
+        // preview of two workers cannot be replayed against twelve.
+        requireConfirmation("terminal.broadcast", params);
+
+        const delivered = [];
+        const failed = [];
+        for (const target of plan.targets) {
+          const rawStream = engineApi.attachRawStream(target.id);
+          if (!rawStream) { failed.push({ id: target.id, name: target.name, reason: "not-running" }); continue; }
+          try {
+            if (rawStream.write(params.input, { source: "groundstation" })) delivered.push(target.id);
+            else failed.push({ id: target.id, name: target.name, reason: "write-failed" });
+          } catch (error) {
+            failed.push({ id: target.id, name: target.name, reason: "write-failed" });
+          }
+        }
+        // Audit records the shape of what happened, never the command text —
+        // the same rule the confirmation audit already follows.
+        recordConfirmation("completed", "terminal.broadcast", failed.length ? "PARTIAL_DELIVERY" : "DELIVERED");
+        return { result: { delivered, failed, skipped: plan.skipped, targets: plan.targets.length } };
+      }
+      // T026 — read-only. There is deliberately no terminate method here: when
+      // the listener turns out to be a supervised worker the renderer routes to
+      // the existing confirmation-gated worker stop, and when it is a foreign
+      // process Mission Control reports it and stops. A crash banner is the
+      // worst possible place to grant the power to kill arbitrary processes.
+      case "crashlens.port.inspect": {
+        if (!portInspector || typeof portInspector.inspect !== "function") {
+          throw new ProtocolError("CAPABILITY_UNAVAILABLE", "port inspection is not available in this build");
+        }
+        const result = await portInspector.inspect(params.port);
+        return { result: { ...result, summary: describePortOwner(result) } };
+      }
       case "terminal.resize": {
         const state = requireTerminal(params);
         if (state.exitInfo) {
@@ -1187,6 +1592,9 @@ function createProtocolConnection(engineApi, options = {}) {
       if (disposed) throw new ProtocolError("CONNECTION_CLOSED", "protocol connection is closed");
       request = decodeRequest(input);
       const dispatched = await dispatchMethod(request.method, request.params);
+      if (confirmationIsRequired(request.method, request.params)) {
+        recordConfirmation("completed", request.method);
+      }
       response = {
         version: PROTOCOL_VERSION,
         id: request.id,
@@ -1218,7 +1626,9 @@ function createProtocolConnection(engineApi, options = {}) {
     try { unsubscribeMcp?.(); } catch (error) { /* Best effort. */ }
     try { unsubscribeMobile?.(); } catch (error) { /* Best effort. */ }
     try { unsubscribePlugins?.(); } catch (error) { /* Best effort. */ }
+    try { unsubscribeNotifications?.(); } catch (error) { /* Best effort. */ }
     for (const streamId of [...terminalStreams.keys()]) closeTerminal(streamId);
+    pendingConfirmations.clear();
     eventQueue = [];
     disposed = true;
     return true;
@@ -1237,6 +1647,8 @@ module.exports = {
   MAX_TERMINAL_BATCH_BYTES,
   MAX_EVENT_QUEUE,
   MAX_TERMINAL_DIMENSION,
+  CONFIRMATION_TTL_MS,
+  MAX_PENDING_CONFIRMATIONS,
   ProtocolError,
   createProtocolConnection
 };

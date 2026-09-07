@@ -60,3 +60,56 @@ test("runtime clients stay behind the public EngineAPI boundary", () => {
   assert.doesNotMatch(groundstationSource, /SessionEngine|\.sessionEngine/);
   assert.doesNotMatch(protocolSource, /SessionEngine|\.sessionEngine/);
 });
+
+// T196 — the published package must not promise documents the repository does
+// not contain. `npm pack` silently drops a missing entry, so nothing else
+// catches a stale reference; this does.
+test("every packaged path in package.json exists", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const missing = pkg.files.filter(entry => !fs.existsSync(path.join(root, entry)));
+  assert.deepEqual(missing, [], `package.json "files" references paths that do not exist: ${missing.join(", ")}`);
+
+  for (const [field, value] of [["main", pkg.main], ...Object.entries(pkg.bin || {})]) {
+    assert.ok(fs.existsSync(path.join(root, value)), `package.json ${field} points at a missing file: ${value}`);
+  }
+});
+
+// T193 — a runtime dependency ships to every user. One with no caller is
+// install weight and supply-chain surface for nothing. Declared dependencies
+// must be reachable from the runtime tree.
+test("every runtime dependency has a caller in the shipped source", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const shipped = [
+    ...runtimeFiles,
+    ...sourceFiles(path.join(root, "integrations")),
+    ...fs.readdirSync(path.join(root, "src", "groundstation", "renderer"))
+      .filter(name => name.endsWith(".jsx"))
+      .map(name => path.join(root, "src", "groundstation", "renderer", name))
+  ];
+  const source = shipped.map(file => fs.readFileSync(file, "utf8")).join("\n");
+  // Fonts are imported by the renderer entry as side-effecting CSS packages.
+  const styleOnly = new Set(["@fontsource-variable/inter", "@fontsource-variable/jetbrains-mono"]);
+
+  const orphans = Object.keys(pkg.dependencies).filter(name => {
+    if (styleOnly.has(name)) return false;
+    return !source.includes(`"${name}`) && !source.includes(`'${name}`);
+  });
+  assert.deepEqual(orphans, [], `runtime dependencies with no caller: ${orphans.join(", ")}`);
+});
+
+// T156 — renderer components consume the authoritative `--mc-*` token family.
+// The legacy `*-semantic` aliases exist only so the two `premium*` stylesheets
+// keep resolving; new component code must not reach through them, because they
+// are defined twice with different sources and drift under theme switches.
+test("renderer components do not reach for the legacy *-semantic token aliases", () => {
+  const rendererDir = path.join(root, "src", "groundstation", "renderer");
+  const components = fs.readdirSync(rendererDir).filter(name => /\.(?:jsx|js)$/.test(name));
+  for (const name of components) {
+    const source = fs.readFileSync(path.join(rendererDir, name), "utf8");
+    assert.doesNotMatch(
+      source,
+      /var\(--(?:text|surface|radius)-[a-z-]*semantic\)/,
+      `${name} uses a legacy *-semantic alias; use the authoritative --mc-* token instead`
+    );
+  }
+});

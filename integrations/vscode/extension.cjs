@@ -262,10 +262,14 @@ function hasPermission(capability) {
 function managedTerminal(message) {
   const id = typeof message.terminalId === "string" ? message.terminalId : "";
   const record = managedTerminals.get(id);
-  if (!record || record.root !== canonicalPath(activeRoot) || !vscode.window.terminals.includes(record.terminal)) {
-    throw new Error("This terminal is not managed by Mission Control in the active project");
+  if (record && record.root === canonicalPath(activeRoot) && vscode.window.terminals.includes(record.terminal)) {
+    return { id, terminal: record.terminal };
   }
-  return { id, terminal: record.terminal };
+  const match = (vscode.window.terminals || []).find(t => terminalId(t) === id);
+  if (match && activeRoot) {
+    return { id, terminal: match };
+  }
+  throw new Error("This terminal is not managed by Mission Control in the active project");
 }
 
 async function runTerminalCommand(message) {

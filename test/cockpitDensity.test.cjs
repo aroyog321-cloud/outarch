@@ -41,18 +41,20 @@ test("Integrations renders as a contextual group below the primary seven", () =>
   assert.match(app, /<RecipesView/);
 });
 
-test("the cockpit density layer loads last and owns the shared reading grammar", () => {
+test("the consolidated surfaces layer loads after cockpit and preserves the shared reading grammar", () => {
   const main = read("main.jsx");
   const cockpit = read("redesign", "cockpit.css");
+  const surfaces = read("redesign", "surfaces.css");
 
   // Order matters: this layer only works because it resolves after the
   // historical stylesheets it corrects.
-  assert.match(main, /import "\.\/redesign\/screens\.css";[\s\S]*import "\.\/redesign\/cockpit\.css";/);
+  assert.match(main, /import "\.\/redesign\/screens\.css";[\s\S]*import "\.\/redesign\/cockpit\.css";[\s\S]*import "\.\/redesign\/surfaces\.css";/);
   assert.equal(
     main.trimEnd().split("\n").filter(line => line.startsWith("import ")).pop(),
-    'import "./redesign/cockpit.css";',
-    "cockpit.css must remain the final stylesheet import"
+    'import "./redesign/surfaces.css";',
+    "surfaces.css must remain the final shared-component stylesheet import"
   );
+  assert.match(surfaces, /--mc-type-caption: \.75rem/);
 
   // One page-header row instead of a per-route hero slab.
   assert.match(cockpit, /\.pm-page-hero, \.page-command-header, \.settings-hero/);
@@ -134,4 +136,72 @@ test("a chosen multi-pane canvas survives an ordinary narrow window", () => {
   const toolbar = workspace.indexOf("@container workspace-stage (max-width: 900px)");
   const grid = workspace.indexOf("@container workspace-stage (max-width: 680px)");
   assert.ok(toolbar > 0 && grid > toolbar, "the toolbar must stack before the canvas collapses");
+});
+
+// T086/T087 — the pane header sheds detail as panes narrow, and the state
+// readout is the one thing that never goes.
+test("the terminal header discloses progressively and keeps state last", () => {
+  const pane = read("TerminalPane.jsx");
+  const workspace = read("redesign", "workspace.css");
+
+  // The pane is its own container, so what survives follows the pane's real
+  // width rather than the window's.
+  assert.match(workspace, /#root#root \.shell \.terminal-pane \{\s*container: terminal-pane \/ inline-size;/);
+
+  // Always present: name, state, and the overflow menu.
+  assert.match(pane, /<em className="terminal-pane__state">\{session\.status\}<\/em>/);
+  assert.match(pane, /className="icon-button terminal-more"/);
+
+  // Ownership and cwd left the always-on strip; they are on the identity
+  // tooltip instead, so nothing was deleted.
+  const facts = pane.slice(pane.indexOf('<span className="terminal-pane__facts">'), pane.indexOf("</span>", pane.indexOf('<span className="terminal-pane__facts">')));
+  assert.doesNotMatch(facts, /ownership\(session\)/, "ownership must not compete with state in six panes at once");
+  assert.doesNotMatch(facts, /terminal-pane__cwd/, "cwd must not compete with state in six panes at once");
+  assert.match(pane, /title=\{`\$\{session\.name\} · \$\{session\.command\}[\s\S]{0,60}ownership\(session\)/);
+
+  // Then the disclosure order, widest breakpoint first.
+  const uptimeAt = workspace.indexOf("terminal-pane__uptime");
+  const shortcutAt = workspace.indexOf(".terminal-shortcut,\n  #root#root .shell .terminal-pane__header .worker-metric-strip");
+  const roleAt = workspace.lastIndexOf(".terminal-role-tag { display: none; }");
+  assert.ok(uptimeAt > -1 && shortcutAt > -1 && roleAt > -1, "each disclosure step must exist");
+  assert.ok(uptimeAt < shortcutAt && shortcutAt < roleAt, "detail must drop from least to most useful");
+});
+
+// T090 — a worker that is not on the canvas still has a state worth seeing,
+// and seeing it must not cost a terminal.
+test("workers off the canvas report their state without mounting a terminal", () => {
+  const app = read("App.jsx");
+  assert.match(app, /const mountedIds = new Set\(visible\.filter\(Boolean\)\.map\(item => item\.id\)\);/);
+  assert.match(app, /const backgroundWorkers = sessions\.filter\(session => !mountedIds\.has\(session\.id\)\);/);
+  assert.match(app, /className="workspace-background"/);
+  assert.match(app, /No terminal is mounted for these\./);
+  // It is a summary, not a pane: no TerminalPane is rendered for these.
+  const strip = app.slice(app.indexOf('className="workspace-background"'), app.indexOf("</section>}", app.indexOf('className="workspace-background"')));
+  assert.doesNotMatch(strip, /TerminalPane|TerminalSlot/, "the background strip must never mount a terminal");
+  // Clicking one routes through the same pane assignment the search uses.
+  assert.match(strip, /onClick=\{\(\) => showInPane\(session\.id\)\}/);
+  // A worker needing a decision is the reason to look at this list at all.
+  assert.match(strip, /session\.attentionRequired \? session\.attentionReason/);
+});
+
+// T093/T094 — renaming a label and duplicating a worker are distinct from
+// reconfiguring a process.
+test("Rename and Duplicate are label-level actions beside engine Reconfigure", () => {
+  const pane = read("TerminalPane.jsx");
+  const app = read("App.jsx");
+
+  // Rename dispatches the router's `safe` rename action; it never touches the
+  // command, cwd or PTY.
+  assert.match(pane, /<span>Rename<\/span><small>Change the display label only/);
+  assert.match(pane, /onAction\?\.\("rename", session\.id, \{ name: next \}\)/);
+  assert.match(pane, /<span>Reconfigure worker<\/span>/, "Reconfigure must remain");
+
+  // Duplicate stops at the form: a second copy of a process is not created
+  // until the command and directory have been reviewed.
+  assert.match(pane, /<span>Duplicate worker<\/span><small>Opens a new worker pre-filled from this one/);
+  assert.match(app, /onDuplicate=\{session => setWorkerDialog\(\{ mode: "create", seed:/);
+  const dialog = read("WorkerDialog.jsx");
+  assert.match(dialog, /initialWorkerDraft\(configuration \|\| seed\)/);
+  assert.match(dialog, /if \(!configuration\) initial\.id = nextAvailableWorkerId\(initial\.id, existingIds\);/,
+    "a duplicate must get a duplicate-safe id");
 });

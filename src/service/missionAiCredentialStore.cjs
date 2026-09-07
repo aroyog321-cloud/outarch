@@ -3,16 +3,14 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const MISSION_AI_CREDENTIAL_VERSION = 1;
+const MISSION_AI_CREDENTIAL_VERSION = 2;
 const MAX_CREDENTIAL_FILE_BYTES = 64 * 1024;
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_MODELS = Object.freeze([
   "gemini-2.5-flash",
+  "gemini-2.5-pro",
   "gemini-2.5-flash-lite",
-  "gemini-3.1-flash-lite",
-  "gemini-3.5-flash-lite",
-  "gemini-3.6-flash",
-  "gemini-3.7-flash"
+  "gemini-2.0-flash"
 ]);
 
 function isPlainObject(value) {
@@ -65,8 +63,16 @@ class MissionAiCredentialStore {
     const protection = this.protectionStatus();
     try {
       const document = this.#readDocument();
+      const primaryConfigured = Boolean(document?.credentials?.primary);
+      const secondaryConfigured = Boolean(document?.credentials?.secondary);
       return {
-        configured: Boolean(document?.credential),
+        configured: primaryConfigured || secondaryConfigured,
+        keyState: {
+          primary: { configured: primaryConfigured },
+          secondary: { configured: secondaryConfigured }
+        },
+        activeSlot: primaryConfigured ? "primary" : secondaryConfigured ? "secondary" : null,
+        secondaryConfigured,
         model: document?.preferences.model || DEFAULT_GEMINI_MODEL,
         includeTerminalEvidence: document?.preferences.includeTerminalEvidence === true,
         ...protection,
@@ -75,6 +81,12 @@ class MissionAiCredentialStore {
     } catch (error) {
       return {
         configured: false,
+        keyState: {
+          primary: { configured: false },
+          secondary: { configured: false }
+        },
+        activeSlot: null,
+        secondaryConfigured: false,
         model: DEFAULT_GEMINI_MODEL,
         includeTerminalEvidence: false,
         ...protection,
@@ -91,14 +103,30 @@ class MissionAiCredentialStore {
       throw new TypeError("Unsupported Gemini model");
     }
     const current = this.#readDocument();
-    let credential = current.credential || null;
+    let primary = current.credentials?.primary || null;
+    let secondary = current.credentials?.secondary || null;
+
     if (Object.hasOwn(value, "apiKey")) {
       if (!validApiKey(value.apiKey)) throw new TypeError("Gemini API key must be 20 to 512 non-whitespace characters");
       const encrypted = this.safeStorage.encryptString(value.apiKey);
       if (!Buffer.isBuffer(encrypted) || !encrypted.length) throw new Error("OS credential encryption returned no data");
-      credential = encrypted.toString("base64");
+      primary = encrypted.toString("base64");
     }
-    if (!credential) throw new TypeError("Gemini API key is required for initial configuration");
+
+    if (Object.hasOwn(value, "apiKeySecondary")) {
+      if (value.apiKeySecondary === "" || value.apiKeySecondary === null) {
+        secondary = null;
+      } else {
+        if (!validApiKey(value.apiKeySecondary)) throw new TypeError("Gemini fallback API key must be 20 to 512 non-whitespace characters");
+        const encrypted = this.safeStorage.encryptString(value.apiKeySecondary);
+        if (!Buffer.isBuffer(encrypted) || !encrypted.length) throw new Error("OS credential encryption returned no data");
+        secondary = encrypted.toString("base64");
+      }
+    } else if (value.clearSecondary === true) {
+      secondary = null;
+    }
+
+    if (!primary && !secondary) throw new TypeError("Gemini API key is required for initial configuration");
     const preferences = normalizePreferences({
       ...current.preferences,
       ...(Object.hasOwn(value, "model") ? { model: value.model } : {}),
@@ -106,25 +134,43 @@ class MissionAiCredentialStore {
     });
     this.#writeDocument({
       version: MISSION_AI_CREDENTIAL_VERSION,
-      credential,
+      credentials: {
+        primary,
+        secondary
+      },
       preferences,
       updatedAt: Date.now()
     });
     return this.status();
   }
 
-  apiKey() {
+  apiKey(slot = "primary") {
+    return this.getSlotApiKey(slot).apiKey;
+  }
+
+  getSlotApiKey(preferredSlot = "primary") {
     const protection = this.protectionStatus();
     if (!protection.available) throw new Error("OS credential encryption is unavailable");
     const document = this.#readDocument();
-    if (!document.credential) throw new Error("Gemini API key is not configured");
+    const primaryCipher = document.credentials?.primary;
+    const secondaryCipher = document.credentials?.secondary;
+
+    let targetSlot = preferredSlot;
+    if (preferredSlot === "primary" && !primaryCipher && secondaryCipher) {
+      targetSlot = "secondary";
+    } else if (preferredSlot === "secondary" && !secondaryCipher && primaryCipher) {
+      targetSlot = "primary";
+    }
+
+    const rawCipher = document.credentials?.[targetSlot];
+    if (!rawCipher) throw new Error(`Gemini ${targetSlot === "secondary" ? "fallback " : ""}API key is not configured`);
     let encrypted;
-    try { encrypted = Buffer.from(document.credential, "base64"); }
+    try { encrypted = Buffer.from(rawCipher, "base64"); }
     catch { throw new Error("Mission AI credential data is invalid"); }
     try {
       const value = this.safeStorage.decryptString(encrypted);
       if (!validApiKey(value)) throw new Error("decrypted credential is invalid");
-      return value;
+      return { slot: targetSlot, apiKey: value };
     } catch {
       throw new Error("Mission AI credential could not be decrypted on this device");
     }
@@ -148,7 +194,7 @@ class MissionAiCredentialStore {
     let raw;
     try { raw = this.fs.readFileSync(this.filePath); }
     catch (error) {
-      if (error?.code === "ENOENT") return { version: MISSION_AI_CREDENTIAL_VERSION, credential: null, preferences: normalizePreferences() };
+      if (error?.code === "ENOENT") return { version: MISSION_AI_CREDENTIAL_VERSION, credentials: { primary: null, secondary: null }, preferences: normalizePreferences() };
       throw error;
     }
     if (!Buffer.isBuffer(raw)) raw = Buffer.from(raw);
@@ -156,11 +202,35 @@ class MissionAiCredentialStore {
     let value;
     try { value = JSON.parse(raw.toString("utf8")); }
     catch { throw new Error("Mission AI credential file is invalid"); }
-    if (!isPlainObject(value) || value.version !== MISSION_AI_CREDENTIAL_VERSION) throw new Error("Mission AI credential version is unsupported");
-    if (value.credential !== null && (typeof value.credential !== "string" || value.credential.length > 4096)) throw new Error("Mission AI credential data is invalid");
+    if (!isPlainObject(value)) throw new Error("Mission AI credential file is invalid");
+    
+    // Transparent v1 -> v2 migration
+    if (value.version === 1) {
+      const legacyCipher = value.credential || value.encryptedApiKey || null;
+      if (legacyCipher !== null && (typeof legacyCipher !== "string" || legacyCipher.length > 4096)) throw new Error("Mission AI credential data is invalid");
+      return {
+        version: MISSION_AI_CREDENTIAL_VERSION,
+        credentials: {
+          primary: legacyCipher,
+          secondary: null
+        },
+        preferences: normalizePreferences(value.preferences),
+        updatedAt: Number.isInteger(value.updatedAt) ? value.updatedAt : null
+      };
+    }
+
+    if (value.version !== MISSION_AI_CREDENTIAL_VERSION) throw new Error("Mission AI credential version is unsupported");
+    const primary = value.credentials?.primary || null;
+    const secondary = value.credentials?.secondary || null;
+    if (primary !== null && (typeof primary !== "string" || primary.length > 4096)) throw new Error("Mission AI credential data is invalid");
+    if (secondary !== null && (typeof secondary !== "string" || secondary.length > 4096)) throw new Error("Mission AI credential data is invalid");
+
     return {
       version: MISSION_AI_CREDENTIAL_VERSION,
-      credential: value.credential || null,
+      credentials: {
+        primary,
+        secondary
+      },
       preferences: normalizePreferences(value.preferences),
       updatedAt: Number.isInteger(value.updatedAt) ? value.updatedAt : null
     };
@@ -193,3 +263,4 @@ module.exports = {
   publicCredentialError,
   validApiKey
 };
+
