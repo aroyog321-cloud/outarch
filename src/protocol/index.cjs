@@ -23,6 +23,7 @@ const MAX_PENDING_CONFIRMATIONS = 128;
 const CONFIRMATION_METHODS = new Set([
   "terminal.broadcast",
   "missionAi.clear",
+  "ai.byok.remove",
   "missionSupervisor.approval.resolve",
   "vscode.terminal.create",
   "vscode.terminal.write",
@@ -82,8 +83,10 @@ const METHODS = Object.freeze([
   "vscode.disconnect",
   "vscode.audit.list",
   "mcp.status",
+  "mcp.getToken",
   "mcp.configure",
   "mcp.rotateToken",
+  "mcp.installClient",
   "mcp.tools.list",
   "mcp.tool.call",
   "mcp.approval.list",
@@ -155,6 +158,39 @@ const METHODS = Object.freeze([
   "crashlens.port.inspect",
   "terminal.resize",
   "terminal.close",
+  "services.list",
+  "services.open",
+  "services.copy",
+  "services.owner",
+  "services.inspectPort",
+  "usage.query",
+  "usage.import",
+  "terminal.window.list",
+  "terminal.window.detach",
+  "terminal.window.recall",
+  "terminal.window.focus",
+  "workspace.browser.open",
+  "workspace.browser.bounds",
+  "workspace.browser.command",
+  "workspace.browser.state",
+  "recovery.inspect",
+  "recovery.propose",
+  "recovery.resume",
+  "agents.activity",
+  "missionAi.conversation.send",
+  "missionAi.conversation.history",
+  "ai.status",
+  "ai.selection.set",
+  "ai.byok.detect",
+  "ai.byok.add",
+  "ai.byok.remove",
+  "ai.byok.refresh",
+  "ai.chat.send",
+  "ai.chat.resolve",
+  "ai.chat.history",
+  "ai.chat.clear",
+  "ai.chat.cancel",
+  "ai.chat.autoApprove",
   "system.shutdown"
 ]);
 
@@ -336,6 +372,58 @@ function requireString(params, field) {
   return value;
 }
 
+// Addresses reach this registry by being printed to a terminal, so anything a
+// dependency logs can end up here. Only a loopback HTTP(S) address is ever
+// handed to the OS browser, and any credential or secret-bearing query the
+// worker printed is dropped rather than forwarded.
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1", "::", "[::1]", "[::]"]);
+
+function assertOpenableServiceUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(rawUrl));
+  } catch {
+    throw new ProtocolError("INVALID_PARAMS", "That service address is not a valid URL.");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new ProtocolError("FORBIDDEN", "Only http and https service addresses can be opened.");
+  }
+  if (parsed.username || parsed.password) {
+    throw new ProtocolError("FORBIDDEN", "That address carries credentials and will not be opened.");
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (!LOOPBACK_HOSTS.has(host) && !LOOPBACK_HOSTS.has(`[${host}]`)) {
+    throw new ProtocolError("FORBIDDEN", "Only local addresses can be opened from Mission Control.");
+  }
+  // The path is evidence the worker advertised; the query and fragment are not
+  // worth the risk of carrying a token into browser history.
+  return `${parsed.protocol}//${parsed.host}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+}
+
+// An address the operator typed into the workspace browser is not a record a
+// worker printed, so the same three refusals apply — scheme, credentials, host —
+// but the query and fragment are kept. Dropping them silently would load a
+// different page than the one that was asked for, which is worse than refusing.
+function assertPreviewableUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(rawUrl));
+  } catch {
+    throw new ProtocolError("INVALID_PARAMS", "That is not a valid address.");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new ProtocolError("FORBIDDEN", "Only http and https addresses can be previewed.");
+  }
+  if (parsed.username || parsed.password) {
+    throw new ProtocolError("FORBIDDEN", "That address carries credentials and will not be opened.");
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (!LOOPBACK_HOSTS.has(host) && !LOOPBACK_HOSTS.has(`[${host}]`)) {
+    throw new ProtocolError("FORBIDDEN", "Mission Control previews addresses on this machine. Use your system browser for anything else.");
+  }
+  return parsed.toString();
+}
+
 function terminalReplay(engineApi, sessionId, rawReplay) {
   const replay = typeof rawReplay === "string" ? { data: rawReplay, complete: true } : rawReplay;
   const rawData = typeof replay?.data === "string" ? replay.data : "";
@@ -390,6 +478,27 @@ function createProtocolConnection(engineApi, options = {}) {
   const pluginPlatform = options.pluginPlatform || null;
   const notifications = options.notifications || null;
   const portInspector = options.portInspector || null;
+  const localServiceRegistry = options.localServiceRegistry || null;
+  const usageLedger = options.usageLedger || null;
+  const terminalWindowManager = options.terminalWindowManager || null;
+  const workspaceBrowser = options.workspaceBrowser || null;
+  const sessionRecoveryService = options.sessionRecoveryService || null;
+  const missionAiConversation = options.missionAiConversation || null;
+  // Mission AI and the Workspace chat: one assistant, any model, tool access
+  // gated by operator approval inside the conversation itself.
+  const aiAssistant = options.aiAssistant || null;
+  const agentActivityService = options.agentActivityService || null;
+  const semanticEventRouter = options.semanticEventRouter || null;
+  const openServiceUrl = typeof options.openServiceUrl === "function" ? options.openServiceUrl : null;
+  // The report captured before the engine opened, plus the action that ends the
+  // launch deferral it caused.
+  const recoveryBoot = options.recoveryBoot || null;
+  // Reads local agent-CLI transcripts into the ledger. Counts only.
+  const importCliUsage = typeof options.importCliUsage === "function" ? options.importCliUsage : null;
+  // Which presentation view this connection speaks for, and the lease table
+  // that says which view currently owns each terminal's keyboard.
+  const terminalLeases = options.terminalLeases || null;
+  const viewId = typeof options.getViewId === "function" ? options.getViewId : () => "main";
   const now = options.now || Date.now;
   const randomBytes = options.randomBytes || crypto.randomBytes;
   const missionContext = options.missionContext || new MissionContextService({
@@ -490,7 +599,14 @@ function createProtocolConnection(engineApi, options = {}) {
     { id: "extensions", service: pluginPlatform, methods: methodsWithPrefix("plugin."), state: value => value?.available === false ? "unavailable" : "ready" },
     { id: "notifications", service: notifications, methods: methodsWithPrefix("notification."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.running ? "ready" : "disabled" },
     { id: "terminal-broadcast", service: engineApi, methods: ["terminal.broadcast.preview", "terminal.broadcast"], state: () => "ready" },
-    { id: "crashlens-free-port", service: portInspector, methods: ["crashlens.port.inspect"], state: value => value?.available === false ? "unavailable" : "ready" }
+    { id: "crashlens-free-port", service: portInspector, methods: ["crashlens.port.inspect"], state: value => value?.available === false ? "unavailable" : "ready" },
+    { id: "services", service: localServiceRegistry, methods: ["services.list", "services.open", "services.copy", "services.owner", "services.inspectPort"], state: () => "ready" },
+    { id: "usage", service: usageLedger, methods: ["usage.query", "usage.import"], state: () => "ready" },
+    { id: "terminal-windows", service: terminalWindowManager, methods: ["terminal.window.list", "terminal.window.detach", "terminal.window.recall", "terminal.window.focus"], state: () => "ready" },
+    { id: "workspace-browser", service: workspaceBrowser, methods: methodsWithPrefix("workspace.browser."), state: () => "ready" },
+    { id: "recovery", service: sessionRecoveryService, methods: ["recovery.inspect", "recovery.propose", "recovery.resume"], state: () => "ready" },
+    { id: "agent-activity", service: agentActivityService, methods: ["agents.activity"], state: () => "ready" },
+    { id: "assistant", service: aiAssistant, methods: methodsWithPrefix("ai."), state: value => value?.mission?.available || value?.keys?.length ? "ready" : "disabled" }
   ];
 
   async function inspectCapability(definition) {
@@ -592,7 +708,12 @@ function createProtocolConnection(engineApi, options = {}) {
         type: "notification:activate",
         route: payload?.route || "needs",
         attentionId: payload?.attentionId || null,
-        sessionId: payload?.sessionId || null
+        sessionId: payload?.sessionId || null,
+        // Which button on the Windows toast was pressed, so the app finishes
+        // the job (focus the terminal, open Needs You) rather than only
+        // surfacing the window.
+        notificationId: payload?.notificationId || null,
+        actionId: payload?.actionId || null
       }))
     : null;
 
@@ -622,6 +743,18 @@ function createProtocolConnection(engineApi, options = {}) {
       throw new ProtocolError("TERMINAL_STALE", `terminal stream epoch is stale: ${streamId}`);
     }
     return state;
+  }
+
+  // Two views can watch one terminal, but only one may type into it. The lease
+  // is checked here rather than in React because a renderer that lost the
+  // handoff — or never respected it — still reaches this method.
+  function requireWriteAuthority(state) {
+    if (!terminalLeases || typeof terminalLeases.isAuthorized !== "function") return;
+    if (terminalLeases.isAuthorized(state.sessionId, viewId())) return;
+    throw new ProtocolError(
+      "TERMINAL_NOT_AUTHORIZED",
+      "This terminal is open in another window. Recall it to type here."
+    );
   }
 
   function sendTerminalExit(state) {
@@ -1004,6 +1137,8 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: { disconnected: await callVSCode("disconnect", disconnect => disconnect("renderer-request")) } };
       case "mcp.status":
         return { result: await callMcp("status", status => status()) };
+      case "mcp.getToken":
+        return { result: await callMcp("getToken", getToken => getToken()) };
       case "mcp.configure": {
         if (!isPlainObject(params.configuration)) throw new ProtocolError("INVALID_PARAMS", "configuration is required");
         return { result: await callMcp("configure", configure => configure(params.configuration)) };
@@ -1011,6 +1146,11 @@ function createProtocolConnection(engineApi, options = {}) {
       case "mcp.rotateToken": {
         requireConfirmation("mcp.rotateToken", params);
         return { result: await callMcp("rotateToken", rotateToken => rotateToken()) };
+      }
+      case "mcp.installClient": {
+        const target = requireString(params, "target");
+        const workspacePath = typeof params.workspacePath === "string" ? params.workspacePath : "";
+        return { result: await callMcp("installClient", installClient => installClient({ target, workspacePath })) };
       }
       case "mcp.tools.list":
         return {
@@ -1475,6 +1615,7 @@ function createProtocolConnection(engineApi, options = {}) {
             `terminal input cannot exceed ${MAX_TERMINAL_INPUT_BYTES} bytes`
           );
         }
+        requireWriteAuthority(state);
         if (!state.rawStream.write(params.data, { source: "groundstation" })) {
           throw new ProtocolError("TERMINAL_NOT_RUNNING", "terminal is not running or write failed");
         }
@@ -1559,6 +1700,7 @@ function createProtocolConnection(engineApi, options = {}) {
             `terminal dimensions must be integers between 1 and ${MAX_TERMINAL_DIMENSION}`
           );
         }
+        requireWriteAuthority(state);
         if (!state.rawStream.resize(cols, rows)) {
           throw new ProtocolError("TERMINAL_NOT_RUNNING", "terminal is not running or resize failed");
         }
@@ -1568,6 +1710,262 @@ function createProtocolConnection(engineApi, options = {}) {
         const state = requireTerminal(params);
         closeTerminal(state.streamId);
         return { result: { closed: true } };
+      }
+      case "services.list": {
+        if (!localServiceRegistry) return { result: { services: [], available: false } };
+        return { result: { services: localServiceRegistry.listServices(params), available: true } };
+      }
+      // A toast or panel action carries a service ID, never a command or a raw
+      // address. The address is re-resolved from the registry at click time so a
+      // record that went stale since it was rendered cannot be opened.
+      case "services.open":
+      case "services.copy": {
+        if (!localServiceRegistry) throw new ProtocolError("UNAVAILABLE", "local service discovery is not available");
+        const serviceId = requireString(params, "serviceId");
+        const service = localServiceRegistry.getService(serviceId);
+        if (!service) {
+          throw new ProtocolError("NOT_FOUND", "That service is no longer being reported by its worker. Check the terminal that started it.");
+        }
+        if (Number.isInteger(params?.expectedGeneration) && params.expectedGeneration !== service.generation) {
+          throw new ProtocolError("CONFLICT", `${service.workerName} restarted since that address was shown. Open the current address from the Services panel.`);
+        }
+        const safeUrl = assertOpenableServiceUrl(service.url);
+        if (method === "services.copy") {
+          return { result: { ok: true, url: safeUrl, serviceId, generation: service.generation } };
+        }
+        // A worker advertised this address, so the default place to open it is
+        // the workspace's own browser: following it should not cost the
+        // operator the window they are working in. `external: true` is the
+        // explicit way to hand it to the operating system instead.
+        const wantsExternal = params?.external === true;
+        if (!wantsExternal && workspaceBrowser) {
+          const state = workspaceBrowser.open({ url: safeUrl, bounds: params?.bounds || null });
+          return { result: { ok: true, opened: true, target: "workspace", url: safeUrl, serviceId, generation: service.generation, browser: state } };
+        }
+        if (typeof openServiceUrl !== "function") {
+          throw new ProtocolError("UNAVAILABLE", "opening a browser is not available on this connection");
+        }
+        await openServiceUrl(safeUrl);
+        return { result: { ok: true, opened: true, target: "system", url: safeUrl, serviceId, generation: service.generation } };
+      }
+      // Which worker owns a service, and what stopping it would take down with
+      // it. A worker serving three ports has one stop, and the panel has to be
+      // able to say so before the operator presses it.
+      case "services.owner": {
+        if (!localServiceRegistry) throw new ProtocolError("UNAVAILABLE", "local service discovery is not available");
+        const serviceId = requireString(params, "serviceId");
+        const service = localServiceRegistry.getService(serviceId);
+        if (!service) throw new ProtocolError("NOT_FOUND", "That service is no longer being reported.");
+        const siblings = typeof localServiceRegistry.servicesForWorker === "function"
+          ? localServiceRegistry.servicesForWorker(service.projectId, service.workerId)
+          : [service];
+        const snapshot = typeof engineApi.getSnapshot === "function" ? engineApi.getSnapshot(service.workerId) : null;
+        return {
+          result: {
+            workerId: service.workerId,
+            workerName: service.workerName,
+            workerStatus: snapshot?.status || "unknown",
+            workerIsAlive: Boolean(snapshot?.isAlive),
+            workerExists: Boolean(snapshot),
+            services: siblings.map(item => ({ id: item.id, url: item.url, port: item.port, state: item.state }))
+          }
+        };
+      }
+      // Read-only port ownership. It proves who holds a port; it never
+      // terminates anything it did not start.
+      case "services.inspectPort": {
+        if (!portInspector) throw new ProtocolError("UNAVAILABLE", "port inspection is not available");
+        const port = params?.port;
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          throw new ProtocolError("INVALID_PARAMS", "port must be an integer between 1 and 65535");
+        }
+        return { result: await portInspector.inspect(port) };
+      }
+      // Agent CLIs authenticate themselves and never pass through this app, so
+      // their usage is read from the transcripts they leave on disk. Triggered
+      // explicitly rather than polled.
+      case "usage.import": {
+        if (!importCliUsage) throw new ProtocolError("UNAVAILABLE", "local CLI usage import is not available");
+        return { result: await importCliUsage() };
+      }
+      case "usage.query": {
+        if (!usageLedger) {
+          return {
+            result: {
+              available: false,
+              totals: { callCount: 0, totalTokens: 0, totalCost: 0, breakdown: null, byModel: {} },
+              records: []
+            }
+          };
+        }
+        const totals = usageLedger.getAggregate(params);
+        const records = usageLedger.query(params);
+        return { result: { available: true, totals, records } };
+      }
+      case "terminal.window.list": {
+        if (!terminalWindowManager) return { result: { detached: [], max: 3, available: false } };
+        return {
+          result: {
+            detached: terminalWindowManager.listDetached(),
+            max: terminalWindowManager.maxWindows ?? 3,
+            available: true
+          }
+        };
+      }
+      case "terminal.window.detach": {
+        const workerId = requireString(params, "workerId");
+        if (!terminalWindowManager) throw new ProtocolError("UNAVAILABLE", "pop-out terminal windows not supported");
+        // The pane the terminal came from is reserved so Recall returns it to
+        // the exact slot and split it left, not to a deterministic fallback.
+        const snapshot = typeof engineApi.getSnapshot === "function" ? engineApi.getSnapshot(workerId) : null;
+        if (!snapshot) throw new ProtocolError("NOT_FOUND", "That terminal is not in this project any more.");
+        if (!terminalWindowManager.isDetached(workerId) && !terminalWindowManager.canDetach()) {
+          throw new ProtocolError("LIMIT", "Three terminals are already popped out. Recall one to open another.");
+        }
+        try {
+          return {
+            result: await terminalWindowManager.detach(workerId, {
+              slotId: typeof params?.slotId === "string" ? params.slotId : null,
+              workerName: snapshot.name || workerId
+            })
+          };
+        } catch (error) {
+          throw new ProtocolError("UNAVAILABLE", error instanceof Error ? error.message : String(error));
+        }
+      }
+      case "terminal.window.recall": {
+        const workerId = requireString(params, "workerId");
+        if (!terminalWindowManager) throw new ProtocolError("UNAVAILABLE", "pop-out terminal windows not supported");
+        return { result: { recalled: await terminalWindowManager.recall(workerId) } };
+      }
+      case "terminal.window.focus": {
+        const workerId = requireString(params, "workerId");
+        if (!terminalWindowManager) throw new ProtocolError("UNAVAILABLE", "pop-out terminal windows not supported");
+        return { result: { focused: terminalWindowManager.focus(workerId) } };
+      }
+      // The in-app browser. Every entry point resolves the address through the
+      // same loopback policy `services.open` states, and the view itself
+      // re-checks each navigation, so a page cannot walk off the machine even
+      // if a caller here were wrong.
+      case "workspace.browser.open": {
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        const url = params?.url === undefined || params?.url === null ? null : assertPreviewableUrl(params.url);
+        return { result: workspaceBrowser.open({ url, bounds: params?.bounds || null }) };
+      }
+      case "workspace.browser.bounds": {
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        return { result: workspaceBrowser.setBounds(params?.bounds || null) };
+      }
+      case "workspace.browser.command": {
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        const action = requireString(params, "action");
+        if (!["back", "forward", "reload", "stop", "close"].includes(action)) {
+          throw new ProtocolError("INVALID_PARAMS", "unknown browser action");
+        }
+        return { result: action === "close" ? workspaceBrowser.close() : workspaceBrowser.command(action) };
+      }
+      case "workspace.browser.state": {
+        if (!workspaceBrowser) return { result: { available: false, open: false, url: "", title: "", loading: false, error: null, canGoBack: false, canGoForward: false } };
+        return { result: workspaceBrowser.state() };
+      }
+      case "recovery.inspect": {
+        // The boot report is what the gate read *before* the engine opened.
+        // Re-reading the journal here would describe this session instead,
+        // because opening one overwrites the record being asked about.
+        if (recoveryBoot) {
+          return {
+            result: {
+              ...(recoveryBoot.getReport?.() || { cleanShutdown: true, recoveryRequired: false, workers: [] }),
+              launchesDeferred: recoveryBoot.isDeferred?.() === true
+            }
+          };
+        }
+        if (!sessionRecoveryService) return { result: { records: [] } };
+        const sessions = typeof engineApi.list === "function" ? engineApi.list() : [];
+        return { result: sessionRecoveryService.inspect(params?.projectId || "default", sessions) };
+      }
+      // Ends the recovery deferral and starts the workers whose saved autoStart
+      // would have launched them at load. Nothing else is resumed implicitly.
+      case "recovery.resume": {
+        if (!recoveryBoot || typeof recoveryBoot.resume !== "function") {
+          throw new ProtocolError("UNAVAILABLE", "there is no deferred launch to resume");
+        }
+        return { result: { started: await recoveryBoot.resume() } };
+      }
+      case "recovery.propose": {
+        if (!sessionRecoveryService) return { result: { plan: [] } };
+        const sessions = typeof engineApi.list === "function" ? engineApi.list() : [];
+        return { result: sessionRecoveryService.propose(params?.projectId || "default", params?.selectedWorkerIds || [], sessions) };
+      }
+      // Which terminals are running an AI agent right now, and what each one is
+      // doing. Classification is evidence-based — a shell that launches Claude
+      // becomes an agent, and stops being one when it exits.
+      case "agents.activity": {
+        if (!agentActivityService) return { result: { activities: [], available: false } };
+        return { result: { activities: agentActivityService.listActivities(), available: true } };
+      }
+      case "missionAi.conversation.send": {
+        if (!missionAiConversation) throw new ProtocolError("UNAVAILABLE", "Mission AI conversation service is not available");
+        return { result: await missionAiConversation.send(params) };
+      }
+      case "ai.status": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: aiAssistant.status() };
+      }
+      case "ai.selection.set": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        const surface = requireString(params, "surface");
+        if (!isPlainObject(params?.target)) throw new ProtocolError("INVALID_PARAMS", "target must be an object");
+        return { result: aiAssistant.setSelection(surface, params.target) };
+      }
+      // The key crosses from the renderer exactly once, here, and is never
+      // returned: the result carries the saved record, which has no key in it.
+      // Reads the shape of a key being pasted. Nothing is sent to any provider.
+      case "ai.byok.detect": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: aiAssistant.detectKey(typeof params?.apiKey === "string" ? params.apiKey.slice(0, 512) : "") };
+      }
+      case "ai.byok.add": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        const apiKey = requireString(params, "apiKey");
+        return { result: await aiAssistant.addKey({ apiKey, provider: typeof params?.provider === "string" ? params.provider : null, label: typeof params?.label === "string" ? params.label : "", baseUrl: typeof params?.baseUrl === "string" && params.baseUrl ? params.baseUrl : null }) };
+      }
+      case "ai.byok.remove": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        requireConfirmation("ai.byok.remove", params);
+        return { result: aiAssistant.removeKey(requireString(params, "keyId")) };
+      }
+      case "ai.byok.refresh": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: await aiAssistant.refreshModels(typeof params?.keyId === "string" && params.keyId ? params.keyId : null) };
+      }
+      case "ai.chat.send": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: await aiAssistant.send({ conversationId: requireString(params, "conversationId"), surface: params?.surface === "workspace" ? "workspace" : "missionAi", text: requireString(params, "text"), focusWorkerId: typeof params?.focusWorkerId === "string" ? params.focusWorkerId : null }) };
+      }
+      case "ai.chat.resolve": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: await aiAssistant.resolve({ conversationId: requireString(params, "conversationId"), decision: requireString(params, "decision") }) };
+      }
+      case "ai.chat.history": {
+        if (!aiAssistant) return { result: { conversationId: String(params?.conversationId || ""), messages: [], pending: null, busy: false } };
+        return { result: aiAssistant.history(requireString(params, "conversationId")) };
+      }
+      case "ai.chat.clear": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: aiAssistant.clear(requireString(params, "conversationId")) };
+      }
+      case "ai.chat.cancel": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: aiAssistant.cancel(requireString(params, "conversationId")) };
+      }
+      case "ai.chat.autoApprove": {
+        if (!aiAssistant) throw new ProtocolError("UNAVAILABLE", "the assistant is not available on this connection");
+        return { result: aiAssistant.setAutoApprove(requireString(params, "conversationId"), params?.enabled === true) };
+      }
+      case "missionAi.conversation.history": {
+        if (!missionAiConversation) return { result: { history: [] } };
+        return { result: { history: missionAiConversation.getHistory(params?.conversationId) } };
       }
       case "system.shutdown": {
         if (typeof onShutdown !== "function") {

@@ -1,0 +1,97 @@
+{
+  "theme": "orbital",
+  "closedGeometry": {
+    "stage": 754,
+    "grid": 421,
+    "share": 56,
+    "stageOverflows": false
+  },
+  "services": {
+    "rows": 4,
+    "states": [
+      "ready",
+      "ready",
+      "detected",
+      "stale"
+    ],
+    "overflowsX": false,
+    "staleOpenDisabled": true,
+    "firstRowHeight": 56,
+    "addressFont": "\"JetBrains Mono\""
+  },
+  "usage": {
+    "tiles": [
+      {
+        "label": "Estimated cost",
+        "value": "$0.0842"
+      },
+      {
+        "label": "Tokens",
+        "value": "128k"
+      },
+      {
+        "label": "Requests",
+        "value": "14"
+      }
+    ],
+    "modelRows": 2,
+    "note": "This total is partial: 2 requests returned no usage data, and 1 could not be priced. Unmeasured requests are not counted as zero.",
+    "numerals": "tabular-nums",
+    "panelScrollsY": true
+  },
+  "geometry": {
+    "stageHeight": 754,
+    "gridHeight": 212,
+    "opsHeight": 245,
+    "terminalShare": 28,
+    "opsBelowGrid": true,
+    "pageScrollsX": false,
+    "gridMinHeight": "212.16px",
+    "opsIsDirectChild": true,
+    "gridIsChildOfStage": true,
+    "stageChildren": [
+      {
+        "cls": "workspace-command-deck",
+        "h": 87
+      },
+      {
+        "cls": "workspace-background",
+        "h": 81
+      },
+      {
+        "cls": "workspace-intelligence",
+        "h": 0
+      },
+      {
+        "cls": "worker-folders",
+        "h": 48
+      },
+      {
+        "cls": "terminal-grid",
+        "h": 212
+      },
+      {
+        "cls": "workspace-ops",
+        "h": 245
+      }
+    ]
+  },
+  "contrast": [
+    {
+      "sel": ".ops-usage-tile small",
+      "size": "12px",
+      "ratio": 6.94
+    },
+    {
+      "sel": ".ops-note",
+      "size": "13px",
+      "ratio": 6.94
+    },
+    {
+      "sel": ".workspace-ops-tab",
+      "size": "11px",
+      "ratio": 6.94
+    }
+  ],
+  "problems": []
+}

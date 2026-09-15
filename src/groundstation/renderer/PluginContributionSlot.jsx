@@ -83,14 +83,14 @@ function formatTemplate(template, metricValue) {
 export function evaluateContribution(contribution, snapshot) {
   if (!contribution) return null;
   const base = {
-    id: contribution.id,
-    surface: contribution.surface,
-    title: contribution.title,
-    value: contribution.value,
+    id: contribution.id || "contribution",
+    surface: contribution.surface || "",
+    title: contribution.title || "",
+    value: contribution.value || "",
     detail: contribution.detail || "",
     tone: contribution.tone || "neutral",
-    pluginId: contribution.pluginId,
-    pluginName: contribution.pluginName
+    pluginId: contribution.pluginId || "plugin",
+    pluginName: contribution.pluginName || "Plugin"
   };
 
   if (!Array.isArray(contribution.rules) || !contribution.rules.length || !snapshot) {
@@ -98,6 +98,7 @@ export function evaluateContribution(contribution, snapshot) {
   }
 
   for (const rule of contribution.rules) {
+    if (!rule || typeof rule !== "object") continue;
     const metricVal = extractMetricValue(snapshot, rule.metric);
     if (matchRule(metricVal, rule.operator, rule.operand)) {
       return {

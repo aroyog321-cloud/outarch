@@ -34,7 +34,7 @@ test("Groundstation product experience keeps the intentional navigation and Miss
     "utf8"
   );
 
-  for (const section of ["Groundstation", "Workspace", "Needs You", "Agents", "Recipes", "History", "Settings"]) {
+  for (const section of ["Groundstation", "Workspace", "Needs You", "Recipes", "History", "Settings"]) {
     assert.match(appSource, new RegExp(`\\[\\\"[^\\\"]+\\\", \\\"${section}\\\"`));
   }
   for (const destination of ["Switch project"]) {
@@ -52,10 +52,13 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(appSource, /event\.key\.toLowerCase\(\) === "k"/);
   assert.match(appSource, /event\.key\.toLowerCase\(\) === "n"/);
   assert.match(appSource, /Alt G/);
-  assert.match(workerDialogSource, /QUICK START/);
-  assert.match(workerDialogSource, /Frontend dev/);
-  assert.match(workerDialogSource, /Docker stack/);
-  assert.match(workerDialogSource, /Git status/);
+  // The create path is two fields — a name and a start command. The Frontend /
+  // Backend / Git / Docker templates were removed on purpose, so their absence
+  // is the assertion now.
+  assert.match(workerDialogSource, /label="Start command"/);
+  assert.doesNotMatch(workerDialogSource, /QUICK START/);
+  assert.doesNotMatch(workerDialogSource, /Frontend dev/);
+  assert.doesNotMatch(workerDialogSource, /Docker stack/);
   assert.match(appSource, /mc-ref-groundstation/);
   assert.match(appSource, /AttentionInbox/);
   assert.match(appSource, /decisionFor/);
@@ -284,7 +287,7 @@ test("Groundstation 2.19 uses the live supervision composition and consolidated 
   // palette, and accessibilityMeasured.test.cjs is what holds it to contrast.
   assert.match(bridge, /--mc-text-dim:\s*#[0-9a-f]{3,8};/i);
   assert.match(base, /Mission Control .* base layer/);
-  assert.match(base, /grid-template-columns: 64px minmax\(0, 1fr\)/);
+  assert.match(base, /grid-template-columns: var\(--mc-rail-w, 64px\) minmax\(0, 1fr\)/);
   assert.match(base, /\.mission-status-bar/);
   assertReducedMotionIsCentral();
   assert.match(workspace, /container: workspace-stage \/ inline-size/);
@@ -311,17 +314,17 @@ test("Groundstation premium shell uses one responsive sidebar with intentional p
   assert.match(app, /\["recipes", "Recipes", "grid"\]/);
   assert.match(app, /\["settings", "Settings", "settings"\]/);
   const primaryNavigation = app.slice(app.indexOf("const NAVIGATION"), app.indexOf("const SECONDARY_DESTINATIONS"));
-  const coreDestinations = ["groundstation", "workspace", "needs", "agents", "recipes", "history", "settings"];
+  const coreDestinations = ["groundstation", "workspace", "needs", "recipes", "history", "settings"];
   let previousIndex = -1;
   for (const id of coreDestinations) {
     const index = primaryNavigation.indexOf(`["${id}",`);
-    assert.ok(index > previousIndex, `${id} must retain its position in the seven-route core order`);
+    assert.ok(index > previousIndex, `${id} must retain its position in the six-route core order`);
     previousIndex = index;
   }
-  assert.match(primaryNavigation, /const PRIMARY_NAV_COUNT = 7/);
+  assert.match(primaryNavigation, /const PRIMARY_NAV_COUNT = 6/);
   assert.match(app, /NAVIGATION\.slice\(0, PRIMARY_NAV_COUNT\)\.map/);
   // Integrations is reachable but visually contextual: Settings keeps local
-  // preferences while connected bridges live after the seven core routes.
+  // preferences while connected bridges live after the six core routes.
   assert.match(primaryNavigation, /\["integrations", "Integrations", "expand"\]/);
   assert.match(app, /className="top-navigation__contextual"[\s\S]{0,160}NAVIGATION\.slice\(PRIMARY_NAV_COUNT\)\.map/);
   // The sidebar still has to stay a short, intentional list rather than a
@@ -335,7 +338,7 @@ test("Groundstation premium shell uses one responsive sidebar with intentional p
   assert.match(app, /top-navigation/);
   assert.match(app, /const totalWaiting = available\.length/);
   assert.match(main, /import "\.\/premiumDesign\.css";[\s\S]*import "\.\/redesign\/base\.css";/);
-  assert.match(base, /grid-template-columns: 212px minmax\(0, 1fr\)/);
+  assert.match(base, /grid-template-columns: var\(--mc-rail-w, 212px\) minmax\(0, 1fr\)/);
   assert.match(base, /\.app-sidebar[\s\S]*overflow: hidden auto/);
   assert.match(base, /\.top-navigation button > span[\s\S]*display: block !important/);
   assert.match(app, /> Run recipe<\/button>/);
@@ -611,7 +614,7 @@ test("worker form builds validated create definitions without weakening engine l
   const { buildWorkerDefinition, initialWorkerDraft } = await import(`${workerFormUrl}?create=${Date.now()}`);
   const defaultDraft = initialWorkerDraft();
   assert.equal(defaultDraft.command, "powershell.exe");
-  assert.equal(defaultDraft.autoStart, true);
+  assert.equal(defaultDraft.autoStart, false);
   assert.equal(defaultDraft.powershellCompatibility, false);
   const definition = buildWorkerDefinition({
     id: "api.dev",
@@ -644,17 +647,23 @@ test("worker form builds validated create definitions without weakening engine l
   );
 });
 
-test("Add Worker default template submits without an intermediate click and stays duplicate-safe", async () => {
-  const { buildWorkerDefinition, initialWorkerDraft, nextAvailableWorkerId } = await import(
+test("Add terminal asks two questions and stays duplicate-safe", async () => {
+  const { buildSimpleWorkerDefinition, initialWorkerDraft, nextAvailableWorkerId } = await import(
     `${workerFormUrl}?default=${Date.now()}`
   );
 
-  // The dialog preselects the Project shell template; its draft must already be a
-  // valid definition so the first submit does not fail on a blank required ID.
-  const untouched = buildWorkerDefinition(initialWorkerDraft());
-  assert.equal(untouched.id, "terminal");
-  assert.equal(untouched.command, "powershell.exe");
-  assert.equal(untouched.autoStart, true);
+  // The create draft starts empty: there is no template to preselect, so the
+  // form asks for a name and a command and derives everything else.
+  const blank = initialWorkerDraft();
+  assert.equal(blank.name, "");
+  assert.equal(blank.startCommand, "");
+
+  const created = buildSimpleWorkerDefinition({ name: "Storefront", startCommand: "npm run dev" }, { platform: "win32" });
+  assert.equal(created.id, "Storefront");
+  assert.equal(created.command, "powershell.exe");
+  assert.equal(created.cwd, ".");
+  assert.equal(created.autoStart, false);
+  assert.equal(created.args.at(-1), "npm run dev", "the command line is not split on spaces");
 
   // Duplicate-safe ID generation mirrors the engine's "id already in use" rejection.
   assert.equal(nextAvailableWorkerId("terminal", []), "terminal");
@@ -716,12 +725,11 @@ test("terminal layouts support unique persisted 1, 2, 4, and 6-pane assignments"
   assert.equal(normalizeTerminalLayout({ layoutId: "horizontal", paneRatio: 68 }, sessions).paneRatio, 68);
   assert.equal(normalizeTerminalLayout({ layoutId: "horizontal", paneRatio: 99 }, sessions).paneRatio, 75);
   const appSource = require("node:fs").readFileSync(require("node:path").join(__dirname, "../src/groundstation/renderer/App.jsx"), "utf8");
-  assert.match(appSource, /className=\{`pane-resize-handle/);
-  // The handle is pointer-driven and now carries a handle descriptor so a
-  // layout can expose more than one split (column + row).
-  assert.match(appSource, /onPointerDown=\{event => beginPaneResize\(event, handle\)\}/);
-  assert.match(appSource, /terminalLayout\.handles\.map\(handle =>/);
-  assert.match(appSource, /onDoubleClick=\{\(\) => terminalLayout\.setRatio\(handle\.ratio, defaultRatio\)\}/);
+  assert.match(appSource, /className=\{`tile-resize-grip is-edge/);
+  // Each terminal is resized from its own edges and corners, pointer-driven,
+  // with the grip naming which edge moves.
+  assert.match(appSource, /onPointerDown=\{event => beginTileResize\(event, tileFrame, grip\)\}/);
+  assert.match(appSource, /tileFrame\.grips\.map\(grip =>/);
   assert.doesNotMatch(appSource, /aria-label="Resize terminal panes" type="range"/);
   assert.match(appSource, /function WorkerFolders/);
   assert.match(appSource, /AI agents/);

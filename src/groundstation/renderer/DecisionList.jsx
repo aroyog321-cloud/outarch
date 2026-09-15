@@ -77,6 +77,18 @@ function resolutionLabel(record) {
   return `${String(decision).replace(/^./, character => character.toUpperCase())} ${who ? `${who} ` : ""}${timeAgo(at || record.createdAt)}`;
 }
 
+// A record can carry both an action and a deep link that mean the same thing —
+// a terminal alert offers "Open terminal" as its own action and again as the
+// engine's way back to the same worker. Two identical buttons side by side make
+// an operator hesitate over which one is the real control, so the link yields to
+// the action it duplicates. Only the wording is compared: the actions come from
+// the engine and the link labels from the map above, and a match in wording is
+// exactly what an operator sees as a repeat.
+function duplicatesAnAction(record) {
+  const link = DEEP_LINK_LABEL[record?.deepLink?.view] || "Show source";
+  return (record?.actions || []).some(action => String(action.label || "").toLowerCase() === link.toLowerCase());
+}
+
 export function DecisionList({ records, queueState = {}, busyId = "", onAction, onSnooze, onOpenSource, resolved = false }) {
   return records.map((record, index) => {
     const seen = Boolean(queueState[record.id]?.seen);
@@ -84,6 +96,8 @@ export function DecisionList({ records, queueState = {}, busyId = "", onAction, 
       ? record.status
       : seen ? "seen" : "new";
     const busy = busyId === record.id;
+    // Resolved rows render no actions at all, so nothing is left to duplicate.
+    const repeatsAnAction = !resolved && duplicatesAnAction(record);
     return (
       <DecisionItem
         key={record.id}
@@ -121,8 +135,8 @@ export function DecisionList({ records, queueState = {}, busyId = "", onAction, 
             {onSnooze && record.origin === "engine" && record.source === "session" && (
               <button disabled={busy} onClick={() => onSnooze(record.id)}>Snooze 15m</button>
             )}
-            {onOpenSource && record.deepLink?.view && (
-              <button className="decision-deep-link" onClick={() => onOpenSource(record)}>
+            {onOpenSource && record.deepLink?.view && !repeatsAnAction && (
+              <button type="button" className="decision-deep-link" onClick={() => onOpenSource(record)}>
                 {DEEP_LINK_LABEL[record.deepLink.view] || "Show source"}
               </button>
             )}

@@ -240,3 +240,45 @@ test("workspace path validation uses native Windows semantics", () => {
   assert.equal(relativeWorkspaceFile("C:\\work\\app", "C:\\work\\secret.txt", "win32"), null);
   assert.equal(relativeWorkspaceFile("C:\\work\\app", "..\\secret.txt", "win32"), null);
 });
+
+test("VS Code Bridge records and streams terminal inputs and output logs", async t => {
+  const { bridge, uris, workspace } = fixture();
+  t.after(() => bridge.dispose());
+  await bridge.launch();
+  const client = await connect(uris[0], workspace.directory);
+  t.after(() => client.socket.destroy());
+  await client.read();
+
+  // Send terminal state
+  const statusPromise = once(bridge, "status");
+  client.socket.write(`${JSON.stringify({
+    type: "terminals:state",
+    terminals: [{ id: "terminal-1", name: "Build", state: "open", ownership: "mission-control-managed" }]
+  })}\n`);
+  await statusPromise;
+
+  // Stream output and input
+  const outputPromise = once(bridge, "status");
+  client.socket.write(`${JSON.stringify({
+    type: "terminal:output",
+    terminalId: "terminal-1",
+    input: "npm run build",
+    data: "Building project...\nCompiled in 240ms\n",
+    state: "succeeded",
+    exitCode: 0
+  })}\n`);
+  await outputPromise;
+
+  const status = bridge.status();
+  const terminal = status.terminals.find(t => t.id === "terminal-1");
+  assert.ok(terminal);
+  assert.equal(terminal.logs.length, 4);
+  assert.equal(terminal.logs[0].type, "input");
+  assert.equal(terminal.logs[0].text, "npm run build");
+  assert.equal(terminal.logs[1].type, "output");
+  assert.equal(terminal.logs[1].text, "Building project...");
+  assert.equal(terminal.logs[2].type, "output");
+  assert.equal(terminal.logs[2].text, "Compiled in 240ms");
+  assert.equal(terminal.logs[3].type, "system");
+  assert.equal(terminal.logs[3].exitCode, 0);
+});

@@ -955,12 +955,12 @@ button:disabled { opacity: .48; cursor: not-allowed !important; filter: none !im
 .workspace-title { min-width: 0; }.workspace-title > .section-kicker { display: none; }.workspace-title > div { display: flex; align-items: center; gap: 8px; }.workspace-title strong { overflow: hidden; font-size: var(--type-control); text-overflow: ellipsis; white-space: nowrap; }.workspace-title small { overflow: hidden; max-width: 220px; color: var(--text-dim); text-overflow: ellipsis; white-space: nowrap; }
 .workspace-layout-bar { grid-column: 2 !important; grid-row: 1 !important; display: block !important; padding: 0 !important; border: 0 !important; }.workspace-layout-bar > span { display: none; }
 .layout-switcher { gap: 3px; padding: 3px; background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }.layout-switcher button { width: 29px; min-width: 29px; height: 26px; padding: 0; }.layout-switcher button small { display: none; }
-.workspace-actions { grid-column: 3; grid-row: 1; display: flex; justify-content: flex-end; gap: 5px; }.workspace-actions > span, .workspace-actions .workspace-mission-graph { display: none; }.workspace-actions button { min-height: 30px !important; padding-inline: 8px !important; }
+.workspace-actions { grid-column: 3; grid-row: 1; display: flex; justify-content: flex-end; gap: 5px; }.workspace-actions > span, .workspace-actions .workspace-mission-graph { display: none; }.workspace-actions button { min-height: var(--mc-deck-control-h, 30px) !important; padding-inline: var(--mc-deck-control-pad, 8px) !important; }
 .workspace-intelligence { min-height: 38px !important; padding: 5px 12px !important; }
 .terminal-pane { --terminal-role: var(--accent-primary); border: 1px solid var(--border-subtle) !important; background: #080c0c; }
 .terminal-pane.role-agent { --terminal-role: var(--accent-ai); }.terminal-pane.role-test { --terminal-role: var(--accent-warning); }.terminal-pane.role-git { --terminal-role: var(--accent-vscode); }.terminal-pane.role-database,.terminal-pane.role-container { --terminal-role: var(--accent-recipe); }
 .terminal-pane.is-active { border-color: var(--accent-primary) !important; box-shadow: inset 0 0 0 1px var(--accent-primary),0 0 0 1px var(--accent-primary-glow) !important; }
-.terminal-pane__header { position: relative; min-height: 38px !important; background: linear-gradient(90deg,color-mix(in srgb,var(--terminal-role) 8%,transparent),transparent 55%) !important; border-top: 3px solid var(--terminal-role) !important; border-bottom: 1px solid color-mix(in srgb,var(--terminal-role) 18%,var(--border-subtle)) !important; }
+.terminal-pane__header { position: relative; min-height: var(--terminal-head-h, 38px) !important; background: linear-gradient(90deg,color-mix(in srgb,var(--terminal-role) 8%,transparent),transparent 55%) !important; border-top: 3px solid var(--terminal-role) !important; border-bottom: 1px solid color-mix(in srgb,var(--terminal-role) 18%,var(--border-subtle)) !important; }
 .terminal-drag-handle { color: color-mix(in srgb,var(--terminal-role) 70%,var(--text-muted)) !important; opacity: .66 !important; }.terminal-drag-handle:hover { opacity: 1 !important; cursor: grab; }
 .terminal-shortcut { padding: 2px 5px; color: var(--text-dim); background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--mc-radius-2xs); font-size: 9px; font-weight: 500; }
 .pane-resize-handle span { background: color-mix(in srgb,var(--accent-primary) 38%,var(--border-default)) !important; box-shadow: 0 0 8px var(--accent-primary-glow); opacity: .72; }
@@ -1078,4 +1078,404 @@ button:disabled { opacity: .48; cursor: not-allowed !important; filter: none !im
   .create-worker-v2 { width: 36px; padding: 0 !important; }
   .groundstation-command-grid { grid-template-columns: 1fr; }.groundstation-side-panel { position: static; grid-template-columns: 1fr 1fr; }
   .settings-hub__layout { grid-template-columns: 1fr; }.settings-section-nav { position: static; grid-template-columns: repeat(4,minmax(0,1fr)) !important; }.settings-section-nav button { grid-template-columns: 1fr; place-items: center; text-align: center; }
+}
+
+/* ==========================================================================
+   START WITH WORKSPACE
+   The launch-policy dialog (AutoStartManager.jsx) and the restore toggle in
+   the worker inspectors.
+
+   The dialog is portalled into the body like every Radix dialog, so it places
+   itself in the viewport and paints the same surface token the other dialogs
+   use. Every token here is declared on the root, where a portal can reach it;
+   a token declared only on the shell, or not at all, paints nothing.
+   ========================================================================== */
+
+/* The toggle's input is visually hidden, so keyboard focus is drawn on the
+   track; without this a keyboard user cannot see which toggle has focus. */
+.pm-toggle input:focus-visible ~ .pm-toggle-track {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.dialog-card.autostart-manager-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 141;
+  display: flex;
+  flex-direction: column;
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 64px));
+  overflow: hidden;
+  color: var(--text-default);
+  background: var(--glass-surface-strong);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-dialog);
+  transform: translate(-50%, -50%);
+  animation: autostartDialogAppear 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes autostartDialogAppear {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-card.autostart-manager-dialog { animation: none; }
+}
+
+.autostart-manager-dialog .dialog-header {
+  flex: none;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 0;
+  padding: 18px 18px 16px 24px;
+}
+
+.autostart-manager-dialog .dialog-header h2 {
+  margin: 6px 0 0;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.autostart-manager-dialog .dialog-description {
+  max-width: 54ch;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.autostart-toolbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 6px;
+}
+
+.autostart-search-box {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--text-dim);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.autostart-search-box:focus-within {
+  border-color: var(--border-focus);
+}
+
+.autostart-search-box svg {
+  flex: none;
+}
+
+.autostart-search-box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--text-default);
+  font: inherit;
+  font-size: 12.5px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.autostart-search-box input::placeholder {
+  color: var(--text-dim);
+}
+
+.autostart-filter-chips {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.autostart-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.autostart-chip b {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.autostart-chip:hover,
+.autostart-chip.is-active {
+  color: var(--text-strong);
+}
+
+.autostart-chip.is-active {
+  background: var(--surface-selected-semantic);
+}
+
+.autostart-list-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 4px 18px 4px 24px;
+}
+
+.autostart-list-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.autostart-list-head p b {
+  color: var(--text-strong);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.autostart-list-head div {
+  display: flex;
+  gap: 2px;
+}
+
+.autostart-batch {
+  height: 26px;
+  padding: 0 8px;
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.autostart-batch:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.autostart-batch:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.autostart-worker-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 24px 18px;
+}
+
+.autostart-worker-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 12px 10px 14px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.autostart-worker-row:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-default);
+}
+
+.autostart-worker-row:focus-within {
+  border-color: var(--border-focus);
+}
+
+.autostart-worker-row.is-busy {
+  cursor: progress;
+}
+
+.autostart-status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--mc-text-dim);
+  border-radius: 50%;
+}
+
+.autostart-status-dot.status-running,
+.autostart-status-dot.status-starting {
+  background: var(--mc-ok);
+}
+
+.autostart-status-dot.status-failed {
+  background: var(--mc-danger);
+}
+
+.autostart-worker-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.autostart-worker-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.autostart-worker-name-line strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autostart-kind-pill {
+  flex: none;
+  padding: 1px 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-raised);
+  border-radius: var(--radius-xs);
+}
+
+.autostart-worker-cmd,
+.autostart-worker-cwd {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autostart-worker-cmd {
+  padding: 0;
+  color: var(--text-muted);
+  background: none;
+}
+
+.autostart-worker-cwd {
+  color: var(--text-dim);
+}
+
+.autostart-row-state {
+  min-width: 68px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: right;
+}
+
+.autostart-worker-row.is-autostart-enabled .autostart-row-state {
+  color: var(--text-default);
+}
+
+.autostart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 40px 16px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.autostart-empty strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.autostart-manager-dialog .autostart-dialog-footer {
+  flex: none;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px 18px 12px 24px;
+}
+
+.btn-ask-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  color: var(--mc-ai);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--mc-ai-soft);
+  border: 1px solid color-mix(in srgb, var(--mc-ai) 30%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-ask-ai span {
+  padding: 1px 4px;
+  color: var(--mc-void);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: var(--mc-ai);
+  border-radius: var(--radius-xs);
+}
+
+.btn-ask-ai:hover {
+  color: var(--mc-ai-strong);
+  border-color: color-mix(in srgb, var(--mc-ai) 50%, transparent);
+}
+
+/* Inspector restore rows: the value reads like its neighbours and the toggle
+   carries the state, so the row is no louder than the facts around it. */
+.inspector-autostart-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.inspector-autostart-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-autostart-status.is-disabled {
+  color: var(--text-dim);
 }

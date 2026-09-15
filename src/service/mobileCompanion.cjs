@@ -5,7 +5,7 @@ const EventEmitter = require("node:events");
 const http = require("node:http");
 const os = require("node:os");
 const { redactText } = require("./contextSanitizer.cjs");
-const { getMobileWebCompanionHtml } = require("./mobileWebCompanion.cjs");
+const { getMobileManifestJson, getMobileServiceWorkerJs, getMobileWebCompanionHtml } = require("./mobileWebCompanion.cjs");
 
 const MOBILE_API_VERSION = 1;
 const MOBILE_PAIR_PATH = "/mobile/v1/pair";
@@ -76,6 +76,9 @@ class MobileCompanionGateway extends EventEmitter {
     this.store = options.store;
     this.missionContext = options.missionContext;
     this.getEngineApi = options.getEngineApi;
+    // Optional: how a phone's question reaches Mission AI. Without it the
+    // operation is refused rather than pretending there is no model.
+    this.askAssistant = typeof options.askAssistant === "function" ? options.askAssistant : null;
     this.http = options.http || http;
     this.networkInterfaces = options.networkInterfaces || os.networkInterfaces;
     this.now = options.now || Date.now;
@@ -243,6 +246,16 @@ class MobileCompanionGateway extends EventEmitter {
       this.#audit({ kind: "read", outcome: "completed", deviceId: device.id, capability: operation });
       return result;
     }
+    if (operation === "ask") {
+      requireScope("assistant.ask");
+      if (!this.askAssistant) throw new Error("Mission AI is not available on the desktop");
+      const question = typeof payload.text === "string" ? payload.text.trim().slice(0, 2000) : "";
+      if (!question) throw new Error("Write a question first");
+      const allowTerminal = scopes.includes("terminal.read") && this.store.status().scopes.includes("terminal.read");
+      const history = Array.isArray(payload.history) ? payload.history.slice(-8) : [];
+      this.#audit({ kind: "read", outcome: "asked", deviceId: device.id, capability: "assistant.ask" });
+      return Promise.resolve(this.askAssistant({ text: question, history, allowTerminal }));
+    }
     if (operation === "request-worker-action" || operation === "request-recipe-action") {
       requireScope("actions.request");
       return this.#createApproval(device, operation, payload);
@@ -384,6 +397,33 @@ class MobileCompanionGateway extends EventEmitter {
         "Content-Length": Buffer.byteLength(html)
       });
       response.end(html);
+      return;
+    }
+
+    // Serve PWA Web App Manifest
+    if (request.method === "GET" && (pathname === "/mobile/manifest.json" || pathname === "/mobile/manifest.webmanifest")) {
+      const manifest = getMobileManifestJson();
+      response.writeHead(200, {
+        "Content-Type": "application/manifest+json; charset=utf-8",
+        "Cache-Control": "public, max-age=3600",
+        "Content-Length": Buffer.byteLength(manifest)
+      });
+      response.end(manifest);
+      return;
+    }
+
+    // Serve PWA Service Worker
+    if (request.method === "GET" && pathname === "/mobile/sw.js") {
+      const sw = getMobileServiceWorkerJs();
+      response.writeHead(200, {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        // The page is served at /mobile, one level above this script's
+        // default scope, so the wider scope has to be granted explicitly.
+        "Service-Worker-Allowed": "/mobile",
+        "Content-Length": Buffer.byteLength(sw)
+      });
+      response.end(sw);
       return;
     }
 

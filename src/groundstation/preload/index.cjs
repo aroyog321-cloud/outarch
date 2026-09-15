@@ -58,6 +58,10 @@ function openExternal(url) {
   return ipcRenderer.invoke("mission-control:open-external", url);
 }
 
+function setWindowChrome(mode) {
+  return ipcRenderer.invoke("mission-control:set-window-chrome", mode);
+}
+
 function setPendingBadge(count) {
   return ipcRenderer.invoke("mission-control:set-pending-badge", count);
 }
@@ -87,5 +91,6 @@ contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   request,
   openExternal,
   setPendingBadge,
+  setWindowChrome,
   subscribe
 }));

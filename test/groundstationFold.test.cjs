@@ -111,19 +111,27 @@ test("T103 - Groundstation and Needs You name a decision source the same way", (
   assert.doesNotMatch(app, /const DEEP_LINK_LABEL = \{/);
 });
 
-test("T104 - a clear queue reports a fact and offers a next action without inventing urgency", () => {
+// T104 was "a clear queue reports a fact and offers a next action". It was
+// removed on 2026-09-12 at the user's request: a full-width accent slab
+// saying every system was nominal was the loudest element on a page whose
+// whole subject is what needs attention, and every fact on it was already
+// reported by the status tape above it or the register below it.
+test("T104 - a clear queue says nothing rather than reassuring at full width", () => {
   const app = read("App.jsx");
-  assert.match(app, /function AttentionClear\(/);
-  assert.match(app, /NOTHING WAITING/);
 
-  const step = app.slice(app.indexOf("function nextStep("), app.indexOf("function AttentionClear("));
-  // Every branch is read off engine-reported state: configured workers, alive
-  // workers, recorded activity. Nothing estimates progress or time.
-  assert.match(step, /workers\.filter\(session => !session\.isAlive\)/);
-  assert.match(step, /No workers are configured in this project\./);
-  assert.match(step, /Every decision source reported and nothing is waiting\./);
-  assert.doesNotMatch(step, /%|urgent|soon|overdue|estimated/i, "the clear state must not invent urgency or telemetry");
+  assert.doesNotMatch(app, /function AttentionClear\(/);
+  assert.doesNotMatch(app, /function nextStep\(/, "the band was its only caller");
+  assert.doesNotMatch(app, /NOTHING WAITING|All systems nominal|mc-gs-nominal-pill/);
+  assert.doesNotMatch(read("redesign/screens.css"), /mc-gs-attention\.is-clear/);
 
-  // It renders only when there is genuinely nothing waiting.
-  assert.match(app, /\{!attention\.length && !needsCount && <AttentionClear/);
+  // The attention queue itself already renders nothing when nothing waits,
+  // and `.mc-gs-main` is a gap-spaced column, so removing the band leaves no
+  // hole where it used to be.
+  assert.match(app, /if \(!attention\.length && !total\) return null;/);
+  assert.match(read("redesign/surfaces.css"), /\.view-groundstation \.mc-gs-main \{ display: flex; flex-direction: column; gap: \d+px;/);
+
+  // Nothing quietly took its place: the page still leads with the queue.
+  const body = app.slice(app.indexOf('<div className="mc-gs-body">'), app.indexOf("mc-gs-register--operations"));
+  assert.match(body, /<AttentionInbox/);
+  assert.doesNotMatch(body, /is-clear/);
 });

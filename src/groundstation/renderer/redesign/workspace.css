@@ -28,131 +28,153 @@
   min-height: 0 !important;
   gap: 6px !important;
   padding: 0 !important;
-  overflow: hidden !important;
+  overflow: var(--mc-canvas-overflow, hidden) !important;
   background: var(--mc-canvas, #0a0b0e) !important;
   border-radius: 10px;
 }
 
 .shell .view-workspace .terminal-grid.layout-single,
 .shell .view-workspace .terminal-grid.has-expanded {
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) !important;
+  grid-template-columns: var(--mc-canvas-cols, minmax(0, 1fr)) !important;
+  grid-template-rows: var(--mc-canvas-rows, minmax(0, 1fr)) !important;
 }
 
 .shell .view-workspace .terminal-grid.layout-horizontal {
-  grid-template-columns:
+  grid-template-columns: var(--mc-canvas-cols,
     minmax(var(--pane-min-w), var(--col-ratio))
-    minmax(var(--pane-min-w), 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) !important;
+    minmax(var(--pane-min-w), 1fr)) !important;
+  grid-template-rows: var(--mc-canvas-rows, minmax(0, 1fr)) !important;
 }
 
 .shell .view-workspace .terminal-grid.layout-vertical {
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows:
+  grid-template-columns: var(--mc-canvas-cols, minmax(0, 1fr)) !important;
+  grid-template-rows: var(--mc-canvas-rows,
     minmax(var(--pane-min-h), var(--row-ratio))
-    minmax(var(--pane-min-h), 1fr) !important;
+    minmax(var(--pane-min-h), 1fr)) !important;
 }
 
 .shell .view-workspace .terminal-grid.layout-grid-2x2 {
-  grid-template-columns:
+  grid-template-columns: var(--mc-canvas-cols,
     minmax(var(--pane-min-w), var(--col-ratio))
-    minmax(var(--pane-min-w), 1fr) !important;
-  grid-template-rows:
+    minmax(var(--pane-min-w), 1fr)) !important;
+  grid-template-rows: var(--mc-canvas-rows,
     minmax(var(--pane-min-h), var(--row-ratio))
-    minmax(var(--pane-min-h), 1fr) !important;
+    minmax(var(--pane-min-h), 1fr)) !important;
 }
 
 .shell .view-workspace .terminal-grid.layout-grid-3x2 {
-  grid-template-columns:
+  grid-template-columns: var(--mc-canvas-cols,
     minmax(var(--pane-min-w), var(--col-ratio))
-    repeat(2, minmax(var(--pane-min-w), 1fr)) !important;
-  grid-template-rows:
+    repeat(2, minmax(var(--pane-min-w), 1fr))) !important;
+  grid-template-rows: var(--mc-canvas-rows,
     minmax(var(--pane-min-h), var(--row-ratio))
-    minmax(var(--pane-min-h), 1fr) !important;
+    minmax(var(--pane-min-h), 1fr)) !important;
 }
 
-/* ------------------------------------------------------------------ handles */
+/* ------------------------------------------------------- terminal resizing */
 
-.shell .view-workspace .terminal-grid .pane-resize-handle {
+/* One terminal at a time wears resize handles, the way a selected image does:
+   on each edge and corner that has a neighbour to push. The frame is drawn over
+   the tile and takes no pointer; only the grips do. Each grip is centred on the
+   gap between two tiles, so grabbing one never lands in the terminal itself. */
+.shell .view-workspace .terminal-grid > .tile-resize-frame {
   position: absolute;
-  z-index: 30 !important;
-  display: grid !important;
-  place-items: center;
-  padding: 0;
-  color: var(--mc-text-muted, #828693);
-  background: transparent;
-  border: 0;
-  touch-action: none;
-  opacity: 1 !important;
+  z-index: 30;
+  box-sizing: border-box;
+  border-radius: 9px;
+  pointer-events: none;
+  transition: box-shadow 120ms ease;
 }
-.shell .view-workspace .terminal-grid .pane-resize-handle.is-vertical {
-  top: 0;
-  bottom: 0;
-  width: 16px;
-  cursor: col-resize;
+.shell .view-workspace .terminal-grid > .tile-resize-frame:has(.tile-resize-grip:hover),
+.shell .view-workspace .terminal-grid > .tile-resize-frame.is-resizing {
+  box-shadow: 0 0 0 1px var(--mc-accent);
+}
+.shell .view-workspace .terminal-grid .tile-resize-grip {
+  position: absolute;
+  display: block;
+  pointer-events: auto;
+  touch-action: none;
+}
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-e,
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-w {
+  top: 14px;
+  bottom: 14px;
+  width: 12px;
+  cursor: ew-resize;
   transform: translateX(-50%);
 }
-.shell .view-workspace .terminal-grid .pane-resize-handle.is-horizontal {
-  right: 0;
-  left: 0;
-  height: 16px;
-  cursor: row-resize;
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-e { left: calc(100% + var(--tile-gap-x, 6px) / 2); }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-w { left: calc(var(--tile-gap-x, 6px) / -2); }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-n,
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-s {
+  right: 14px;
+  left: 14px;
+  height: 12px;
+  cursor: ns-resize;
   transform: translateY(-50%);
 }
-.shell .view-workspace .terminal-grid .pane-resize-handle > span {
-  display: block;
-  width: 3px;
-  height: 46px;
-  background: var(--mc-border-strong, #323644) !important;
-  border: 0 !important;
-  border-radius: 999px;
-  box-shadow: 0 0 0 4px var(--mc-canvas, #0a0b0e);
-  /* transform only — the grab bar thickens without triggering layout. */
-  transition: background-color 120ms ease, transform 120ms ease;
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-s { top: calc(100% + var(--tile-gap-y, 6px) / 2); }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-n { top: calc(var(--tile-gap-y, 6px) / -2); }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-corner {
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
 }
-.shell .view-workspace .terminal-grid .pane-resize-handle.is-horizontal > span {
-  width: 46px;
-  height: 3px;
-}
-.shell .view-workspace .terminal-grid .pane-resize-handle:hover > span,
-.shell .view-workspace .terminal-grid .pane-resize-handle:focus-visible > span,
-.shell .view-workspace .terminal-grid.is-resizing .pane-resize-handle > span {
-  background: var(--mc-accent, var(--mc-accent)) !important;
-  transform: scaleX(1.8);
-}
-.shell .view-workspace .terminal-grid .pane-resize-handle.is-horizontal:hover > span,
-.shell .view-workspace .terminal-grid .pane-resize-handle.is-horizontal:focus-visible > span,
-.shell .view-workspace .terminal-grid.is-resizing .pane-resize-handle.is-horizontal > span {
-  transform: scaleY(1.8);
-}
-.shell .view-workspace .terminal-grid .pane-resize-handle:focus-visible {
-  outline: 2px solid var(--mc-accent, var(--mc-accent));
-  outline-offset: -4px;
-  border-radius: 8px;
-}
-.shell .view-workspace .terminal-grid .pane-resize-handle > b {
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-nw { top: calc(var(--tile-gap-y, 6px) / -2); left: calc(var(--tile-gap-x, 6px) / -2); cursor: nwse-resize; }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-ne { top: calc(var(--tile-gap-y, 6px) / -2); left: calc(100% + var(--tile-gap-x, 6px) / 2); cursor: nesw-resize; }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-sw { top: calc(100% + var(--tile-gap-y, 6px) / 2); left: calc(var(--tile-gap-x, 6px) / -2); cursor: nesw-resize; }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-se { top: calc(100% + var(--tile-gap-y, 6px) / 2); left: calc(100% + var(--tile-gap-x, 6px) / 2); cursor: nwse-resize; }
+/* What the grip looks like: a short bar on an edge. Corners draw nothing — the
+   diagonal cursor and the frame's outline say what they do, and a square at
+   every junction read as clutter on the canvas. Hidden until the pointer is on
+   the canvas, so a canvas nobody is arranging carries no extra marks. */
+.shell .view-workspace .terminal-grid .tile-resize-grip::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  padding: 3px 6px;
-  color: var(--mc-text, #f4f5f7);
-  background: var(--mc-surface-3, #1b1e25);
-  border: 1px solid var(--mc-border, #23262f);
-  border-radius: 6px;
-  font: 600 10px/1 var(--font-family-mono, "JetBrains Mono", Consolas, monospace);
-  font-variant-numeric: tabular-nums;
+  content: "";
+  background: var(--mc-border-strong);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px var(--mc-canvas);
   opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-e::before,
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-w::before { width: 4px; height: min(44px, 40%); }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-n::before,
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-s::before { width: min(44px, 40%); height: 4px; }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-corner::before { content: none; }
+.shell .view-workspace .terminal-grid:hover > .tile-resize-frame .tile-resize-grip::before,
+.shell .view-workspace .terminal-grid > .tile-resize-frame.is-resizing .tile-resize-grip::before,
+.shell .view-workspace .terminal-grid .tile-resize-grip:focus-visible::before { opacity: 1; }
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-edge:hover::before,
+.shell .view-workspace .terminal-grid .tile-resize-grip.is-edge:focus-visible::before,
+.shell .view-workspace .terminal-grid > .tile-resize-frame.is-resizing .tile-resize-grip.is-edge::before { background: var(--mc-accent); }
+.shell .view-workspace .terminal-grid .tile-resize-readout {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 4px 8px;
+  color: var(--mc-text);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: 6px;
+  font: 600 11px/1 var(--font-family-mono, "JetBrains Mono", Consolas, monospace);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  transition: opacity 120ms ease;
 }
-.shell .view-workspace .terminal-grid .pane-resize-handle:hover > b,
-.shell .view-workspace .terminal-grid.is-resizing .pane-resize-handle > b {
-  opacity: 1;
-}
-.shell .view-workspace .terminal-grid.is-resizing { cursor: col-resize; user-select: none; }
-.shell .view-workspace .terminal-grid.is-resizing.layout-vertical { cursor: row-resize; }
-.shell .view-workspace .terminal-grid.is-resizing .terminal-host { pointer-events: none; }
+/* While a terminal is being resized nothing underneath takes the pointer, and
+   the cursor stays the grip's wherever the pointer travels. */
+.shell .view-workspace .terminal-grid.is-tile-resizing { user-select: none; }
+.shell .view-workspace .terminal-grid.is-tile-resizing .terminal-host { pointer-events: none; }
+.shell .view-workspace .terminal-grid.is-tile-resizing * { cursor: inherit; }
+.shell .view-workspace .terminal-grid.is-tile-resizing:is([data-resize-grip="e"], [data-resize-grip="w"]) { cursor: ew-resize; }
+.shell .view-workspace .terminal-grid.is-tile-resizing:is([data-resize-grip="n"], [data-resize-grip="s"]) { cursor: ns-resize; }
+.shell .view-workspace .terminal-grid.is-tile-resizing:is([data-resize-grip="nw"], [data-resize-grip="se"]) { cursor: nwse-resize; }
+.shell .view-workspace .terminal-grid.is-tile-resizing:is([data-resize-grip="ne"], [data-resize-grip="sw"]) { cursor: nesw-resize; }
 
 /* -------------------------------------------------------------- panes shell */
 
@@ -202,6 +224,7 @@
 }
 .shell .view-workspace .terminal-host .xterm,
 .shell .view-workspace .terminal-host .xterm-viewport,
+.shell .view-workspace .terminal-host .xterm-scrollable-element,
 .shell .view-workspace .terminal-host .xterm-screen { background-color: #05070a !important; }
 .shell .view-workspace .terminal-host .xterm { height: 100%; }
 
@@ -309,6 +332,15 @@
 #root#root .shell .workspace-stage > .workspace-toolbar-v2 { order: 1; flex: 0 0 auto; }
 #root#root .shell .workspace-stage > .worker-folders { order: 2; flex: 0 0 auto; }
 #root#root .shell .workspace-stage > .terminal-grid { order: 3; }
+/* The VS Code Bridge folder swaps the terminal canvas for its own deck, so the
+   deck takes the canvas's place in the stage. Without a slot of its own it
+   defaulted ahead of the toolbar and pushed the toolbar and folders below it. */
+#root#root .shell .workspace-stage > .vscode-workspace-deck {
+  order: 3;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
 
 #root#root .shell .workspace-toolbar-v2 {
   display: grid !important;
@@ -316,7 +348,7 @@
   align-items: center;
   gap: 14px;
   min-height: 0 !important;
-  padding: 8px 12px !important;
+  padding: 4px 10px !important;
   background: var(--mc-surface) !important;
   border: 1px solid var(--mc-border) !important;
   border-radius: var(--mc-radius-sm) !important;
@@ -421,11 +453,27 @@
 /* Focus mode: terminals only. */
 #root#root .shell .workspace-experience.is-focus-mode { grid-template-columns: minmax(0, 1fr) 0 !important; }
 #root#root .shell .workspace-experience.is-focus-mode .workspace-toolbar-v2 {
-  grid-template-columns: auto minmax(150px, 220px) auto;
-  padding: 6px 10px !important;
+  position: absolute;
+  z-index: 6;
+  right: 8px;
+  bottom: 8px;
+  width: auto;
+  grid-template-columns: auto;
+  gap: 6px;
+  padding: 4px !important;
+  opacity: .8;
+  transition: opacity 140ms ease;
 }
+#root#root .shell .workspace-experience.is-focus-mode .workspace-toolbar-v2:hover,
+#root#root .shell .workspace-experience.is-focus-mode .workspace-toolbar-v2:focus-within { opacity: 1; }
+/* Everything the deck carries is a way of choosing what to look at, and focus
+   mode has already answered that: it shows all of it. Two controls remain —
+   add a worker, and leave. The rest stay reachable from the command palette
+   and their own keyboard shortcuts. */
+#root#root .shell .workspace-experience.is-focus-mode { --mc-deck-aside: none; }
 #root#root .shell .workspace-experience.is-focus-mode .workspace-title,
 #root#root .shell .workspace-experience.is-focus-mode .workspace-toolbar-label { display: none; }
+#root#root .shell .workspace-experience.is-focus-mode .workspace-actions > :not(.workspace-add-worker):not(.workspace-assistant-toggle):not(.workspace-notifications):not(.workspace-focus-mode) { display: none; }
 
 @media (max-width: 1360px) {
   #root#root .shell .workspace-toolbar-v2 { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 8px; }
@@ -440,13 +488,18 @@
 /* -------------------------------------------- one predictable narrow layout */
 
 @media (max-width: 1100px) {
-  .shell .view-workspace .terminal-grid:not(.has-expanded) {
+  .shell .view-workspace .terminal-grid:not(.has-expanded):not(.is-mosaic) {
+    /* Stacked full width, a terminal is being read rather than scanned, so the
+       floor is a readable number of rows rather than the smallest pane that
+       still looks like a pane. Two legible terminals with a scroll beat three
+       that each show six lines. */
+    --pane-min-h: 248px;
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: none !important;
     grid-auto-rows: minmax(var(--pane-min-h), 1fr) !important;
     overflow: auto !important;
+    --mc-canvas-stacked: 1;
   }
-  .shell .view-workspace .terminal-grid .pane-resize-handle { display: none !important; }
 }
 
 /* ========================================================================
@@ -475,15 +528,15 @@
 
 .shell .view-workspace .terminal-grid.layout-horizontal,
 .shell .view-workspace .terminal-grid.layout-grid-2x2 {
-  grid-template-columns: minmax(0, var(--col-ratio)) minmax(0, 1fr) !important;
+  grid-template-columns: var(--mc-canvas-cols, minmax(0, var(--col-ratio)) minmax(0, 1fr)) !important;
 }
 .shell .view-workspace .terminal-grid.layout-vertical,
 .shell .view-workspace .terminal-grid.layout-grid-2x2,
 .shell .view-workspace .terminal-grid.layout-grid-3x2 {
-  grid-template-rows: minmax(0, var(--row-ratio)) minmax(0, 1fr) !important;
+  grid-template-rows: var(--mc-canvas-rows, minmax(0, var(--row-ratio)) minmax(0, 1fr)) !important;
 }
 .shell .view-workspace .terminal-grid.layout-grid-3x2 {
-  grid-template-columns: minmax(0, var(--col-ratio)) repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: var(--mc-canvas-cols, minmax(0, var(--col-ratio)) repeat(2, minmax(0, 1fr))) !important;
 }
 
 .shell .view-workspace .terminal-grid.layout-grid-3x2 .terminal-pane__cwd { display: none !important; }
@@ -525,13 +578,13 @@
    usable ~45 columns each. Below 680px the panes really are too narrow to
    read, so the single column stays the floor. */
 @container workspace-stage (max-width: 680px) {
-  .shell .view-workspace .terminal-grid:not(.has-expanded) {
+  .shell .view-workspace .terminal-grid:not(.has-expanded):not(.is-mosaic) {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: none !important;
     grid-auto-rows: minmax(var(--pane-min-h), 1fr) !important;
     overflow: auto !important;
+    --mc-canvas-stacked: 1;
   }
-  .shell .view-workspace .terminal-grid .pane-resize-handle { display: none !important; }
 }
 
 @container workspace-stage (max-width: 560px) {

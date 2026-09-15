@@ -19,8 +19,8 @@ const MAIN = path.join(RENDERER, "main.jsx");
 
 const CEIL = {
   files: 22,
-  important: 1445, // Obsidian palette pass: no new overrides were needed (was 1631)
-  rawColors: 1220, // Obsidian palette pass: the old hue families now read tokens (was 2106)
+  important: 1420, // Per-terminal resizing: the boundary splitter styles were removed (was 1428)
+  rawColors: 1208, // Per-terminal resizing: the splitter fallbacks went with them (was 1220)
 };
 
 function allCssFiles(dir) {

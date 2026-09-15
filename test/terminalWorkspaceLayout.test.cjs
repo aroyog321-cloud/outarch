@@ -12,6 +12,8 @@ const { test } = require("node:test");
 
 const rendererRoot = path.resolve(__dirname, "../src/groundstation/renderer");
 const layoutUrl = pathToFileURL(path.join(rendererRoot, "useTerminalLayout.js")).href;
+const tilesUrl = pathToFileURL(path.join(rendererRoot, "canvasTiles.js")).href;
+const loadTiles = () => import(`${tilesUrl}?t=${Date.now()}${Math.random()}`);
 const read = file => fs.readFileSync(path.join(rendererRoot, file), "utf8");
 const load = () => import(`${layoutUrl}?t=${Date.now()}${Math.random()}`);
 
@@ -140,7 +142,10 @@ test("workspace CSS honours the drag ratio and enforces a minimum pane size", ()
   // The template wants the ratio but clamps to an absolute pixel floor.
   assert.match(css, /--pane-min-w:\s*\d{3}px/);
   assert.match(css, /--pane-min-h:\s*\d{3}px/);
-  assert.match(css, /grid-template-columns:\s*\n?\s*minmax\(var\(--pane-min-w\), var\(--col-ratio\)\)/);
+  // The canvas template is read through --mc-canvas-cols so the focus-mode
+  // mosaic can retune it without a competing rule; the ratio expression the
+  // drag handles drive stays the fallback, so it still owns the default canvas.
+  assert.match(css, /grid-template-columns: var\(--mc-canvas-cols,\s*\n?\s*minmax\(var\(--pane-min-w\), var\(--col-ratio\)\)/);
   assert.match(css, /minmax\(var\(--pane-min-h\), var\(--row-ratio\)\)/);
   // 3x2 keeps its first column resizable; the other two share the remainder.
   assert.match(css, /layout-grid-3x2[\s\S]*repeat\(2, minmax\(var\(--pane-min-w\), 1fr\)\)/);
@@ -184,11 +189,17 @@ test("terminal overflow menu exposes every required action including reconfigure
   const src = read("TerminalPane.jsx");
   for (const action of [
     "Focus terminal", "Find in output", "Copy selection", "Clear display",
-    "Reconfigure worker", "Stop worker", "Delete terminal"
+    "Move to another pane", "Pop out terminal", "Rename", "Reconfigure worker",
+    "Start with workspace", "Duplicate worker", "Restart worker", "Delete terminal"
   ]) assert.ok(src.includes(action), `overflow menu is missing "${action}"`);
+
+  // Start and stop left this menu on 2026-09-12 for a control on the header,
+  // so it no longer carries a verb whose own label has to be read to learn
+  // which of the two it would do. Both are still one click away, and closer.
+  assert.match(src, /onClick=\{\(\) => requestAction\(session\.isAlive \? "kill" : "start"\)\}/);
+
   // Destructive entries stay marked and Delete still routes through confirmation.
   assert.match(src, /is-danger" onSelect=\{\(\) => requestAction\("remove"\)\}/);
-  assert.match(src, /is-warning" onSelect=\{\(\) => requestAction\("kill"\)\}/);
   assert.doesNotMatch(src, /className="terminal-delete-button"/);
 });
 
@@ -281,7 +292,9 @@ test("workspace increment 2 keeps dialog, status and menu polish in the authorit
   assert.match(base, /status-bar-premium__crumb[\s\S]*border-left: 1px solid var\(--mc-hairline\)/);
   assert.match(surfaces, /worker-template-card code[\s\S]*white-space: nowrap;[\s\S]*text-overflow: ellipsis/);
   assert.match(surfaces, /worker-dialog-guide[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
-  assert.equal((pane.match(/DropdownMenu\.Separator className="terminal-action-separator"/g) || []).length, 3);
+  // Two now, not three: the run entries that needed a group of their own left
+  // this menu for the control beside it on the header.
+  assert.equal((pane.match(/DropdownMenu\.Separator className="terminal-action-separator"/g) || []).length, 2);
   assert.doesNotMatch(pane, /[⠿↗⊡]|•••/);
   assert.match(pane, /function PaneIcon/);
 });
@@ -289,7 +302,7 @@ test("workspace increment 2 keeps dialog, status and menu polish in the authorit
 test("folder filters cannot move the workspace chrome with terminal intrinsic height", () => {
   const base = read("redesign/base.css");
   const css = read("redesign/workspace.css");
-  assert.match(base, /html body #root \.shell > \.main-area \{[\s\S]*grid-template-rows: 42px minmax\(0, 1fr\) !important;/,
+  assert.match(base, /html body #root \.shell > \.main-area \{[\s\S]*grid-template-rows: var\(--mc-topbar-h, 42px\) minmax\(0, 1fr\) !important;/,
     "the loaded-last shell must match premiumV3 specificity and beat its obsolete bottom-status grid");
   assert.match(base, /html body #root \.shell > \.main-area > \.mission-status-bar \{ grid-row: 1; \}/);
   assert.match(base, /html body #root \.shell > \.main-area > \.experience \{ grid-row: 2; \}/,
@@ -356,4 +369,99 @@ test("named pane sets are normalised, bounded, and scoped to their project", asy
   // Applying a set goes back through the same normaliser as any other layout
   // change, so a set naming a removed worker cannot corrupt the canvas.
   assert.match(source, /applyPaneSet[\s\S]{0,320}normalizeTerminalLayout\(\{ \.\.\.current, layoutId: entry\.layoutId, sessionIds: entry\.sessionIds \}, sessions\)/);
+});
+
+test("a terminal is resized from its own edges and corners; only the tiles it pushes give way", async () => {
+  const { tileRows, normalizeTileSizes, resizeTile, tileGrid, tileEdges, evenTileSizes } = await loadTiles();
+  const rows = tileRows(8, 5);
+  assert.deepEqual(rows, [5, 3], "full rows of the column count, then the remainder");
+  const even = normalizeTileSizes(null, rows);
+  const metrics = { width: 1400, height: 800, colGap: 6, rowGap: 6 };
+  const px = (fraction, count) => fraction * (metrics.width - (count - 1) * metrics.colGap);
+
+  // Dragging the bottom-right corner of the second terminal 200px right and
+  // 100px down: it grows by exactly that, the tiles to its right share the
+  // loss, the tile to its left and the whole row below keep their widths.
+  const grown = resizeTile(even, rows, { row: 0, cell: 1 }, "se", 200, 100, metrics);
+  assert.ok(Math.abs(px(grown.cells[0][1], 5) - (px(0.2, 5) + 200)) < 0.5);
+  assert.ok(Math.abs(grown.cells[0][0] - 0.2) < 1e-9, "the edge that was not dragged stays put");
+  assert.deepEqual(grown.cells[1], even.cells[1], "another row is not bent to fit");
+  assert.ok(Math.abs(grown.cells[0][2] - grown.cells[0][4]) < 1e-9);
+  assert.ok(Math.abs(grown.rows[0] * (metrics.height - metrics.rowGap) - (0.5 * (metrics.height - metrics.rowGap) + 100)) < 0.5);
+
+  // A drag past what the neighbours can give stops at their floor.
+  const clamped = resizeTile(even, rows, { row: 0, cell: 4 }, "w", 5000, 0, metrics);
+  assert.ok(px(clamped.cells[0][4], 5) >= 199.5, "a terminal never shrinks below the floor");
+
+  // The canvas is one flat grid in which every tile is exactly as wide as its
+  // row says, however the rows differ.
+  const grid = tileGrid(grown, metrics.width, metrics.colGap);
+  assert.equal(grid.valid, true);
+  const lines = [0];
+  grid.tracks.forEach((size, index) => lines.push(lines[index] + size + metrics.colGap));
+  grid.placements.forEach(place => {
+    const width = lines[place.end] - lines[place.start] - metrics.colGap;
+    assert.ok(Math.abs(width - px(grown.cells[place.row][place.cell], rows[place.row])) < 0.5, `tile ${place.row}:${place.cell} is ${width}px`);
+  });
+
+  // Only edges with a neighbour to push are offered.
+  assert.deepEqual(tileEdges(rows, { row: 0, cell: 0 }), ["e", "s", "se"]);
+  assert.deepEqual(tileEdges(rows, { row: 1, cell: 2 }), ["nw", "n", "w"]);
+  assert.deepEqual(tileEdges(rows, { row: 0, cell: 2 }, { vertical: false }), ["w", "e"]);
+  assert.deepEqual(tileEdges([1], { row: 0, cell: 0 }), []);
+
+  // Double-click evens out what the grip moves.
+  const evened = evenTileSizes(grown, rows, { row: 0, cell: 1 }, "e");
+  assert.deepEqual(evened.cells[0], even.cells[0]);
+  assert.deepEqual(evened.rows, grown.rows);
+});
+
+test("a stored arrangement is untrusted and is re-fitted to the canvas it is read for", async () => {
+  const { normalizeTileSizes, seedFromRatios, tileShapeKey } = await loadTiles();
+  assert.deepEqual(normalizeTileSizes({ rows: [1, "x"], cells: [[1, -2, 3]] }, [3, 3]), {
+    rows: [0.5, 0.5],
+    cells: [[1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3]]
+  });
+  assert.deepEqual(normalizeTileSizes({ cells: [[3, 1]] }, [2]).cells[0], [0.75, 0.25]);
+  // The slot layouts' old per-axis splits seed the tiles, so a split someone
+  // dragged before survives the change of model.
+  const seeded = normalizeTileSizes(seedFromRatios("grid-3x2", { col: 34, col2: 33, row: 60 }), [3, 3]);
+  assert.deepEqual(seeded.rows.map(value => Math.round(value * 100)), [60, 40]);
+  assert.deepEqual(seeded.cells[1].map(value => Math.round(value * 100)), [34, 33, 33]);
+  assert.equal(tileShapeKey("packed", [4, 3]), "packed:4,3");
+  assert.equal(tileShapeKey("slots", []), "");
+});
+
+test("every canvas mode resizes per terminal, focus mode or not", () => {
+  const app = read("App.jsx");
+  const workspace = read("redesign/workspace.css");
+  const surfaces = read("redesign/surfaces.css");
+  // One model for the slot layouts, folders and the packed canvas.
+  assert.match(app, /const tileRowCounts = React\.useMemo\(\(\) => \(tileColumns > 0 \? tileRows\(canvasTileCount, tileColumns\) : \[\]\)/);
+  assert.match(app, /const tileColumns = packedCanvas \? mosaicTracks : effectiveLayout\.cols;/);
+  assert.match(app, /const tileShape = tileShapeKey\(packedCanvas \? "packed" : "slots", tileRowCounts\);/);
+  // The shared boundary splitters are gone.
+  assert.doesNotMatch(app, /terminalLayout\.handles\.map|canvasTrackHandles|beginCanvasTrackResize|beginPaneResize/);
+  // Each tile is placed between its own two lines; nothing is reparented.
+  assert.match(app, /tilePlacement=\{placementAt\(mosaic && session \? \(mosaicOrder\.positions\.get\(session\.id\) \?\? slotIndex\) : slotIndex\)\}/);
+  assert.match(app, /\.\.\.\(tilePlacement \? \{ gridColumn: tilePlacement\.column, gridRow: tilePlacement\.gridRow \}/);
+  assert.match(app, /style\["--mc-canvas-cols"\] = tileLayout\.templates\.columns;/);
+  // Sizes are persisted per project and per shape, and validated on read.
+  assert.match(app, /const CANVAS_TILES_PREFIX = "mission-control:canvas-tiles:v1:";/);
+  assert.match(app, /shapes\[shape\] = normalizeTileSizes\(entry, rows\);/);
+  // The auto-fit column count still comes from the probe.
+  assert.match(app, /className="canvas-track-probe"/);
+  assert.match(surfaces, /\.terminal-grid > \.canvas-track-probe \{[^}]*grid-template-columns: repeat\(auto-fit/);
+  // Handles: one tile at a time, edges are keyboard separators, double-click
+  // evens out, Escape puts the drag back.
+  assert.match(app, /const framePosition = tileResize\?\.position \?\? hoverTile \?\?/);
+  assert.match(app, /role="separator" tabIndex=\{0\} data-tile-grip=\{grip\}/);
+  assert.match(app, /onDoubleClick=\{\(\) => evenTile\(tileFrame, grip\)\}/);
+  assert.match(app, /onKeyDown=\{event => nudgeTile\(event, tileFrame, grip\)\}/);
+  assert.match(app, /if \(keyEvent\.key !== "Escape"\) return;/);
+  // A stacked narrow canvas has nothing beside a terminal to give way.
+  assert.match(app, /stacked: style\.getPropertyValue\("--mc-canvas-stacked"\)\.trim\(\) === "1"/);
+  assert.equal((workspace.match(/--mc-canvas-stacked: 1;/g) || []).length, 2);
+  assert.match(workspace, /\.terminal-grid \.tile-resize-grip\.is-se \{[^}]*cursor: nwse-resize;/);
+  assert.match(workspace, /\.terminal-grid\.is-tile-resizing \.terminal-host \{ pointer-events: none; \}/);
 });

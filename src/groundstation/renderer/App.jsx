@@ -7,21 +7,27 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { Command as CmdkCommand } from "cmdk";
 import TerminalPane from "./TerminalPane.jsx";
 import WorkerDialog from "./WorkerDialog.jsx";
+import AutoStartManager from "./AutoStartManager.jsx";
+import RecoveryReview from "./RecoveryReview.jsx";
 import ProjectsView from "./ProjectsView.jsx";
 import { confirmedRequest, missionApi } from "./missionApi.js";
+import { formatCost, formatTokens, relativeTime } from "./formatUsage.js";
 import useMissionState from "./useMissionState.js";
-import useTerminalLayout, { DEFAULT_RATIOS_BY_LAYOUT, TERMINAL_LAYOUTS } from "./useTerminalLayout.js";
+import useTerminalLayout, { TERMINAL_LAYOUTS } from "./useTerminalLayout.js";
+import { syncWindowChrome } from "./windowChrome.js";
+import { evenTileSizes, normalizeTileSizes, resizeTile, seedFromRatios, tileAddress, tileEdges, tileGrid, tileRows, tileShapeKey, tileTemplates, TILE_MIN_HEIGHT, TILE_MIN_WIDTH } from "./canvasTiles.js";
 import useInterfacePreferences, { describePreferenceReset, DEFAULT_INTERFACE_PREFERENCES } from "./useInterfacePreferences.js";
 import useCapabilities from "./useCapabilities.js";
 import AgentWorkspace from "./AgentWorkspace.jsx";
 import WorkspaceRecipes from "./WorkspaceRecipes.jsx";
+import WorkspaceBrowser from "./WorkspaceBrowser.jsx";
+import WorkspaceAssistant from "./WorkspaceAssistant.jsx";
 import RecipesView from "./RecipesView.jsx";
 import IntegrationHubView from "./IntegrationsView.jsx";
 import MissionGraph from "./MissionGraph.jsx";
 import { MissionAISettings } from "./MissionAI.jsx";
 import MissionAIScreen from "./MissionAIScreen.jsx";
 import { McpGatewaySettings } from "./McpGateway.jsx";
-import { AutomationSettings } from "./AutomationWorkflows.jsx";
 import { MobileCompanionSettings } from "./MobileCompanion.jsx";
 import { PluginPlatformSettings } from "./PluginPlatform.jsx";
 import StatusBar from "./StatusBar.jsx";
@@ -33,6 +39,8 @@ import { DecisionSourceStrip } from "./DecisionSourceStrip.jsx";
 import { useDecisions } from "./useDecisions.js";
 import PluginContributionSlot from "./PluginContributionSlot.jsx";
 import { ToastProvider, useToast } from "./ToastSystem.jsx";
+import NotificationTray from "./NotificationTray.jsx";
+import { playNotificationSound } from "./notificationSound.js";
 import { BroadcastBar } from "./BroadcastBar.jsx";
 import { RegisterSkeleton } from "./LoadingSkeleton.jsx";
 import ContextSnapshotButton from "./ContextSnapshotButton.jsx";
@@ -64,13 +72,12 @@ const NAVIGATION = [
   ["groundstation", "Groundstation", "pulse"],
   ["workspace", "Workspace", "terminal"],
   ["needs", "Needs You", "attention"],
-  ["agents", "Agents", "agents"],
   ["recipes", "Recipes", "grid"],
   ["history", "History", "history"],
   ["settings", "Settings", "settings"],
   ["integrations", "Integrations", "expand"]
 ];
-const PRIMARY_NAV_COUNT = 7;
+const PRIMARY_NAV_COUNT = 6;
 
 const SECONDARY_DESTINATIONS = [
   ["projects", "Switch project", "projects"]
@@ -91,6 +98,7 @@ const DECISION_STATE_KEY = "mission-control.decision-queue.v1";
 
 const ICON_PATHS = {
   pulse: <><path d="M3 12h4l2.2-6 4.2 12 2.3-6H21"/></>,
+  globe: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></>,
   attention: <><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></>,
   agents: <><path d="M8 9V7a4 4 0 0 1 8 0v2M5 11h14v9H5z"/><path d="M9 15h.01M15 15h.01M9 18h6"/></>,
@@ -100,6 +108,7 @@ const ICON_PATHS = {
   search: <><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></>,
   plus: <><path d="M12 5v14M5 12h14"/></>,
   expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></>,
+  collapse: <><path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5"/></>,
   grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   arrow: <><path d="m9 18 6-6-6-6"/></>,
   command: <><path d="M9 6V5a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v14a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6Z"/></>,
@@ -128,6 +137,14 @@ function Icon({ name, size = 18 }) {
   const stroke = Math.round((1.15 * 24 / step) * 100) / 100;
   return <svg className="icon" width={step} height={step} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{ICON_PATHS[name]}</svg>;
 }
+
+const ACTION_FEEDBACK = Object.freeze({
+  start: { pending: "Starting", done: "is running", failed: "couldn't start" },
+  restart: { pending: "Restarting", done: "restarted", failed: "couldn't restart" },
+  kill: { pending: "Stopping", done: "stopped", failed: "couldn't be stopped" },
+  remove: { pending: "Removing", done: "removed", failed: "couldn't be removed" },
+  acknowledge: { pending: "Acknowledging", done: "acknowledged — its health is unchanged", failed: "couldn't be acknowledged" }
+});
 
 function timeAgo(timestamp) {
   if (!Number.isFinite(timestamp)) return "—";
@@ -209,9 +226,28 @@ function needsAttention(session) {
   return Boolean(session?.attentionRequired) || session?.status === "failed";
 }
 
+const liveAgentClassification = new Map();
+
+// Two things make a session an AI agent, and neither is more real than the
+// other: a worker created through the crew flow carries the prefix in its id,
+// and a plain terminal the engine has *observed* running an agent CLI reports
+// it. Splitting those into two registers split the crew in half — the same
+// question ("which agents are working for me?") had two answers in two places.
+function isAgentSession(session) {
+  if (!session?.id) return false;
+  return session.id.startsWith("agent-") || liveAgentClassification.get(session.id)?.isAgent === true;
+}
+
 function workerKind(session) {
+  // What the engine actually observed in this run wins over anything the name
+  // suggests: a PowerShell terminal running Claude is an AI agent, and a
+  // terminal merely called "codex-notes" is not.
+  const observed = session?.id ? liveAgentClassification.get(session.id) : null;
+  if (observed?.isAgent === true) return "AI agent";
   const source = `${session?.name || ""} ${session?.command || ""} ${(session?.args || []).join(" ")}`.toLowerCase();
-  if (session?.id?.startsWith("agent-") || /claude|codex|gemini|opencode/.test(source)) return "AI agent";
+  if (observed?.isAgent === false) {
+    // Observed and not an agent: fall through to the non-agent heuristics.
+  } else if (session?.id?.startsWith("agent-") || /claude|codex|gemini|opencode/.test(source)) return "AI agent";
   if (/test|vitest|jest|playwright|pytest/.test(source)) return "Test watcher";
   if (/docker|container/.test(source)) return "Container";
   if (/postgres|mysql|mongo|redis|database|\bdb\b/.test(source)) return "Database";
@@ -283,6 +319,26 @@ function decisionFor(session) {
     recommended: failed ? "Restart and verify" : isAgent ? "Review agent" : "Inspect evidence",
     tone: failed ? "critical" : "attention"
   };
+}
+
+// A screen that throws while rendering takes only itself down. Without this the
+// error unmounted the whole tree, sidebar included, and left a black window with
+// no way back but a restart. Keyed by view, so moving to another screen retries.
+class ViewErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("Mission Control view failed to render", error, info?.componentStack); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <section className="view-error" role="alert">
+      <span className="view-error__mark" aria-hidden="true">!</span>
+      <div>
+        <h2>This screen could not be shown</h2>
+        <p>{this.state.error?.message || "It stopped while rendering."} Your workers and terminals are unaffected.</p>
+      </div>
+      <button type="button" className="btn-ghost" onClick={() => this.setState({ error: null })}>Try again</button>
+    </section>;
+  }
 }
 
 function SinceLastCheck({ events, onReview, onDismiss }) {
@@ -507,15 +563,34 @@ function workerActivity(session) {
   return session?.autoStart ? "Starts with the workspace" : "Start when ready";
 }
 
-function ReferenceManifestRow({ session, selected, favorite, rowIndex, onSelect, onFocus, onAction, onFavorite }) {
+function ReferenceManifestRow({ session, agent, selected, favorite, rowIndex, onSelect, onFocus, onAction, onFavorite, onOpenDecision }) {
   const state = manifestState(session);
   const resources = session.resources || {};
-  const resourceText = session.isAlive
+  const machineText = session.isAlive
     ? `${Number.isFinite(resources.cpuPercent) ? `${resources.cpuPercent.toFixed(1)}%` : "—"} · ${Number.isFinite(resources.memoryMB) ? `${Math.round(resources.memoryMB)} MB` : runtime(session)}`
     : session.status === "failed" ? "Exited" : "—";
-  const statusText = session.status === "failed" ? "Needs you" : session.attentionRequired ? "Review" : session.isAlive ? (session.id.startsWith("agent-") ? "Working" : "Running") : "Idle";
+  // An agent's cost is counted in tokens, not megabytes, so that is what its
+  // row shows when the CLI has reported any. The machine reading stays on the
+  // tooltip rather than being dropped.
+  const agentState = agent ? (AGENT_STATE_COPY[agent.state] || { label: agent.state || "Unknown", tone: "idle" }) : null;
+  const agentDetail = agentStateLine(agent);
+  const agentTokens = agent?.lastTurnTokens?.totalTokens || 0;
+  const resourceText = agentTokens ? `${agentTokens.toLocaleString()} tok` : machineText;
+  const resourceTitle = agentTokens
+    ? `${agentTokens.toLocaleString()} tokens in the last turn · ${machineText}${agent?.updatedAt ? ` · ${relativeTime(agent.updatedAt)}` : ""}`
+    : undefined;
+  const statusText = session.status === "failed" ? "Needs you"
+    : session.attentionRequired ? "Review"
+    : agentState && session.isAlive ? agentState.label
+    : session.isAlive ? (session.id.startsWith("agent-") ? "Working" : "Running") : "Idle";
   const commandText = `${session.command || ""} ${(session.args || []).join(" ")}`.trim() || "Ready to configure";
-  const action = session.status === "failed" || session.attentionRequired ? "focus" : session.isAlive ? "restart" : "start";
+  // An agent waiting on a decision is the one case where the row's verb is not
+  // about the process: it opens the decision, not the terminal.
+  const reviewAgent = Boolean(agent && agent.state === "awaiting_approval" && onOpenDecision);
+  const action = reviewAgent || session.status === "failed" || session.attentionRequired ? "focus" : session.isAlive ? "restart" : "start";
+  const chipTone = state === "crit" || agentState?.tone === "failed" ? "critical"
+    : state === "warn" || agentState?.tone === "attention" ? "warning"
+    : state === "ok" ? "running" : "idle";
   const badges = evidenceBadges(session);
   return <article
     className={`mc-ref-manifest-row state-${state} ${selected ? "is-selected" : ""}`}
@@ -540,13 +615,14 @@ function ReferenceManifestRow({ session, selected, favorite, rowIndex, onSelect,
       <span className="mc-gs-name-line"><strong>{session.name}</strong>{badges.map(badge => <b key={badge.key} className={`mc-gs-evidence tone-${badge.tone}`} title={badge.title}>{badge.label}</b>)}</span>
       <code>{commandText}</code>
     </div>
-    <span className="mc-ref-role is-inferred" role="gridcell" title="Role inferred from the command — not an engine-reported fact">{workerKind(session)}</span>
-    <StatusChip role="gridcell" className="mc-ref-status" tone={state === "crit" ? "critical" : state === "warn" ? "warning" : state === "ok" ? "running" : "idle"} label={statusText}/>
-    <span className="mc-gs-activity" role="gridcell">{workerActivity(session)}</span>
-    <span className="mc-ref-resource" role="gridcell">{resourceText}</span>
+    <span className={`mc-ref-role ${agent ? "" : "is-inferred"}`} role="gridcell" title={agent ? `Observed running ${agent.agentType || "an agent CLI"} — reported by the engine from this worker's output, not guessed from its command` : "Role inferred from the command — not an engine-reported fact"}>{agent?.agentType ? `AI agent · ${agent.agentType}` : workerKind(session)}</span>
+    <StatusChip role="gridcell" className="mc-ref-status" tone={chipTone} label={statusText} title={agentState?.full}/>
+    <span className="mc-gs-activity" role="gridcell" title={agentDetail || undefined}>{agentDetail || workerActivity(session)}</span>
+    <span className="mc-ref-resource" role="gridcell" title={resourceTitle}>{resourceText}</span>
     <button type="button" role="gridcell" className="mc-gs-row-action" onClick={event => {
       event.stopPropagation();
-      if (action === "focus") onFocus(session.id);
+      if (reviewAgent) onOpenDecision(session.id);
+      else if (action === "focus") onFocus(session.id);
       else onAction(action, session.id);
     }}>{action === "focus" ? "Review" : action === "restart" ? "Restart" : "Start"}</button>
   </article>;
@@ -634,26 +710,13 @@ function MostUrgentDecision({ record, onNavigate, onOpenSource }) {
    line below is read off state the engine already reported, and each is a fact
    followed by an offer: no invented urgency, no progress estimate, no
    telemetry the engine never sent. */
-function nextStep(workers, activity) {
-  const idle = workers.filter(session => !session.isAlive);
-  if (!workers.length) return { fact: "No workers are configured in this project.", label: "Add a worker", destination: "add-worker" };
-  if (idle.length === workers.length) return { fact: `${workers.length} worker${workers.length === 1 ? " is" : "s are"} configured and none are running.`, label: "Open Workspace", destination: "workspace" };
-  if (idle.length) return { fact: `${idle.length} of ${workers.length} workers ${idle.length === 1 ? "is" : "are"} not running.`, label: "Open Workspace", destination: "workspace" };
-  if (!activity.length) return { fact: "Every worker is running and no lifecycle event has been recorded yet.", label: "Open Workspace", destination: "workspace" };
-  return { fact: "Every decision source reported and nothing is waiting.", label: "Review history", destination: "history" };
-}
-
-function AttentionClear({ workers, activity, health, onNavigate, onAddWorker }) {
-  const step = nextStep(workers, activity);
-  return <section className="mc-gs-attention is-clear" role="region" aria-label="Nothing is waiting on you">
-    <header>
-      <span className="mc-gs-nominal-pill"><Icon name="shield" size={13}/> All systems nominal</span>
-      <span className="mc-gs-kicker">NOTHING WAITING</span>
-    </header>
-    <p className="mc-gs-attention__next">{step.fact}</p>
-    <footer><button type="button" onClick={() => (step.destination === "add-worker" ? onAddWorker() : onNavigate(step.destination))}>{step.label}</button></footer>
-  </section>;
-}
+// The Groundstation used to carry a reassurance band when nothing was waiting
+// — a pill saying every system was nominal, a count of workers that were not
+// running, and a link to the Workspace. It was removed on 2026-09-12: the
+// status tape above it already reports health and the needs-you count, the
+// register below already reports which workers are running, and a project
+// with no workers at all is met by the onboarding panel inside that register.
+// An empty attention queue renders nothing now, which is the honest answer.
 
 function AttentionInbox({ attention, totalDecisions, records = [], sources = [], decisionsStatus = "ready", onFocus, onAction, onNavigate, onOpenSource, onRefresh }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -751,7 +814,25 @@ function WorkerInspector({ session, activity, favorite, onClose, onFocus, onActi
       <div><dt>Last output</dt><dd>{Number.isFinite(session.lastOutputAt) ? `${timeAgo(session.lastOutputAt)} ago` : "Not reported"}</dd></div>
       <div><dt>Ownership</dt><dd>{session.isAlive && session.pid ? `Engine PTY · pid ${session.pid}` : "No engine PTY"}</dd></div>
       <div><dt>Directory</dt><dd title={session.cwd || "."}>{session.cwd || "."}</dd></div>
-      <div><dt>Restore</dt><dd>{session.autoStart ? "Starts with workspace" : "Manual start"}</dd></div>
+      <div>
+        <dt>Restore</dt>
+        <dd>
+          <label className="inspector-autostart-toggle" title="Start this worker when the project opens">
+            <span className={`inspector-autostart-status ${session.autoStart ? "is-enabled" : "is-disabled"}`}>
+              {session.autoStart ? "Auto-start" : "Manual"}
+            </span>
+            <span className="pm-toggle" onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={Boolean(session.autoStart)}
+                onChange={event => onAction("setAutoStart", session.id, { enabled: event.target.checked })}
+                aria-label={`Start ${session.name} when the project opens`}
+              />
+              <i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i>
+            </span>
+          </label>
+        </dd>
+      </div>
     </dl>
     <div className="mc-gs-inspector-events">
       <span className="mc-gs-kicker">RECENT EVIDENCE</span>
@@ -782,7 +863,7 @@ function ActivityWaterline({ activity, attentionCount, onNavigate, onSelect }) {
   </section>;
 }
 
-function ManifestList({ workers, favorites, selectedId, label = "Worker register", keyPrefix = "", onSelect, onFocus, onAction, onFavorite }) {
+function ManifestList({ workers, activities, favorites, selectedId, label = "Worker register", keyPrefix = "", onSelect, onFocus, onAction, onFavorite, onOpenDecision }) {
   // A complete grid: container role="grid", real column headers, gridcell children,
   // and 1-based aria-rowindex so assistive tech announces "row N of M". Roving
   // tabindex + arrow-key navigation live on the parent (see the manifest keydown
@@ -794,6 +875,7 @@ function ManifestList({ workers, favorites, selectedId, label = "Worker register
     {workers.map((session, index) => <ReferenceManifestRow
       key={`${keyPrefix}${session.id}`}
       session={session}
+      agent={activities?.get(session.id) || null}
       rowIndex={index + 2}
       selected={session.id === selectedId}
       favorite={favorites.has(session.id)}
@@ -801,6 +883,7 @@ function ManifestList({ workers, favorites, selectedId, label = "Worker register
       onFocus={onFocus}
       onAction={onAction}
       onFavorite={onFavorite}
+      onOpenDecision={onOpenDecision}
     />)}
   </div>;
 }
@@ -820,10 +903,46 @@ function matchesFilter(session, filter) {
   return !session.isAlive && session.status !== "failed";
 }
 
+// What each running agent is doing, in the place the system is watched from.
+// Every line is either a state the CLI reported or a tool it named — never an
+// invented percentage, and never "finished" inferred from silence.
+const AGENT_STATE_COPY = {
+  idle: { label: "Idle", full: "Idle — nothing reported since its last turn", tone: "idle" },
+  thinking: { label: "Working", full: "Working — the CLI reported it is thinking", tone: "busy" },
+  executing: { label: "In a tool", full: "Running a tool — the tool it named is beside this", tone: "busy" },
+  awaiting_approval: { label: "Approval", full: "Waiting for your approval before it continues", tone: "attention" },
+  response_ready: { label: "Ready", full: "A response is ready to read", tone: "ready" },
+  failed: { label: "Failed", full: "The agent CLI reported a failure", tone: "failed" }
+};
+
+// What an agent is doing, in one line. This used to be a panel of its own at
+// the top of Groundstation; it is now the "current activity" of the agent's row
+// in the crew register, so a configured agent and a detected one describe
+// themselves in exactly the same words. Every string here is either a state the
+// CLI reported or a tool it named — never a percentage, and never "finished"
+// inferred from silence.
+function agentStateLine(activity) {
+  if (!activity) return "";
+  if (activity.currentTool) return activity.currentTool;
+  if (activity.state === "response_ready") return "Output ready to read";
+  if (activity.state === "awaiting_approval") return "Waiting for your decision";
+  return "";
+}
+
 function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, selectedId, onSelect, onFocus, onAction, onNavigate, onDismissActivity, onRecipes, onCreateRecipe, onLaunchRecipe, onAddWorker, onAskAI, onMissionGraph, onOpenDecisionSource, decisionCount, decisions }) {
+  const ops = useWorkspaceOps();
   const health = healthFor(sessions, workspace, decisions);
-  const agents = sessions.filter(session => session.id.startsWith("agent-"));
-  const workers = sessions.filter(session => !session.id.startsWith("agent-"));
+  // The crew is every agent the project has, however Mission Control came to
+  // know about it. `ops.agents` is the engine's live classification, so this
+  // recomputes as terminals are observed starting and stopping an agent CLI.
+  const agentActivity = React.useMemo(() => {
+    const map = new Map();
+    for (const activity of ops.agents || []) if (activity?.isAgent) map.set(activity.workerId, activity);
+    return map;
+  }, [ops.agents]);
+  const agents = sessions.filter(isAgentSession);
+  const workers = sessions.filter(session => !isAgentSession(session));
+  const detectedAgents = agents.filter(session => !session.id.startsWith("agent-")).length;
   const attention = sessions.filter(needsAttention);
   // The unified decision count (workers + every integration approval) when it has
   // loaded, otherwise the always-available worker-attention count.
@@ -940,7 +1059,6 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
           onOpenSource={onOpenDecisionSource}
           onRefresh={decisions?.refresh}
         />
-        {!attention.length && !needsCount && <AttentionClear workers={workers} activity={activity} health={health} onNavigate={onNavigate} onAddWorker={onAddWorker}/>}
 
         <section className="mc-ref-section mc-gs-register mc-gs-register--operations" role="region" aria-label="Supervised workers">
           <header className="mc-ref-section-head">
@@ -958,10 +1076,10 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
         {agents.length > 0 && <section className="mc-ref-section mc-gs-register mc-gs-register--crew" role="region" aria-label="Assigned AI agents">
           <header className="mc-ref-section-head">
             <h2>AI crew</h2>
-            <span>{agents.filter(agent => agent.isAlive).length} active · {agents.length} configured</span>
+            <span>{agents.filter(agent => agent.isAlive).length} active · {agents.length} in this project{detectedAgents ? ` · ${detectedAgents} detected from output` : ""}</span>
           </header>
           {visibleAgents.length
-            ? <ManifestList workers={visibleAgents} keyPrefix="crew-" label="Assigned AI agents" {...manifestProps}/>
+            ? <ManifestList workers={visibleAgents} activities={agentActivity} onOpenDecision={onOpenDecisionSource} keyPrefix="crew-" label="Assigned AI agents" {...manifestProps}/>
             : <p className="mc-gs-muted">No agents match this view.</p>}
         </section>}
 
@@ -988,13 +1106,524 @@ function EmptyState({ title, detail, action }) {
   return <div className="empty-state"><span className="empty-orbit"><i/></span><strong>{title}</strong><p>{detail}</p>{action}</div>;
 }
 
-function EmptyTerminalSlot({ sessions, onSelect, onAddWorker, onDropSession }) {
-  return <article className="terminal-pane terminal-pane-empty" onDragOver={event => { if (event.dataTransfer.types.includes("application/x-mission-worker")) event.preventDefault(); }} onDrop={event => { event.preventDefault(); const id = event.dataTransfer.getData("application/x-mission-worker"); if (id) onDropSession(id); }}><span>+</span><strong>Open a terminal worker</strong><p>Show an existing PTY here, drag a worker into this pane, or create a project command.</p><div className="empty-pane-actions"><DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="empty-pane-trigger">Choose existing <span>⌄</span></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="empty-pane-menu radix-menu" sideOffset={8}>{sessions.map(item => <DropdownMenu.Item asChild key={item.id}><button onClick={() => onSelect(item.id)}><i className={`status-${item.status}`}/><span><strong>{item.name}</strong><small>{item.command}</small></span></button></DropdownMenu.Item>)}</DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root><button className="empty-pane-create" onClick={onAddWorker}>+ Create worker</button></div></article>;
+function EmptyTerminalSlot({ sessions, style, onSelect, onAddWorker, onDropSession }) {
+  return <article className="terminal-pane terminal-pane-empty" style={style} onDragOver={event => { if (event.dataTransfer.types.includes("application/x-mission-worker")) event.preventDefault(); }} onDrop={event => { event.preventDefault(); const id = event.dataTransfer.getData("application/x-mission-worker"); if (id) onDropSession(id); }}><span>+</span><strong>Open a terminal worker</strong><p>Show an existing PTY here, drag a worker into this pane, or create a project command.</p><div className="empty-pane-actions"><DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="empty-pane-trigger">Choose existing <span>⌄</span></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="empty-pane-menu radix-menu" sideOffset={8}>{sessions.map(item => <DropdownMenu.Item asChild key={item.id}><button onClick={() => onSelect(item.id)}><i className={`status-${item.status}`}/><span><strong>{item.name}</strong><small>{item.command}</small></span></button></DropdownMenu.Item>)}</DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root><button className="empty-pane-create" onClick={onAddWorker}>+ Create worker</button></div></article>;
 }
 
-function TerminalSlot({ session, sessions, active, expanded, minimized, shortcut, terminalPreferences, onFocus, onExpand, onAction, onSelect, onAddWorker, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI }) {
-  if (!session) return <EmptyTerminalSlot sessions={sessions} onSelect={onSelect} onDropSession={onSelect} onAddWorker={onAddWorker}/>;
-  return <TerminalPane session={session} sessions={sessions} profile={workerProfile(session)} active={active} expanded={expanded} minimized={minimized} shortcut={shortcut} terminalFontSize={terminalPreferences.terminalFontSize} terminalTheme={terminalPreferences.terminalTheme} terminalCursor={terminalPreferences.terminalCursor} terminalScrollback={terminalPreferences.terminalScrollback} onFocus={onFocus} onToggleExpanded={onExpand} onAction={onAction} onSelectSession={onSelect} onDropSession={onSelect} onReconfigure={onReconfigure} onDuplicate={onDuplicate} onTerminalError={onTerminalError} onTerminalRecovered={onTerminalRecovered} onAskAI={onAskAI}/>;
+function DetachedTerminalSlot({ session, slotInfo, style, onRecall, onFocusWindow }) {
+  const slot = slotInfo?.detachedSlot || 1;
+  const slotColor = slotInfo?.identity?.color;
+  const slotName = slotInfo?.identity?.name || `Window ${slot}`;
+  // The identity colour is data, so it arrives as a custom property rather than
+  // as a hard-coded value in the stylesheet, and every rule derives from it.
+  const paneStyle = slotColor || style ? { ...style, ...(slotColor ? { "--slot-accent": slotColor } : null) } : undefined;
+  // The placeholder has to stay truthful when the worker ends while detached.
+  // Saying "still running" over an exited process is the kind of state that
+  // sends someone looking for output that will never arrive.
+  const alive = session.isAlive !== false && session.status !== "exited" && session.status !== "failed";
+  return (
+    <article className="terminal-pane terminal-pane--detached" style={paneStyle} aria-label={`${session.name} is open in ${slotName}`}>
+      {/* A blurred stand-in for the terminal that left, so the pane still reads
+          as a terminal rather than an empty box. It is generated from the slot
+          colour, never a screenshot of the output — a frosted picture of real
+          terminal content would leak whatever was on screen. */}
+      <div className="detached-ghost" aria-hidden="true">
+        <span/><span/><span/><span/><span/><span/>
+      </div>
+      <span className="detached-badge">{slot} · {slotName}</span>
+      <h3>{session.name} is popped out</h3>
+      <p>
+        {alive
+          ? "Only its view moved — the worker is still running. This pane is held for it, so recalling puts it back in the same split."
+          : `The process has ${session.status === "failed" ? "failed" : "exited"}, and its window is still open. Recall it to read the last output here.`}
+      </p>
+      <div className="detached-actions">
+        <button type="button" className="btn-primary" onClick={() => onRecall?.(session.id)}>Recall here</button>
+        <button type="button" className="btn-ghost" onClick={() => onFocusWindow?.(session.id)}>Focus window</button>
+      </div>
+    </article>
+  );
+}
+
+// A service's state is evidence, not decoration: each label says what was
+// actually observed, so "Ready" is never inferred from a printed line alone.
+// The label says how the state was established, because "Ready" earned by a
+// successful connection and "Detected" from a printed line are different claims.
+function serviceStateLabel(service) {
+  if (service.state === "stale") return "No longer reported";
+  if (service.state === "ready") return service.readyEvidence === "listening" ? "Ready · listening" : "Ready";
+  return service.advertisedConfidence === "ready" ? "Announced · checking" : "Detected";
+}
+
+function ChevronIcon({ open }) {
+  return (
+    <svg
+      className={`ops-chevron ${open ? "is-open" : ""}`}
+      width="10" height="10" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
+  );
+}
+
+/**
+ * Reads local service discovery, the usage ledger and detached-window state.
+ * These update when the engine observes something, so the drawer subscribes
+ * rather than polling: a dev server address appears the moment it is printed.
+ */
+function useWorkspaceOps() {
+  const [state, setState] = React.useState({
+    agents: [],
+    services: [],
+    usage: null,
+    detached: [],
+    maxDetached: 3,
+    status: "loading",
+    error: ""
+  });
+
+  const refresh = React.useCallback(async () => {
+    try {
+      const [services, usage, windows, agents] = await Promise.all([
+        missionApi().request("services.list"),
+        missionApi().request("usage.query"),
+        missionApi().request("terminal.window.list").catch(() => ({ detached: [], max: 3 })),
+        missionApi().request("agents.activity").catch(() => ({ activities: [] }))
+      ]);
+      const activities = Array.isArray(agents?.activities) ? agents.activities : [];
+      liveAgentClassification.clear();
+      for (const activity of activities) liveAgentClassification.set(activity.workerId, activity);
+      setState({
+        agents: activities,
+        services: Array.isArray(services?.services) ? services.services : [],
+        usage: usage?.totals || null,
+        detached: Array.isArray(windows?.detached) ? windows.detached : [],
+        maxDetached: Number.isInteger(windows?.max) ? windows.max : 3,
+        status: "ready",
+        error: ""
+      });
+    } catch (error) {
+      // Discovery is an enhancement: a failure here must not blank the panel,
+      // it must say what is unavailable.
+      setState(current => ({ ...current, status: "error", error: error.message || String(error) }));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    let pending = null;
+    const schedule = () => {
+      if (!active || pending) return;
+      // Bursts of discovery events collapse into one read.
+      pending = setTimeout(() => { pending = null; if (active) void refresh(); }, 150);
+    };
+
+    void refresh();
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = missionApi().subscribe(message => {
+        if (!active) return;
+        if (["services:changed", "usage:changed", "terminal:detached", "terminal:recalled"].includes(message?.type)) schedule();
+      });
+    } catch {
+      // Without the bridge there is nothing to observe; refresh already ran.
+    }
+    return () => {
+      active = false;
+      if (pending) clearTimeout(pending);
+      unsubscribe?.();
+    };
+  }, [refresh]);
+
+  return { ...state, refresh };
+}
+
+function ServicesPanel({ services, status, error, onAction, onConfirm }) {
+  const { toast } = useToast();
+  const [busyId, setBusyId] = React.useState("");
+
+  // Stopping or restarting is an action on the *worker*, and a worker can serve
+  // several addresses. The impact is stated before it happens rather than
+  // discovered afterwards. Execution goes through the app's normal dispatch, so
+  // there is one confirmation path and one refresh path.
+  const owner = async (service, action) => {
+    let detail;
+    try {
+      detail = await missionApi().request("services.owner", { serviceId: service.id });
+    } catch (requestError) {
+      toast.danger(requestError.message || String(requestError));
+      return;
+    }
+    if (!detail.workerExists) {
+      toast.danger(`${detail.workerName || service.workerId} is not in this project any more.`);
+      return;
+    }
+
+    const others = detail.services.filter(item => item.id !== service.id);
+    const impact = others.length
+      ? `${detail.workerName} also serves ${others.map(item => item.url).join(", ")}. ${action === "kill" ? "Stopping" : "Restarting"} it takes ${others.length === 1 ? "that address" : "those addresses"} down too.`
+      : `${detail.workerName} serves only ${service.url}.`;
+
+    if (action === "kill") {
+      // dispatch already confirms a stop; the override adds the impact this
+      // panel knows about and the generic confirmation cannot.
+      await onAction?.("kill", detail.workerId, {}, { detail: impact });
+      return;
+    }
+    if (others.length && onConfirm) {
+      onConfirm({
+        title: `Restart ${detail.workerName}?`,
+        detail: impact,
+        confirmLabel: "Restart worker",
+        run: () => onAction?.("restart", detail.workerId)
+      });
+      return;
+    }
+    await onAction?.("restart", detail.workerId);
+  };
+
+  // Read-only: it proves who holds the port. It never terminates a process it
+  // did not start.
+  const inspectPort = async service => {
+    setBusyId(`${service.id}:port`);
+    try {
+      const result = await missionApi().request("services.inspectPort", { port: service.port });
+      if (result.available === false) {
+        toast.info(result.error || "Port inspection is not available on this platform.");
+        return;
+      }
+      if (!result.owners?.length) {
+        toast.info(`Nothing is listening on port ${service.port} right now.`);
+        return;
+      }
+      const owned = result.owners.filter(entry => entry.ownedByWorker);
+      const foreign = result.owners.filter(entry => !entry.ownedByWorker);
+      if (foreign.length) {
+        toast.warning(`Port ${service.port} is held by ${foreign.map(entry => `${entry.processName || "an unknown process"} (PID ${entry.pid})`).join(", ")} — not a Mission Control worker.`);
+      } else {
+        toast.success(`Port ${service.port} is held by this project's ${owned[0]?.workerName || "worker"}.`);
+      }
+    } catch (error_) {
+      toast.danger(error_.message || String(error_));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const act = async (method, service, { external = false } = {}) => {
+    setBusyId(`${service.id}:${method}`);
+    try {
+      // The action carries the service id and the generation it was drawn for,
+      // so a record that went stale since render is refused rather than opened.
+      const result = await missionApi().request(method, {
+        serviceId: service.id,
+        expectedGeneration: service.generation,
+        ...(external ? { external: true } : {})
+      });
+      if (method === "services.copy" && result?.url) {
+        await navigator.clipboard?.writeText(result.url);
+        toast.success(`Copied ${result.url}`);
+      } else if (result?.opened) {
+        // Which surface it opened in is the fact worth reporting: the two are
+        // different places to have to go looking for the page.
+        toast.success(result.target === "system"
+          ? `Opened ${result.url} in your system browser`
+          : `Opened ${result.url} in the Mission Control browser`);
+      }
+    } catch (requestError) {
+      toast.danger(requestError.message || String(requestError));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  if (status === "loading") {
+    return <p className="ops-empty" role="status">Looking for local services…</p>;
+  }
+  if (status === "error") {
+    return <p className="ops-empty" role="status">Local service discovery is unavailable.<span>{error}</span></p>;
+  }
+  if (!services.length) {
+    return (
+      <p className="ops-empty">
+        No local services detected yet.
+        <span>Start a terminal that prints a local address, such as a dev server, and it appears here.</span>
+      </p>
+    );
+  }
+
+  return (
+    <ul className="ops-services">
+      {services.map(service => {
+        const stale = service.state === "stale";
+        const label = service.workerName || service.workerId;
+        const busy = Boolean(busyId);
+        return (
+          <li key={service.id} className="ops-service" data-state={service.state}>
+            <div className="ops-service-main">
+              <div className="ops-service-title">
+                <strong title={label}>{label}</strong>
+                <code title={service.url}>{service.url}</code>
+              </div>
+              <p className="ops-service-state">
+                <i aria-hidden="true"/>
+                <span>
+                  {serviceStateLabel(service)}
+                  {service.updatedAt ? ` · ${relativeTime(service.updatedAt)}` : ""}
+                </span>
+              </p>
+            </div>
+            <div className="ops-service-actions">
+              <button
+                type="button"
+                className="btn-ghost"
+                disabled={busy}
+                onClick={() => void act("services.copy", service)}
+              >Copy<span className="sr-only"> the address for {label}</span></button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={stale || busy}
+                onClick={() => void act("services.open", service)}
+                title={stale ? `${label} is no longer reporting this address` : undefined}
+              >Open<span className="sr-only"> {service.url} in the Mission Control browser</span></button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button type="button" className="btn-ghost ops-service-more" disabled={busy} aria-label={`More actions for ${label}`}>⋯</button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className="radix-menu terminal-action-menu" sideOffset={6} align="end">
+                    {/* Stopping or restarting acts on the worker, and a worker can
+                        serve several addresses — the impact is confirmed first. */}
+                    <DropdownMenu.Item className="terminal-action-item" onSelect={() => void owner(service, "restart")}>
+                      <span>Restart {label}</span>
+                      <small>Restart the worker that serves this address</small>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item className="terminal-action-item" onSelect={() => void owner(service, "stop")}>
+                      <span>Stop {label}</span>
+                      <small>Stop the worker — every address it serves goes with it</small>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className="terminal-action-separator"/>
+                    <DropdownMenu.Item className="terminal-action-item" onSelect={() => void act("services.open", service, { external: true })}>
+                      <span>Open in system browser</span>
+                      <small>Leave Mission Control and hand this address to the operating system</small>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item className="terminal-action-item" onSelect={() => void inspectPort(service)}>
+                      <span>Inspect port {service.port}</span>
+                      <small>Show which process is holding this port</small>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function UsagePanel({ usage, onRefresh }) {
+  const { toast } = useToast();
+  const [importing, setImporting] = React.useState(false);
+
+  // Agent CLIs bill their own accounts and never pass through this app, so
+  // their usage is read from the transcripts they leave on disk. It is an
+  // explicit action: reading local files is not something to do on a timer.
+  const importCli = async () => {
+    setImporting(true);
+    try {
+      const summary = await missionApi().request("usage.import");
+      onRefresh?.();
+      if (!summary.recordsImported) {
+        toast.info("No new CLI usage found since the last import.");
+      } else {
+        const partial = summary.partialRecords
+          ? ` ${summary.partialRecords} had unreliable output counts and are marked partial.`
+          : "";
+        toast.success(`Imported ${summary.recordsImported} request${summary.recordsImported === 1 ? "" : "s"} from local CLI history.${partial}`);
+      }
+    } catch (importError) {
+      toast.danger(importError.message || String(importError));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importButton = (
+    <button type="button" className="btn-secondary ops-usage-import" disabled={importing} onClick={() => void importCli()}>
+      {importing ? "Reading…" : "Import CLI history"}
+    </button>
+  );
+
+  if (!usage || !usage.callCount) {
+    return (
+      <p className="ops-empty">
+        No terminal AI usage recorded in this project yet.
+        <span>What this project’s terminals spend on AI models. Mission AI and your own keys answer questions in the app and are metered separately, so asking about the cost never changes it. Agent CLIs meter themselves — import their local history to include them.</span>
+        <span className="ops-empty-action">{importButton}</span>
+      </p>
+    );
+  }
+
+  const models = Object.entries(usage.byModel || {});
+  const unmeasured = usage.unknownTokenRequests || 0;
+  const unpriced = usage.unpricedRequests || 0;
+
+  return (
+    <>
+      <div className="ops-usage-head">
+        <span>Workspace terminals · metered from provider-reported counts</span>
+        {importButton}
+      </div>
+      <dl className="ops-usage">
+        <div className="ops-usage-tile">
+          <dt>Estimated cost</dt>
+          <dd>{formatCost(usage.totalCost)}</dd>
+          <small>From published API prices — your bill may differ.</small>
+        </div>
+        <div className="ops-usage-tile">
+          <dt>Tokens</dt>
+          <dd>{formatTokens(usage.totalTokens)}</dd>
+          <small>{unmeasured ? `${unmeasured} request${unmeasured === 1 ? "" : "s"} reported no counts` : "Reported by the provider"}</small>
+        </div>
+        <div className="ops-usage-tile">
+          <dt>Requests</dt>
+          <dd>{usage.callCount}</dd>
+          <small>{usage.failedRequests ? `${usage.failedRequests} failed or cancelled` : "All succeeded"}</small>
+        </div>
+      </dl>
+
+      {models.length > 0 && (
+        <table className="ops-usage-models">
+          <caption className="sr-only">Usage by model</caption>
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Requests</th><th scope="col">Tokens</th><th scope="col">Cost</th></tr>
+          </thead>
+          <tbody>
+            {models.map(([model, row]) => (
+              <tr key={model}>
+                <td>{model}</td>
+                <td>{row.requests}</td>
+                <td>{formatTokens(row.tokens)}</td>
+                <td>{row.unpriced === row.requests ? "—" : formatCost(row.cost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {(unmeasured || unpriced) > 0 && (
+        <p className="ops-note">
+          This total is partial:{" "}
+          {unmeasured ? `${unmeasured} request${unmeasured === 1 ? "" : "s"} returned no usage data` : ""}
+          {unmeasured && unpriced ? ", and " : ""}
+          {unpriced ? `${unpriced} could not be priced` : ""}. Unmeasured requests are not counted as zero.
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * The workspace status rail. Closed by default so the terminal keeps the height;
+ * each segment is a disclosure button that opens the drawer onto its own panel.
+ */
+function WorkspaceOps({ ops, openTab, onOpenTab, onAction, onConfirm }) {
+  const panelId = React.useId();
+  const railRef = React.useRef(null);
+  const toggle = tab => onOpenTab(openTab === tab ? null : tab);
+
+  const readyServices = ops.services.filter(service => service.state !== "stale").length;
+  // A cost of zero and a cost never measured are different facts, and the rail
+  // is where that distinction is most likely to be misread at a glance. With
+  // nothing measured there is also nothing to qualify, so "est." drops away.
+  const metered = Boolean(ops.usage?.callCount);
+  const costLabel = metered ? formatCost(ops.usage.totalCost, { precision: 2 }) : "—";
+
+  // Escape closes the drawer and returns focus to the segment that opened it,
+  // the same way the dialogs in this app behave.
+  const onKeyDown = event => {
+    if (event.key !== "Escape" || !openTab) return;
+    event.stopPropagation();
+    onOpenTab(null);
+    railRef.current?.querySelector(`[data-ops-tab="${openTab}"]`)?.focus();
+  };
+
+  return (
+    <section
+      className={`workspace-ops ${openTab ? "is-open" : ""}`}
+      aria-label="Local services and AI usage"
+      onKeyDown={onKeyDown}
+    >
+      <div className="workspace-ops-rail" ref={railRef}>
+        <button
+          type="button"
+          className="workspace-ops-tab"
+          data-ops-tab="services"
+          aria-expanded={openTab === "services"}
+          aria-controls={openTab === "services" ? panelId : undefined}
+          onClick={() => toggle("services")}
+        >
+          <ChevronIcon open={openTab === "services"}/>
+          Services <b>{readyServices}</b>
+        </button>
+        <button
+          type="button"
+          className="workspace-ops-tab"
+          data-ops-tab="usage"
+          aria-expanded={openTab === "usage"}
+          aria-controls={openTab === "usage" ? panelId : undefined}
+          onClick={() => toggle("usage")}
+        >
+          <ChevronIcon open={openTab === "usage"}/>
+          Usage <b>{costLabel}</b>{metered ? " est." : ""}
+        </button>
+        <span className="workspace-ops-spacer"/>
+        {/* The live region stays mounted so a pop-out opening or closing is
+            announced, rather than the region itself appearing and vanishing. */}
+        <span className="workspace-ops-status" aria-live="polite">
+          {ops.detached.length > 0 ? `${ops.detached.length} of ${ops.maxDetached} terminals popped out` : ""}
+        </span>
+      </div>
+      {openTab && (
+        <div
+          className="workspace-ops-panel"
+          id={panelId}
+          role="region"
+          aria-label={openTab === "services" ? "Local services" : "Token and cost usage"}
+        >
+          {openTab === "services"
+            ? <ServicesPanel services={ops.services} status={ops.status} error={ops.error} onAction={onAction} onConfirm={onConfirm}/>
+            : <UsagePanel usage={ops.usage} onRefresh={ops.refresh}/>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TerminalSlot({ session, sessions, detachedInfo, active, expanded, minimized, shortcut, tileOrder, tileSpan = 1, tilePlacement = null, canEmpty = true, terminalPreferences, onFocus, onExpand, onAction, onSelect, onAddWorker, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI, onRecall, onFocusWindow }) {
+  // A mosaic tile is placed by `order`, so the canvas can be rearranged without
+  // moving anything in the DOM. Outside the mosaic this is undefined and the
+  // slot layouts place panes exactly as before.
+  // A short last row divides the canvas between the tiles it does have, so a
+  // worker count that is not a multiple of the column count never leaves a
+  // hole the size of a terminal in the corner of focus mode.
+  // A canvas sized per terminal places every tile between its own two grid
+  // lines, which is what lets one terminal be wider than the one below it.
+  const tileStyle = Number.isInteger(tileOrder) || tileSpan > 1 || tilePlacement
+    ? {
+        ...(Number.isInteger(tileOrder) ? { order: tileOrder } : null),
+        ...(tilePlacement ? { gridColumn: tilePlacement.column, gridRow: tilePlacement.gridRow } : tileSpan > 1 ? { gridColumn: `span ${tileSpan}` } : null)
+      }
+    : undefined;
+  if (!session) return <EmptyTerminalSlot sessions={sessions} style={tileStyle} onSelect={onSelect} onDropSession={onSelect} onAddWorker={onAddWorker}/>;
+  if (detachedInfo) {
+    return <DetachedTerminalSlot session={session} slotInfo={detachedInfo} style={tileStyle} onRecall={onRecall} onFocusWindow={onFocusWindow} />;
+  }
+  return <TerminalPane session={session} style={tileStyle} canEmpty={canEmpty} sessions={sessions} profile={workerProfile(session)} active={active} expanded={expanded} minimized={minimized} shortcut={shortcut} terminalFontSize={terminalPreferences.terminalFontSize} terminalTheme={terminalPreferences.terminalTheme} terminalCursor={terminalPreferences.terminalCursor} terminalScrollback={terminalPreferences.terminalScrollback} onFocus={onFocus} onToggleExpanded={onExpand} onAction={onAction} onSelectSession={onSelect} onDropSession={onSelect} onReconfigure={onReconfigure} onDuplicate={onDuplicate} onTerminalError={onTerminalError} onTerminalRecovered={onTerminalRecovered} onAskAI={onAskAI}/>;
 }
 
 function layoutForCount(count) {
@@ -1071,30 +1700,192 @@ function WorkerResourceIntelligence({ session, sessions }) {
   </section>;
 }
 
-function VSCodeWorkspaceDeck({ status, onRefresh }) {
-  const [terminalInputs, setTerminalInputs] = React.useState({});
+function cleanTerminalLine(text) {
+  if (typeof text !== "string") return "";
+  return text
+    .replace(/\x1b\][^\x07\x1b\r\n]*(?:\x07|\x1b\\|[\r\n]|$)/g, "")
+    .replace(/\x1b[\(\)][AB012UK]/g, "")
+    .replace(/\x1b\[[?><=0-9;]*[ -/]*[@-~]/g, "")
+    .replace(/\[[?><=][0-9;]*[a-zA-Z]/g, "")
+    .replace(/\([AB012UK]/g, "")
+    .replace(/\](?:633|133|1337);[^\r\n]*/g, "")
+    .replace(/\x1b[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]/g, "")
+    .trimEnd();
+}
+
+function VSCodeTerminalTile({ terminal, isManaged, onSendInput, onFocus, onClose, sendingId }) {
+  const [inputVal, setInputVal] = React.useState("");
+  const [history, setHistory] = React.useState([]);
+  const [historyIndex, setHistoryIndex] = React.useState(-1);
+  const consoleBottomRef = React.useRef(null);
+  const isRunning = terminal.commandState === "running";
+  const isClosed = terminal.state === "closed";
+  const logs = terminal.logs || [];
+
+  React.useEffect(() => {
+    if (consoleBottomRef.current) {
+      consoleBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs.length]);
+
+  const handleSend = () => {
+    const trimmed = inputVal.trim();
+    if (!trimmed || isClosed || sendingId === terminal.id) return;
+    setHistory(prev => [...prev.filter(h => h !== trimmed), trimmed]);
+    setHistoryIndex(-1);
+    onSendInput(terminal.id, trimmed);
+    setInputVal("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (history.length === 0) return;
+      const nextIndex = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
+      setHistoryIndex(nextIndex);
+      setInputVal(history[nextIndex] || "");
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex === -1) return;
+      const nextIndex = historyIndex + 1;
+      if (nextIndex >= history.length) {
+        setHistoryIndex(-1);
+        setInputVal("");
+      } else {
+        setHistoryIndex(nextIndex);
+        setInputVal(history[nextIndex] || "");
+      }
+    }
+  };
+
+  return (
+    <article className={`vscode-terminal-tile ${isRunning ? "is-running" : ""} ${isManaged ? "is-managed" : "is-observed"}`}>
+      <div className="vscode-tile-head">
+        <div className="vscode-tile-identity">
+          <span className="vscode-tile-badge">{isManaged ? "MANAGED" : "VS CODE"}</span>
+          <strong>{terminal.name}</strong>
+        </div>
+        <div className="vscode-tile-head-actions">
+          <span className={`vscode-tile-status is-${terminal.commandState || "idle"}`}>
+            {terminal.active ? "ACTIVE · " : ""}{terminal.commandState || "idle"}
+          </span>
+        </div>
+      </div>
+
+      <div className="vscode-tile-meta">
+        <span><strong>CWD:</strong> {terminal.cwd || "."}</span>
+        <span><strong>Shell:</strong> {terminal.shellIntegration ? "Integrated Stream" : "Standard"}</span>
+      </div>
+
+      <div className="vscode-tile-console" role="log" aria-live="polite">
+        {logs.length === 0 ? (
+          <div className="vscode-console-empty">
+            <span className="vscode-console-empty-prompt">$</span>
+            <span>{"Ready for command input. Enter any command to execute in VS Code."}</span>
+          </div>
+        ) : (
+          logs.map((log, idx) => {
+            if (log.type === "input") {
+              const cleaned = cleanTerminalLine(log.text);
+              if (!cleaned) return null;
+              return (
+                <div key={idx} className="vscode-log-line is-input">
+                  <span className="vscode-log-prompt">$</span>
+                  <span className="vscode-log-cmd">{cleaned}</span>
+                </div>
+              );
+            }
+            if (log.type === "system") {
+              return (
+                <div key={idx} className="vscode-log-line is-system">
+                  <span className={`vscode-log-system-pill ${log.exitCode === 0 ? "is-ok" : "is-fail"}`}>
+                    {log.text}
+                  </span>
+                </div>
+              );
+            }
+            const cleaned = cleanTerminalLine(log.text);
+            if (!cleaned) return null;
+            return (
+              <div key={idx} className="vscode-log-line is-output">
+                {cleaned}
+              </div>
+            );
+          })
+        )}
+        <div ref={consoleBottomRef} style={{ height: 1 }} />
+      </div>
+
+      <div className="vscode-tile-input-deck">
+        <input
+          type="text"
+          className="vscode-tile-input"
+          placeholder={isClosed ? "Terminal is closed" : `Run command in ${terminal.name}… (↑/↓ for history)`}
+          aria-label={`Run command in ${terminal.name}`}
+          value={inputVal}
+          onChange={e => setInputVal(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isClosed || sendingId === terminal.id}
+        />
+        <button
+          type="button"
+          className="vscode-tile-send"
+          aria-label={`Send command to ${terminal.name}`}
+          onClick={handleSend}
+          disabled={isClosed || sendingId === terminal.id || !inputVal.trim()}
+        >
+          {sendingId === terminal.id ? "Sending…" : "Send ↵"}
+        </button>
+      </div>
+
+      <div className="vscode-tile-footer">
+        <button type="button" className="vscode-tile-btn" onClick={() => onFocus(terminal.id)}>
+          Focus in VS Code
+        </button>
+        <button type="button" className="vscode-tile-btn is-danger" onClick={() => onClose(terminal.id, terminal.name)}>
+          Close
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function VSCodeWorkspaceDeck({ status, onRefresh, onConfirm }) {
   const [sendingId, setSendingId] = React.useState("");
   const [newTermName, setNewTermName] = React.useState("Mission Control");
   const [newTermCwd, setNewTermCwd] = React.useState(".");
   const [creating, setCreating] = React.useState(false);
   const [actionNotice, setActionNotice] = React.useState("");
+  const noticeTimerRef = React.useRef(null);
+
+  React.useEffect(() => () => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+  }, []);
+
+  const showNotice = (msg, durationMs = 4000) => {
+    setActionNotice(msg);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    if (durationMs > 0) {
+      noticeTimerRef.current = setTimeout(() => setActionNotice(""), durationMs);
+    }
+  };
 
   const terminals = status?.terminals || [];
   const connected = status?.connected === true;
 
-  const handleSendInput = async terminalId => {
-    const input = (terminalInputs[terminalId] || "").trim();
+  const handleSendInput = async (terminalId, input) => {
     if (!input) return;
     setSendingId(terminalId);
     setActionNotice("");
     try {
-      await missionApi().request("vscode.terminal.write", { terminalId, input });
-      setTerminalInputs(curr => ({ ...curr, [terminalId]: "" }));
-      setActionNotice(`Command "${input}" sent to VS Code terminal.`);
-      setTimeout(() => setActionNotice(""), 4000);
+      await confirmedRequest("vscode.terminal.write", { terminalId, input });
+      showNotice(`Command "${input}" sent to VS Code terminal.`);
       onRefresh?.();
     } catch (err) {
-      setActionNotice(`Failed to send input: ${err.message || String(err)}`);
+      showNotice(`Failed to send input: ${err.message || String(err)}`, 6000);
     } finally {
       setSendingId("");
     }
@@ -1103,10 +1894,9 @@ function VSCodeWorkspaceDeck({ status, onRefresh }) {
   const handleFocus = async terminalId => {
     try {
       await missionApi().request("vscode.terminal.focus", { terminalId });
-      setActionNotice("Focused terminal in VS Code.");
-      setTimeout(() => setActionNotice(""), 3000);
+      showNotice("Focused terminal in VS Code.", 3000);
     } catch (err) {
-      setActionNotice(err.message || String(err));
+      showNotice(err.message || String(err), 5000);
     }
   };
 
@@ -1116,27 +1906,37 @@ function VSCodeWorkspaceDeck({ status, onRefresh }) {
     const cwd = newTermCwd.trim() || ".";
     setCreating(true);
     try {
-      await missionApi().request("vscode.terminal.create", { name, cwd });
+      await confirmedRequest("vscode.terminal.create", { name, cwd });
       setNewTermName("Mission Control");
-      setActionNotice(`Created terminal "${name}" in VS Code.`);
-      setTimeout(() => setActionNotice(""), 4000);
+      showNotice(`Created terminal "${name}" in VS Code.`);
       onRefresh?.();
     } catch (err) {
-      setActionNotice(err.message || String(err));
+      showNotice(err.message || String(err), 5000);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleClose = async (terminalId, name) => {
-    if (!confirm(`Close terminal "${name}" in VS Code?`)) return;
+  const executeClose = async (terminalId, name) => {
     try {
-      await missionApi().request("vscode.terminal.close", { terminalId });
-      setActionNotice(`Closed terminal "${name}".`);
-      setTimeout(() => setActionNotice(""), 3000);
+      await confirmedRequest("vscode.terminal.close", { terminalId });
+      showNotice(`Closed terminal "${name}".`, 3000);
       onRefresh?.();
     } catch (err) {
-      setActionNotice(err.message || String(err));
+      showNotice(err.message || String(err), 5000);
+    }
+  };
+
+  const handleClose = (terminalId, name) => {
+    if (onConfirm) {
+      onConfirm({
+        title: `Close terminal "${name}" in VS Code?`,
+        detail: "The terminal session and its running processes in VS Code will be terminated.",
+        confirmLabel: "Close terminal",
+        run: () => executeClose(terminalId, name)
+      });
+    } else {
+      void executeClose(terminalId, name);
     }
   };
 
@@ -1152,12 +1952,14 @@ function VSCodeWorkspaceDeck({ status, onRefresh }) {
       <form className="vscode-deck-create" onSubmit={handleCreateTerminal}>
         <input
           placeholder="New terminal name…"
+          aria-label="New terminal name"
           value={newTermName}
           maxLength={60}
           onChange={e => setNewTermName(e.target.value)}
         />
         <input
           placeholder="cwd (e.g. .)"
+          aria-label="Working directory"
           value={newTermCwd}
           maxLength={120}
           onChange={e => setNewTermCwd(e.target.value)}
@@ -1177,74 +1979,170 @@ function VSCodeWorkspaceDeck({ status, onRefresh }) {
         <p>Open a terminal in your VS Code editor or create a new managed terminal above.</p>
       </div> : terminals.map(terminal => {
         const isManaged = terminal.ownership === "mission-control-managed";
-        const isRunning = terminal.commandState === "running";
-        return <article key={terminal.id} className={`vscode-terminal-tile ${isRunning ? "is-running" : ""} ${isManaged ? "is-managed" : "is-observed"}`}>
-          <div className="vscode-tile-head">
-            <div className="vscode-tile-identity">
-              <span className="vscode-tile-badge">{isManaged ? "MANAGED" : "VS CODE"}</span>
-              <strong>{terminal.name}</strong>
-            </div>
-            <span className={`vscode-tile-status is-${terminal.commandState || "idle"}`}>
-              {terminal.active ? "ACTIVE · " : ""}{terminal.commandState || "idle"}
-            </span>
-          </div>
-
-          <div className="vscode-tile-meta">
-            <span><strong>CWD:</strong> {terminal.cwd || "."}</span>
-            <span><strong>Shell:</strong> {terminal.shellIntegration ? "Integrated" : "Standard"}</span>
-          </div>
-
-          <div className="vscode-tile-display">
-            <div className="vscode-tile-cmd-line">
-              <span className="vscode-tile-prompt">$</span>
-              <span className="vscode-tile-cmd">{terminal.currentCommand || (terminal.shellIntegration ? "shell ready" : "idle")}</span>
-            </div>
-            <div className="vscode-tile-live-line">
-              <i className={isRunning ? "pulse-dot" : ""}/>
-              <small>{isRunning ? "Command executing in VS Code terminal…" : "Ready for operator command input"}</small>
-            </div>
-          </div>
-
-          <div className="vscode-tile-input-deck">
-            <input
-              type="text"
-              className="vscode-tile-input"
-              placeholder={`Run command in ${terminal.name}…`}
-              value={terminalInputs[terminal.id] || ""}
-              onChange={e => setTerminalInputs(curr => ({ ...curr, [terminal.id]: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSendInput(terminal.id);
-                }
-              }}
-              disabled={sendingId === terminal.id}
-            />
-            <button
-              type="button"
-              className="vscode-tile-send"
-              onClick={() => handleSendInput(terminal.id)}
-              disabled={sendingId === terminal.id || !(terminalInputs[terminal.id] || "").trim()}
-            >
-              {sendingId === terminal.id ? "Sending…" : "Send ↵"}
-            </button>
-          </div>
-
-          <div className="vscode-tile-footer">
-            <button type="button" className="vscode-tile-btn" onClick={() => handleFocus(terminal.id)}>
-              Focus in VS Code
-            </button>
-            {isManaged && <button type="button" className="vscode-tile-btn is-danger" onClick={() => handleClose(terminal.id, terminal.name)}>
-              Close
-            </button>}
-          </div>
-        </article>;
+        return (
+          <VSCodeTerminalTile
+            key={terminal.id}
+            terminal={terminal}
+            isManaged={isManaged}
+            onSendInput={handleSendInput}
+            onFocus={handleFocus}
+            onClose={handleClose}
+            sendingId={sendingId}
+          />
+        );
       })}
     </div>
   </div>;
 }
 
-function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expandedId, inspectorOpen, terminalPreferences, onInspector, onFocus, onExpand, onAction, onStartWorkspace, onStopWorkspace, onRecipes, onMissionGraph, onAddWorker, onReconfigure, onTerminalError, onTerminalRecovered, onAskAI, onDuplicate }) {
+/* Tile order for the mosaic. The slot layouts persist which worker sits in
+   which pane; the mosaic has no slots, so dragging a tile has to reorder the
+   mosaic itself. Like every other layout preference this is device-local — how
+   you like the canvas arranged is not a fact about the project — and a stored
+   order is untrusted input, re-reconciled against the live session list on
+   every read so a worker that no longer exists cannot hold a gap open. */
+const MOSAIC_ORDER_PREFIX = "mission-control:mosaic-order:v1:";
+
+/* Terminal sizes for the canvas, in every mode. Each terminal owns its width
+   within its row and each row owns its height (see canvasTiles.js). They are
+   kept per shape — five tiles over three is a different arrangement from four
+   over four, and the slot layouts are kept apart from the packed canvas — so a
+   canvas that reflows to another shape starts from even sizes instead of ones
+   meant for another grid. Stored values are untrusted and re-fitted to their
+   shape on read. */
+const CANVAS_TILES_PREFIX = "mission-control:canvas-tiles:v1:";
+const TILE_EDGE_NAMES = Object.freeze({ n: "top", s: "bottom", e: "right", w: "left" });
+
+function readCanvasTiles(key) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const shapes = {};
+    for (const [shape, entry] of Object.entries(parsed)) {
+      const match = /^(slots|packed):(\d+(?:,\d+)*)$/.exec(shape);
+      if (!match || !entry || typeof entry !== "object") continue;
+      const rows = match[2].split(",").map(Number);
+      if (rows.length > 12 || rows.some(count => count < 1 || count > 12)) continue;
+      shapes[shape] = normalizeTileSizes(entry, rows);
+    }
+    return shapes;
+  } catch {
+    return {};
+  }
+}
+
+function useCanvasTiles(workspaceKey) {
+  const key = `${CANVAS_TILES_PREFIX}${workspaceKey || "default"}`;
+  const [shapes, setShapes] = React.useState(() => readCanvasTiles(key));
+  React.useEffect(() => { setShapes(readCanvasTiles(key)); }, [key]);
+  const write = React.useCallback(next => {
+    try { window.localStorage.setItem(key, JSON.stringify(next)); }
+    catch { /* Terminal sizes are a convenience and must never block terminal control. */ }
+  }, [key]);
+  // `set` follows a drag frame by frame; `save` is the value to keep.
+  const set = React.useCallback((shape, sizes) => {
+    if (!shape || !sizes) return;
+    setShapes(current => (current[shape] === sizes ? current : { ...current, [shape]: sizes }));
+  }, []);
+  const save = React.useCallback((shape, sizes) => {
+    if (!shape || !sizes) return;
+    setShapes(current => {
+      const next = { ...current, [shape]: sizes };
+      write(next);
+      return next;
+    });
+  }, [write]);
+  return { shapes, set, save };
+}
+
+// Keeps the old span rule for a canvas that is not sized per terminal yet (the
+// first frame, before the grid has been measured).
+function placedTileStyle(order, span, placement) {
+  if (order === null && !(span > 1) && !placement) return undefined;
+  return {
+    ...(order !== null ? { order } : null),
+    ...(placement ? { gridColumn: placement.column, gridRow: placement.gridRow } : span > 1 ? { gridColumn: `span ${span}` } : null)
+  };
+}
+
+function readTrackGeometry(node) {
+  const style = window.getComputedStyle(node);
+  const sizes = value => (value && value !== "none" ? value.trim().split(/\s+/).map(parseFloat).filter(Number.isFinite) : []);
+  const padLeft = parseFloat(style.paddingLeft) || 0;
+  const padTop = parseFloat(style.paddingTop) || 0;
+  return {
+    cols: sizes(style.gridTemplateColumns),
+    rows: sizes(style.gridTemplateRows),
+    colGap: parseFloat(style.columnGap) || 0,
+    rowGap: parseFloat(style.rowGap) || 0,
+    padLeft,
+    padTop,
+    width: Math.max(0, node.clientWidth - padLeft - (parseFloat(style.paddingRight) || 0)),
+    height: Math.max(0, node.clientHeight - padTop - (parseFloat(style.paddingBottom) || 0)),
+    minHeight: parseFloat(style.getPropertyValue("--pane-min-h")) || 0,
+    // The narrow layouts stack every pane full width, and say so through this
+    // property; there is nothing beside a terminal to give way when stacked.
+    stacked: style.getPropertyValue("--mc-canvas-stacked").trim() === "1",
+    overflows: node.scrollHeight > node.clientHeight + 1
+  };
+}
+
+function useMosaicOrder(workspaceKey, sessions) {
+  const key = workspaceKey ? `${MOSAIC_ORDER_PREFIX}${workspaceKey}` : null;
+  const [order, setOrder] = React.useState([]);
+
+  React.useEffect(() => {
+    let stored = [];
+    if (key) {
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(key));
+        if (Array.isArray(parsed)) stored = parsed.filter(id => typeof id === "string");
+      } catch { stored = []; }
+    }
+    setOrder(stored);
+  }, [key]);
+
+  const persist = React.useCallback(next => {
+    setOrder(next);
+    if (!key) return;
+    try { window.localStorage.setItem(key, JSON.stringify(next)); }
+    catch { /* Tile order is a convenience and must never block terminal control. */ }
+  }, [key]);
+
+  // Arranged ids first, in the order they were put there; anything the engine
+  // has reported since keeps its natural place at the end.
+  const arrangedIds = React.useMemo(() => {
+    const live = new Set(sessions.map(session => session.id));
+    const seen = new Set();
+    const ids = [];
+    for (const id of order) if (live.has(id) && !seen.has(id)) { seen.add(id); ids.push(id); }
+    for (const session of sessions) if (!seen.has(session.id)) ids.push(session.id);
+    return ids;
+  }, [order, sessions]);
+
+  // Where each worker's tile sits. The canvas keeps its DOM in session order
+  // and lays the tiles out with `order`, so rearranging never unmounts a
+  // terminal: an xterm that is torn down and rebuilt loses its scrollback, and
+  // moving a pane is not a reason to lose what it printed.
+  const positions = React.useMemo(() => new Map(arrangedIds.map((id, index) => [id, index])), [arrangedIds]);
+
+  // Dropping one tile on another puts it in that position and slides the rest
+  // along — the same result as dragging a card within a list, and undone by
+  // dragging it back.
+  const move = React.useCallback((draggedId, targetId) => {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+    const ids = [...arrangedIds];
+    const from = ids.indexOf(draggedId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    persist(ids);
+  }, [arrangedIds, persist]);
+
+  return { positions, move };
+}
+
+function WorkspaceView({ needsCount = 0, onReviewNeeds, sessions, workspaceKey, terminalLayout, focusedId, expandedId, inspectorOpen, terminalPreferences, onInspector, onFocus, onExpand, onAction, onStartWorkspace, onStopWorkspace, onRecipes, onMissionGraph, onAddWorker, onReconfigure, onTerminalError, onTerminalRecovered, onAskAI, onDuplicate, onConfirm }) {
   const gridRef = React.useRef(null);
   const [resizing, setResizing] = React.useState(false);
   const [vscodeStatus, setVscodeStatus] = React.useState(null);
@@ -1272,6 +2170,90 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
   // presentation: no worker lifecycle or engine state changes with it.
   const [focusMode, setFocusMode] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  // Focus mode has to reach past this route: the sidebar and the status bar are
+  // rendered by the shell, not by the workspace. It is mirrored onto the
+  // document element the same way the theme is, so one stylesheet can collapse
+  // the whole frame. Presentation only - no worker or engine state moves.
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (focusMode) root.dataset.workspaceFocus = "on";
+    else delete root.dataset.workspaceFocus;
+    return () => { delete root.dataset.workspaceFocus; };
+  }, [focusMode]);
+  // The native window controls stay on screen in focus mode, and with the
+  // status tape gone they were painted over the top-right terminal. The shell
+  // keeps a strip exactly as tall as the controls (see surfaces.css), and
+  // asks for a shallower one while focus mode is on.
+  React.useEffect(() => {
+    if (!focusMode) return undefined;
+    const chrome = mode => { try { window.missionControl?.setWindowChrome?.(mode)?.catch?.(() => {}); } catch { /* presentation only */ } };
+    chrome("focus");
+    return () => chrome("standard");
+  }, [focusMode]);
+  // Alt is the workspace modifier throughout this app (Alt 1-6 focus a pane,
+  // Alt L cycles layouts), so focus mode joins it rather than claiming a bare
+  // key a terminal would otherwise swallow. A dialog owns the keyboard while
+  // it is open.
+  React.useEffect(() => {
+    const onKey = event => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) return;
+      if (String(event.key).toLowerCase() !== "f") return;
+      if (document.querySelector("[role='dialog'],[role='alertdialog']")) return;
+      event.preventDefault();
+      setFocusMode(value => !value);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  // The browser view is owned by the main process, so whether a tile is
+  // mounted follows the view's own state rather than leading it. That is what
+  // lets "open" from the Services panel, from a toast, or from Alt B all land
+  // in the same place without any of them knowing about this component.
+  const [browserOpen, setBrowserOpen] = React.useState(false);
+  // The assistant pane is a tile on the canvas, remembered per project: an
+  // operator who works with it open should find it open when they come back.
+  const assistantKey = `mission-control:workspace-assistant:v1:${workspaceKey || "default"}`;
+  const [assistantOpen, setAssistantOpenState] = React.useState(() => { try { return window.localStorage.getItem(assistantKey) === "open"; } catch { return false; } });
+  const setAssistantOpen = React.useCallback(next => {
+    setAssistantOpenState(current => {
+      const value = typeof next === "function" ? next(current) : next;
+      try { window.localStorage.setItem(assistantKey, value ? "open" : "closed"); } catch { /* a preference, not state */ }
+      return value;
+    });
+  }, [assistantKey]);
+  React.useEffect(() => {
+    const onKey = event => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) return;
+      if (String(event.key).toLowerCase() !== "c") return;
+      if (document.querySelector("[role='dialog'],[role='alertdialog']")) return;
+      event.preventDefault();
+      setAssistantOpen(value => !value);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setAssistantOpen]);
+  React.useEffect(() => {
+    let active = true;
+    missionApi().request("workspace.browser.state")
+      .then(value => { if (active && value?.open) setBrowserOpen(true); })
+      .catch(() => {});
+    const unsubscribe = missionApi().subscribe(notification => {
+      if (notification?.type !== "workspace:browser" || !active) return;
+      if (notification.state?.open) setBrowserOpen(true);
+    });
+    return () => { active = false; unsubscribe?.(); };
+  }, []);
+  React.useEffect(() => {
+    const onKey = event => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) return;
+      if (String(event.key).toLowerCase() !== "b") return;
+      if (document.querySelector("[role='dialog'],[role='alertdialog']")) return;
+      event.preventDefault();
+      setBrowserOpen(value => !value);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [savingPaneSet, setSavingPaneSet] = React.useState(false);
   const [paneSetName, setPaneSetName] = React.useState("");
   const slots = terminalLayout.sessionIds.map(id => sessions.find(session => session.id === id) || null);
@@ -1286,6 +2268,104 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
   // created: this is the engine's session summary and nothing more.
   const mountedIds = new Set(visible.filter(Boolean).map(item => item.id));
   const backgroundWorkers = sessions.filter(session => !mountedIds.has(session.id));
+  // Focus mode is the "everything at once" view the slot layouts cannot give:
+  // it mounts every supervised worker and lets the grid pack them, so no worker
+  // is left off the canvas. Reserved for the plain canvas - an expanded pane and
+  // a folder selection are both explicit narrowings the operator just asked for.
+  const mosaicOrder = useMosaicOrder(workspaceKey, sessions);
+  const mosaic = focusMode && !activeFolder && !expandedId && sessions.length > 0;
+  const canvasWorkers = mosaic ? sessions : visible;
+  // Mosaic shape. Tiles stay closest to a readable rectangle when the row count
+  // follows the square root of the worker count against the canvas's own
+  // proportion, so the column count is derived rather than fixed. It is handed
+  // to the stylesheet as the tile's minimum width, which lets a narrow window
+  // fall back to fewer, wider columns instead of a line of slivers.
+  // The browser is a tile on the canvas, so the canvas packs itself whenever
+  // one is open: a preview never costs a terminal its pane, and the two modes
+  // share one arrangement rule instead of two.
+  const packedCanvas = (mosaic || browserOpen || assistantOpen) && !activeFolder && !expandedId;
+  const tileCount = canvasWorkers.length + (browserOpen ? 1 : 0) + (assistantOpen ? 1 : 0);
+  const mosaicColumns = packedCanvas
+    ? Math.max(1, Math.ceil(tileCount / Math.max(1, Math.ceil(Math.sqrt(tileCount / 2.4)))))
+    : 0;
+  // `auto-fit` decides the real column count from what the window can hold at
+  // a readable tile width, which is not always the balanced count derived
+  // above — that fallback is deliberate. Reading the tracks back is the only
+  // way to know which one is in force, and the last row can only be made to
+  // fill the canvas against the number it actually has to fill.
+  const [mosaicTracks, setMosaicTracks] = React.useState(0);
+  const [trackGeometry, setTrackGeometry] = React.useState(null);
+  const trackProbeRef = React.useRef(null);
+  const canvasTiles = useCanvasTiles(workspaceKey);
+  // Per-terminal sizing applies to whatever the canvas is showing: the slot
+  // layout, a folder, or the packed canvas. The packed canvas has as many
+  // columns as auto-fit gave it, so it waits for that to be measured.
+  const canvasTileCount = packedCanvas ? tileCount : canvasWorkers.length;
+  const tileColumns = packedCanvas ? mosaicTracks : effectiveLayout.cols;
+  const tileRowCounts = React.useMemo(() => (tileColumns > 0 ? tileRows(canvasTileCount, tileColumns) : []), [canvasTileCount, tileColumns]);
+  const tileShape = tileShapeKey(packedCanvas ? "packed" : "slots", tileRowCounts);
+  const tileSource = (tileShape && canvasTiles.shapes[tileShape]) || (!packedCanvas && !activeFolder ? seedFromRatios(terminalLayout.layout.id, terminalLayout.ratios) : null);
+  const tileSourceKey = tileSource ? JSON.stringify(tileSource) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tileSizes = React.useMemo(() => normalizeTileSizes(tileSource, tileRowCounts), [tileSourceKey, tileRowCounts]);
+  const tilesActive = tileRowCounts.length > 0 && canvasTileCount > 1 && !expandedId && Boolean(trackGeometry) && !trackGeometry.stacked;
+  const tileLayout = React.useMemo(() => {
+    if (!tilesActive) return null;
+    const grid = tileGrid(tileSizes, trackGeometry.width, trackGeometry.colGap);
+    return grid.valid ? { grid, templates: tileTemplates(tileSizes, grid, packedCanvas ? "var(--pane-min-h)" : "0px") } : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tilesActive, tileSizes, trackGeometry?.width, trackGeometry?.colGap, packedCanvas]);
+  const tileTemplateKey = tileLayout ? `${tileLayout.templates.columns}|${tileLayout.templates.rows}` : "";
+  const placementAt = position => (tileLayout && Number.isInteger(position) ? tileLayout.grid.placements[position] || null : null);
+  React.useEffect(() => {
+    const node = gridRef.current;
+    if (!node || typeof ResizeObserver === "undefined") { setMosaicTracks(0); setTrackGeometry(null); return undefined; }
+    let frame = null;
+    const measure = () => {
+      frame = null;
+      if (packedCanvas) {
+        // Sized tracks are explicit, so the grid itself would go on reporting
+        // the count they were sized for. The probe keeps the auto-fit rule and
+        // says how many columns the window can hold now.
+        const probe = trackProbeRef.current;
+        const probed = probe ? window.getComputedStyle(probe).gridTemplateColumns : "";
+        const fitted = probed && probed !== "none" ? probed.trim().split(/\s+/).filter(token => parseFloat(token) > 0).length : 0;
+        const template = window.getComputedStyle(node).gridTemplateColumns;
+        setMosaicTracks(fitted || (template && template !== "none" ? template.trim().split(/\s+/).length : 0));
+      } else {
+        setMosaicTracks(0);
+      }
+      setTrackGeometry(readTrackGeometry(node));
+    };
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(measure); };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(node);
+    schedule();
+    return () => { if (frame) window.cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [packedCanvas, tileCount, tileTemplateKey, expandedId, activeFolder?.isVSCode]);
+  // Canvas style: the balanced column share for the packed canvas, the slot
+  // layout's ratios otherwise, and the per-terminal tracks once they apply.
+  const canvasStyle = (() => {
+    const style = packedCanvas ? { "--mosaic-cols": mosaicColumns } : activeFolder ? {} : { ...terminalLayout.style };
+    if (tileLayout) {
+      style["--mc-canvas-cols"] = tileLayout.templates.columns;
+      style["--mc-canvas-rows"] = tileLayout.templates.rows;
+    }
+    return Object.keys(style).length ? style : undefined;
+  })();
+  // Seven terminals in four columns left one cell empty. The three tiles on
+  // the short row divide the four columns between them instead: floor plus
+  // one for the first remainder tiles, which always sums back to the full
+  // width whatever the counts are.
+  const mosaicSpan = React.useCallback(position => {
+    if (!packedCanvas || mosaicTracks < 2 || !Number.isInteger(position)) return 1;
+    const lastRowCount = tileCount % mosaicTracks;
+    if (lastRowCount === 0) return 1;
+    const firstInLastRow = tileCount - lastRowCount;
+    if (position < firstInLastRow) return 1;
+    const index = position - firstInLastRow;
+    return Math.floor(mosaicTracks / lastRowCount) + (index < mosaicTracks % lastRowCount ? 1 : 0);
+  }, [mosaicTracks, packedCanvas, tileCount]);
   const focused = sessions.find(item => item.id === focusedId);
   const profile = focused ? workerProfile(focused) : null;
   const roleCounts = sessions.reduce((counts, session) => {
@@ -1293,37 +2373,126 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
     counts[role] = (counts[role] || 0) + 1;
     return counts;
   }, {});
-  // One pointer-driven resize routine for every handle a layout exposes. The
-  // handle descriptor names the axis to track and the persisted ratio it
-  // drives, so column and row splits share the exact same code path.
-  const beginPaneResize = React.useCallback((event, handle) => {
-    if (!gridRef.current || expandedId || !handle) return;
-    event.preventDefault();
-    const node = event.currentTarget;
-    node?.setPointerCapture?.(event.pointerId);
-    const move = pointerEvent => {
-      const rect = gridRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const raw = handle.axis === "y"
-        ? (pointerEvent.clientY - rect.top) / rect.height
-        : (pointerEvent.clientX - rect.left) / rect.width;
-      // T096 — the second column boundary is measured from the first one, so
-      // dragging it changes only the middle column's width. Dragging the first
-      // handle still moves both boundaries together, which is what you want
-      // when widening the leftmost pane.
-      const value = handle.ratio === "col2"
-        ? raw * 100 - terminalLayout.ratios.col
-        : Math.min(.75, Math.max(.25, raw)) * 100;
-      terminalLayout.setRatio(handle.ratio, Math.round(value));
+  // Resizing a terminal works like resizing an image: grab an edge or a corner
+  // of the terminal and drag. The tiles beside that edge give way; the opposite
+  // edge stays put. Handles belong to one tile at a time — the one under the
+  // pointer, else the focused one — and only on edges with a neighbour to push.
+  const [hoverTile, setHoverTile] = React.useState(null);
+  const [tileResize, setTileResize] = React.useState(null);
+  const tileRects = React.useMemo(() => {
+    if (!tileLayout || !trackGeometry) return null;
+    const { cols, rows, colGap, rowGap, padLeft, padTop } = trackGeometry;
+    // Until the grid has been measured with these tracks, it cannot say where
+    // a tile is, and a handle drawn from stale tracks would sit on the wrong edge.
+    if (cols.length !== tileLayout.grid.tracks.length || rows.length !== tileRowCounts.length) return null;
+    const xs = [padLeft];
+    cols.forEach((size, index) => xs.push(xs[index] + size + colGap));
+    const ys = [padTop];
+    rows.forEach((size, index) => ys.push(ys[index] + size + rowGap));
+    return tileLayout.grid.placements.map(place => ({ left: xs[place.start], top: ys[place.row], width: xs[place.end] - xs[place.start] - colGap, height: rows[place.row] }));
+  }, [tileLayout, trackGeometry, tileRowCounts.length]);
+  const tileMetrics = geometry => ({
+    width: geometry.width,
+    height: geometry.height,
+    colGap: geometry.colGap,
+    rowGap: geometry.rowGap,
+    minWidth: TILE_MIN_WIDTH,
+    minHeight: Math.max(TILE_MIN_HEIGHT, packedCanvas ? geometry.minHeight : 0)
+  });
+  const focusedTile = focusedId ? (mosaic ? mosaicOrder.positions.get(focusedId) : canvasWorkers.findIndex(item => item?.id === focusedId)) : undefined;
+  const framePosition = tileResize?.position ?? hoverTile ?? (Number.isInteger(focusedTile) && focusedTile >= 0 ? focusedTile : null);
+  const tileFrame = (() => {
+    if (!tileRects || !Number.isInteger(framePosition) || !tileRects[framePosition]) return null;
+    const address = tileAddress(tileRowCounts, framePosition);
+    const grips = tileEdges(tileRowCounts, address, { vertical: !trackGeometry.overflows });
+    if (!address || !grips.length) return null;
+    const worker = framePosition < canvasWorkers.length
+      ? (mosaic ? sessions.find(item => mosaicOrder.positions.get(item.id) === framePosition) : canvasWorkers[framePosition])
+      : null;
+    const label = worker?.name || (framePosition < canvasWorkers.length ? "this empty pane" : browserOpen && framePosition === canvasWorkers.length ? "the browser" : "the assistant");
+    return {
+      position: framePosition,
+      address,
+      grips,
+      label,
+      rect: tileRects[framePosition],
+      width: Math.round(tileSizes.cells[address.row][address.cell] * 100),
+      height: Math.round(tileSizes.rows[address.row] * 100)
     };
-    const stop = () => { setResizing(false); resizeTeardownRef.current = null; node?.releasePointerCapture?.(event.pointerId); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); window.removeEventListener("pointercancel", stop); };
+  })();
+  const onCanvasPointerMove = event => {
+    if (!tileRects || tileResize || event.target?.closest?.(".tile-resize-frame")) return;
+    // A keyboard user resizing with the arrow keys keeps their handles.
+    if (document.activeElement?.closest?.(".tile-resize-frame")) return;
+    const node = gridRef.current;
+    if (!node) return;
+    const box = node.getBoundingClientRect();
+    const x = event.clientX - box.left - node.clientLeft + node.scrollLeft;
+    const y = event.clientY - box.top - node.clientTop + node.scrollTop;
+    const index = tileRects.findIndex(rect => x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height);
+    // Crossing the gap between two tiles keeps the handles where they were,
+    // so reaching for an edge never hands them to the neighbour first.
+    if (index >= 0) setHoverTile(index);
+  };
+  const beginTileResize = (event, frame, grip) => {
+    const node = gridRef.current;
+    if (!node || !tileShape || event.button > 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const metrics = tileMetrics(readTrackGeometry(node));
+    const shape = tileShape;
+    const rowCounts = tileRowCounts;
+    const startSizes = tileSizes;
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const handleNode = event.currentTarget;
+    const pointerId = event.pointerId;
+    try { handleNode?.setPointerCapture?.(pointerId); } catch { /* the window listeners below still follow the drag */ }
+    let latest = null;
+    const move = pointerEvent => {
+      latest = resizeTile(startSizes, rowCounts, frame.address, grip, pointerEvent.clientX - originX, pointerEvent.clientY - originY, metrics);
+      canvasTiles.set(shape, latest);
+    };
+    const finish = keep => {
+      setTileResize(null);
+      setResizing(false);
+      try { handleNode?.releasePointerCapture?.(pointerId); } catch { /* already released */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("keydown", cancel, true);
+      resizeTeardownRef.current = null;
+      if (keep && latest) canvasTiles.save(shape, latest);
+    };
+    const stop = () => finish(true);
+    // Escape puts the terminal back where the drag started.
+    const cancel = keyEvent => {
+      if (keyEvent.key !== "Escape") return;
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
+      if (latest) canvasTiles.save(shape, startSizes);
+      latest = null;
+      finish(false);
+    };
     resizeTeardownRef.current = stop;
     setResizing(true);
-    move(event);
+    setTileResize({ position: frame.position, grip });
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop, { once: true });
     window.addEventListener("pointercancel", stop, { once: true });
-  }, [expandedId, terminalLayout]);
+    window.addEventListener("keydown", cancel, true);
+  };
+  const nudgeTile = (event, frame, grip) => {
+    const step = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[event.key];
+    const node = gridRef.current;
+    if (!step || !node || !tileShape) return;
+    if (grip === "e" || grip === "w" ? !step[0] : !step[1]) return;
+    event.preventDefault();
+    canvasTiles.save(tileShape, resizeTile(tileSizes, tileRowCounts, frame.address, grip, step[0], step[1], tileMetrics(readTrackGeometry(node))));
+  };
+  const evenTile = (frame, grip) => {
+    if (tileShape) canvasTiles.save(tileShape, evenTileSizes(tileSizes, tileRowCounts, frame.address, grip));
+  };
   const liveCount = sessions.filter(item => item.isAlive).length;
   const attentionCount = sessions.filter(item => item.attentionRequired || item.status === "failed").length;
   const focusedSlot = Math.max(0, terminalLayout.sessionIds.indexOf(focusedId));
@@ -1332,6 +2501,36 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
     ? sessions.filter(item => `${item.name} ${item.command} ${(item.args || []).join(" ")}`.toLowerCase().includes(trimmedQuery)).slice(0, 8)
     : [];
   const showInPane = id => { terminalLayout.setSlotSession(focusedSlot, id); onFocus(id); setQuery(""); };
+
+  const ops = useWorkspaceOps();
+  const [opsTab, setOpsTab] = React.useState(null);
+  const { toast: workspaceToast } = useToast();
+  // The main process owns which terminals are detached, so the placeholder is
+  // driven by that list rather than by local state the renderer maintains.
+  const detachedWorkers = React.useMemo(
+    () => new Map(ops.detached.map(entry => [entry.workerId, entry])),
+    [ops.detached]
+  );
+
+  const handleRecallWorker = React.useCallback(async workerId => {
+    try {
+      await missionApi().request("terminal.window.recall", { workerId });
+      ops.refresh();
+    } catch (error) {
+      workspaceToast.danger(error.message || String(error));
+    }
+  }, [ops, workspaceToast]);
+
+  const handleFocusPopout = React.useCallback(async workerId => {
+    try {
+      const result = await missionApi().request("terminal.window.focus", { workerId });
+      if (result?.focused === false) {
+        workspaceToast.warning("That window could not be focused. Recall the terminal to bring it back here.");
+      }
+    } catch (error) {
+      workspaceToast.danger(error.message || String(error));
+    }
+  }, [workspaceToast]);
 
   return <div className={`workspace-experience ${inspectorOpen && !focusMode ? "has-inspector" : ""} ${focusMode ? "is-focus-mode" : ""}`}>
     <h1 className="sr-only">Terminal Workspace</h1>
@@ -1372,18 +2571,25 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
           <span className="workspace-status-readout" title="Engine-reported worker states">
             <b>{liveCount}</b> live · <b>{sessions.length - liveCount}</b> idle{attentionCount ? <> · <b className="is-attention">{attentionCount}</b> need you</> : null}
           </span>
-          <button className="workspace-add-worker" onClick={onAddWorker} title="Add a terminal worker · Ctrl N"><Icon name="plus" size={12}/> Add terminal worker</button>
+          <button className="workspace-add-worker" onClick={onAddWorker} title="Add a terminal worker · Ctrl N"><Icon name="plus" size={12}/> <span className="workspace-action-label">Add terminal worker</span></button>
+          <button className={`workspace-browser-toggle ${browserOpen ? "is-current" : ""}`} aria-pressed={browserOpen} aria-label="Browser" onClick={() => setBrowserOpen(value => !value)} title="Mission Control browser · preview a local service beside the terminals · Alt B"><Icon name="globe" size={12}/> <span className="workspace-action-label">Browser</span></button>
+          <button className={`workspace-assistant-toggle ${assistantOpen ? "is-current" : ""}`} aria-pressed={assistantOpen} aria-label="Assistant" onClick={() => setAssistantOpen(value => !value)} title="Assistant · ask about or act on your terminals, in a pane beside them · Alt C"><Icon name="agents" size={12}/> <span className="workspace-action-label">Assistant</span></button>
           <button className="workspace-recipes" onClick={onRecipes} title="Workspace recipes"><Icon name="grid" size={12}/> Recipes</button>
+          {focusMode && <NotificationTray needsCount={needsCount} onReviewNeeds={onReviewNeeds}/>}
           {sessions.some(item => !item.isAlive) && <button className="workspace-launch" onClick={onStartWorkspace}><Icon name="play" size={12}/> Start idle</button>}
           {sessions.some(item => item.isAlive) && <button className="workspace-pause" onClick={onStopWorkspace}>Stop all</button>}
-          <button className={`workspace-focus-mode ${focusMode ? "is-current" : ""}`} aria-pressed={focusMode} onClick={() => setFocusMode(value => !value)} title="Focus mode · hide everything except the terminals"><Icon name="expand" size={12}/> Focus</button>
+          <button className={`workspace-focus-mode ${focusMode ? "is-current" : ""}`} aria-pressed={focusMode} onClick={() => setFocusMode(value => !value)} title={focusMode ? "Leave focus mode · Alt F" : "Focus mode · every terminal, no chrome · Alt F"}><Icon name={focusMode ? "collapse" : "expand"} size={12}/> <span className="workspace-action-label">{focusMode ? "Exit focus" : "Focus"}</span></button>
         </div>
       </div>
 
       {!focusMode && backgroundWorkers.length > 0 && <section className="workspace-background" aria-label="Workers not shown on the canvas">
         <header>
           <span className="section-kicker">NOT ON THE CANVAS</span>
-          <small>{backgroundWorkers.length} worker{backgroundWorkers.length === 1 ? "" : "s"} the engine is still supervising. No terminal is mounted for these.</small>
+          {/* One line, so the count leads and the explanation is on the label
+              rather than competing with the roster it introduces. */}
+          <small title={`${backgroundWorkers.length} worker${backgroundWorkers.length === 1 ? "" : "s"} the engine is still supervising. No terminal is mounted for these.`}>
+            {backgroundWorkers.length} not mounted
+          </small>
         </header>
         <ul>
           {backgroundWorkers.map(session => (
@@ -1431,10 +2637,12 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
       </form>}
 
       {activeFolder?.isVSCode ? (
-        <VSCodeWorkspaceDeck status={vscodeStatus || activeFolder.status} onRefresh={refreshVSCode}/>
+        <VSCodeWorkspaceDeck status={vscodeStatus || activeFolder.status} onRefresh={refreshVSCode} onConfirm={onConfirm}/>
       ) : (
-        <div ref={gridRef} className={`terminal-grid ${effectiveLayout.className} ${activeFolder ? "has-adaptive-layout" : ""} ${expandedId ? "has-expanded" : ""} ${resizing ? "is-resizing" : ""}`} style={activeFolder ? undefined : terminalLayout.style}>{!expandedId && !activeFolder && terminalLayout.handles.map(handle => { const percent = terminalLayout.ratios[handle.ratio]; const defaultRatio = DEFAULT_RATIOS_BY_LAYOUT[terminalLayout.layout.id]?.[handle.ratio] ?? 50; return <button key={handle.id} type="button" data-handle={handle.id} className={`pane-resize-handle ${handle.axis === "y" ? "is-horizontal" : "is-vertical"}`} style={handle.axis === "y" ? { top: "var(--row-ratio)" } : { left: handle.ratio === "col2" ? "calc(var(--col-ratio) + var(--col2-ratio))" : "var(--col-ratio)" }} aria-label={`Resize terminal panes ${handle.axis === "y" ? "vertically" : "horizontally"}. Current split ${percent} percent.`} aria-orientation={handle.axis === "y" ? "horizontal" : "vertical"} role="separator" title="Drag to resize · Double-click to reset" onPointerDown={event => beginPaneResize(event, handle)} onDoubleClick={() => terminalLayout.setRatio(handle.ratio, defaultRatio)} onKeyDown={event => { const step = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -2 : event.key === "ArrowRight" || event.key === "ArrowDown" ? 2 : 0; if (step) { event.preventDefault(); terminalLayout.setRatio(handle.ratio, percent + step); } }}><span/><b>{percent}%</b></button>; })}{visible.map((session, index) => { const slotIndex = index; return <TerminalSlot key={`slot-${slotIndex}-${session?.id || "empty"}`} session={session} sessions={sessions} active={Boolean(session && focusedId === session.id)} expanded={Boolean(session && expandedId === session.id)} minimized={Boolean(expandedId) && Boolean(session) && session.id !== expandedId} shortcut={slotIndex + 1} terminalPreferences={terminalPreferences} onFocus={() => session && onFocus(session.id)} onExpand={() => session && onExpand(expandedId === session.id ? null : session.id)} onAction={onAction} onSelect={id => terminalLayout.setSlotSession(slotIndex, id)} onAddWorker={onAddWorker} onReconfigure={onReconfigure} onTerminalError={onTerminalError} onTerminalRecovered={onTerminalRecovered} onAskAI={onAskAI}onDuplicate={onDuplicate} />; })}</div>
+        <div ref={gridRef} className={`terminal-grid ${effectiveLayout.className} ${activeFolder ? "has-adaptive-layout" : ""} ${expandedId ? "has-expanded" : ""} ${resizing ? "is-tile-resizing" : ""} ${opsTab ? "has-ops-open" : ""} ${packedCanvas ? "is-mosaic" : ""} ${browserOpen ? "has-browser" : ""} ${assistantOpen ? "has-assistant" : ""}`} style={canvasStyle} data-resize-grip={tileResize?.grip || undefined} onPointerMove={onCanvasPointerMove} onPointerLeave={() => { if (!tileResize) setHoverTile(null); }}>{packedCanvas && <i ref={trackProbeRef} className="canvas-track-probe" aria-hidden="true">{Array.from({ length: tileCount }, (_, index) => <b key={index}/>)}</i>}{tileFrame && <div className={`tile-resize-frame${tileResize ? " is-resizing" : ""}`} style={{ left: `${tileFrame.rect.left}px`, top: `${tileFrame.rect.top}px`, width: `${tileFrame.rect.width}px`, height: `${tileFrame.rect.height}px`, "--tile-gap-x": `${trackGeometry.colGap}px`, "--tile-gap-y": `${trackGeometry.rowGap}px` }}>{tileFrame.grips.map(grip => grip.length === 2 ? <span key={grip} aria-hidden="true" data-tile-grip={grip} className={`tile-resize-grip is-corner is-${grip}`} title="Drag to resize this terminal · Double-click to even out" onPointerDown={event => beginTileResize(event, tileFrame, grip)} onDoubleClick={() => evenTile(tileFrame, grip)}/> : <span key={grip} role="separator" tabIndex={0} data-tile-grip={grip} className={`tile-resize-grip is-edge is-${grip}`} aria-orientation={grip === "e" || grip === "w" ? "vertical" : "horizontal"} aria-valuenow={grip === "e" || grip === "w" ? tileFrame.width : tileFrame.height} aria-valuemin={0} aria-valuemax={100} aria-label={`Resize ${tileFrame.label} from its ${TILE_EDGE_NAMES[grip]} edge. It has ${grip === "e" || grip === "w" ? `${tileFrame.width} percent of its row` : `${tileFrame.height} percent of the canvas height`}.`} title="Drag to resize this terminal · Double-click to even out" onPointerDown={event => beginTileResize(event, tileFrame, grip)} onDoubleClick={() => evenTile(tileFrame, grip)} onKeyDown={event => nudgeTile(event, tileFrame, grip)}/>)}{tileResize && <b className="tile-resize-readout">{tileFrame.width}% × {tileFrame.height}%</b>}</div>}{canvasWorkers.map((session, index) => { const slotIndex = index; const detachedInfo = session ? detachedWorkers.get(session.id) : null; return <TerminalSlot key={`slot-${slotIndex}-${session?.id || "empty"}`} session={session} sessions={sessions} detachedInfo={detachedInfo} active={Boolean(session && focusedId === session.id)} expanded={Boolean(session && expandedId === session.id)} minimized={Boolean(expandedId) && Boolean(session) && session.id !== expandedId} tileOrder={mosaic && session ? (mosaicOrder.positions.get(session.id) ?? slotIndex) : undefined} tileSpan={mosaicSpan(mosaic && session ? (mosaicOrder.positions.get(session.id) ?? slotIndex) : slotIndex)} tilePlacement={placementAt(mosaic && session ? (mosaicOrder.positions.get(session.id) ?? slotIndex) : slotIndex)} canEmpty={!mosaic} shortcut={mosaic ? null : slotIndex < 6 ? slotIndex + 1 : null} terminalPreferences={terminalPreferences} onFocus={() => session && onFocus(session.id)} onExpand={() => session && onExpand(expandedId === session.id ? null : session.id)} onAction={onAction} onSelect={id => { if (mosaic) { if (!id) return; mosaicOrder.move(id, session?.id); onFocus(id); return; } terminalLayout.setSlotSession(slotIndex, id); }} onAddWorker={onAddWorker} onReconfigure={onReconfigure} onTerminalError={onTerminalError} onTerminalRecovered={onTerminalRecovered} onAskAI={onAskAI} onDuplicate={onDuplicate} onRecall={handleRecallWorker} onFocusWindow={handleFocusPopout} />; })}{browserOpen && <WorkspaceBrowser style={(() => { const span = mosaicSpan(canvasWorkers.length); const order = mosaic ? canvasWorkers.length : null; return placedTileStyle(order, span, placementAt(canvasWorkers.length)); })()} onClose={() => setBrowserOpen(false)}/>}{assistantOpen && !expandedId && <WorkspaceAssistant  workspaceKey={workspaceKey}  focusedSession={sessions.find(item => item.id === focusedId) || null}  style={(() => { const position = canvasWorkers.length + (browserOpen ? 1 : 0); const span = mosaicSpan(position); const order = mosaic ? position : null; return placedTileStyle(order, span, placementAt(position)); })()}  onClose={() => setAssistantOpen(false)}  onOpenMissionAI={() => onAskAI?.("")}  onConfirm={onConfirm}/>}</div>
       )}
+
+      {!focusMode && <WorkspaceOps ops={ops} openTab={opsTab} onOpenTab={setOpsTab} onAction={onAction} onConfirm={onConfirm}/>}
     </div>
     {inspectorOpen && !focusMode && <aside className={`context-inspector ${profile ? `role-${profile.key}` : ""}`}>
       <div className="inspector-head"><div><span className="section-kicker">WORKER INTELLIGENCE</span><strong>{focused?.name || "No worker selected"}</strong></div><button onClick={onInspector} aria-label="Close inspector">×</button></div>
@@ -1444,7 +2652,7 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
         <div className="inspector-structured"><span>ENGINE-OWNED FACTS</span>{Object.entries(focused.evidence || {}).length ? Object.entries(focused.evidence).map(([category, evidence]) => <article key={category}><b>{category}</b><strong>{evidenceSummary({ category, evidence })}</strong><small>{timeAgo(evidence.at)} ago · bounded record</small></article>) : <p>No structured integration record yet.</p>}</div>
         <WorkerResourceIntelligence session={focused} sessions={sessions}/>
         <details className="inspector-evidence"><summary>Recent bounded terminal evidence</summary>{(focused.recentLines || []).slice(-4).reverse().map((line, index) => <code key={`${line}-${index}`}>{line}</code>)}{!focused.recentLines?.length && <p>No bounded output evidence has been recorded yet.</p>}</details>
-        <details className="inspector-definition"><summary>Worker definition and restore policy</summary><dl><div><dt>Worker type</dt><dd>{profile.kind}</dd></div><div><dt>Command</dt><dd>{focused.command} {(focused.args || []).join(" ")}</dd></div><div><dt>Working directory</dt><dd>{focused.cwd || "."}</dd></div><div><dt>Restore</dt><dd>{focused.autoStart ? "Automatic" : "Manual"}</dd></div><div><dt>Last output</dt><dd>{timeAgo(focused.lastOutputAt)} ago</dd></div></dl></details>
+        <details className="inspector-definition"><summary>Worker definition and restore policy</summary><dl><div><dt>Worker type</dt><dd>{profile.kind}</dd></div><div><dt>Command</dt><dd>{focused.command} {(focused.args || []).join(" ")}</dd></div><div><dt>Working directory</dt><dd>{focused.cwd || "."}</dd></div><div><dt>Restore</dt><dd><label className="inspector-autostart-toggle" title="Start this worker when the project opens"><span className={`inspector-autostart-status ${focused.autoStart ? "is-enabled" : "is-disabled"}`}>{focused.autoStart ? "Auto-start" : "Manual"}</span><span className="pm-toggle" onClick={e => e.stopPropagation()}><input type="checkbox" checked={Boolean(focused.autoStart)} onChange={event => onAction("setAutoStart", focused.id, { enabled: event.target.checked })} aria-label={`Start ${focused.name} when the project opens`}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label></dd></div><div><dt>Last output</dt><dd>{timeAgo(focused.lastOutputAt)} ago</dd></div></dl></details>
         <TrustBoundary
           compact
           title="Observed facts, not inferred failures"
@@ -1464,7 +2672,7 @@ function WorkspaceView({ sessions, workspaceKey, terminalLayout, focusedId, expa
 const AGENT_DECISION_SOURCES = new Set(["missionSupervisor", "mission", "mcp"]);
 const ACTIVE_DECISION_STATUSES = new Set(["pending", "acting", "verifying", "acknowledged"]);
 
-function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decisionSources = [], decisionsComplete = true, onDecisionsRefresh, onResolveDecision, onAcknowledgeDecision, onAction, onFocus, onDismissTerminalAlert, onConfirm, onOpenSource }) {
+function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decisionSources = [], decisionsComplete = true, onDecisionsRefresh, onResolveDecision, onAcknowledgeDecision, onAction, onFocus, onOpenTerminal, onDismissTerminalAlert, onConfirm, onOpenSource }) {
   const [filter, setFilter] = React.useState("all");
   const [showSnoozed, setShowSnoozed] = React.useState(false);
   const [busyId, setBusyId] = React.useState("");
@@ -1498,7 +2706,9 @@ function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decision
   const handleDecisionAction = async (record, actionId) => {
     if (record.source === "terminal") {
       if (actionId === "dismiss") onDismissTerminalAlert(record.target?.id);
-      else onFocus(record.target?.id);
+      // The alert is that the terminal stream died, so "Open terminal" has to
+      // reach the terminal itself, not the worker evidence dialog beside it.
+      else onOpenTerminal?.(record.target?.id);
       return;
     }
     if (record.source === "session") {
@@ -1734,7 +2944,7 @@ const SettingChoice = SegmentedChoice;
 // constant the renderer asserts — it is read from the engine, so a platform
 // that genuinely cannot notify still says so truthfully instead of pretending.
 function NotificationSettings() {
-  const defaults = { minimumSeverity: "info", desktopNotifications: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } };
+  const defaults = { minimumSeverity: "info", desktopNotifications: true, sound: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } };
   const [policy, setPolicy] = React.useState(defaults);
   const [error, setError] = React.useState("");
   const [delivery, setDelivery] = React.useState({ loading: true, available: false, running: false, lastError: null });
@@ -1745,7 +2955,7 @@ function NotificationSettings() {
   // Unknown is not the same as unavailable: while the first read is in flight
   // the controls stay inert rather than claiming either answer.
   const disabled = delivery.loading || !delivery.available;
-  React.useEffect(() => { missionApi().request("attention.list").then(value => setPolicy(value?.preferences || defaults)).catch(() => {}); }, []);
+  React.useEffect(() => { missionApi().request("attention.list").then(value => setPolicy({ ...defaults, ...(value?.preferences || {}) })).catch(() => {}); }, []);
   React.useEffect(() => {
     let active = true;
     const read = () => missionApi().request("notification.status")
@@ -1760,7 +2970,7 @@ function NotificationSettings() {
     try {
       const value = await missionApi().request("notification.test");
       setTestResult(value?.delivered
-        ? { ok: true, message: "Test notification sent. If nothing appeared, check this app's notification permission in Windows Settings." }
+        ? { ok: true, message: "Test sent. If nothing appeared in Windows, check Settings › System › Notifications for this app, and whether Do not disturb is on." }
         : { ok: false, message: value?.error || "The notification was not delivered." });
     } catch (value) {
       setTestResult({ ok: false, message: value?.message || String(value) });
@@ -1770,8 +2980,7 @@ function NotificationSettings() {
   };
   // T052: optimistic write with an explicit rollback and a persistent error.
   // The previous policy is restored if the engine rejects the save.
-  const save = async next => {
-    if (disabled) return;
+  const persist = async next => {
     setError("");
     const previous = policyRef.current;
     setPolicy(next);
@@ -1782,7 +2991,14 @@ function NotificationSettings() {
       setError(`${value?.message || String(value)} — notification preferences were not changed.`);
     }
   };
-  return <section className="settings-panel settings-panel-wide notification-settings pm-card"><div className="settings-panel__head"><Icon name="attention"/><div><h3>Attention &amp; notifications</h3><p>Needs You is the only place Mission Control interrupts you.</p></div></div>{delivery.loading && <p className="notification-availability" role="status">Checking whether this device can show desktop notifications…</p>}{!delivery.loading && !delivery.available && <p className="notification-availability" role="status">This device cannot show desktop notifications{delivery.lastError ? ` — ${delivery.lastError}` : ""}. Watch <strong>Needs You</strong> and its sidebar count for anything that needs your judgement. The policy below is saved and will apply if delivery becomes available.</p>}<div className={`attention-policy${disabled ? " is-unavailable" : ""}`}><div className="severity-choice"><span id="notify-from-label">Notify from</span><div role="radiogroup" aria-labelledby="notify-from-label" aria-disabled={disabled || undefined}>{[["info","All"],["warning","Warning"],["critical","Critical"]].map(([value,label]) => <button key={value} type="button" role="radio" aria-checked={policy.minimumSeverity === value} disabled={disabled} className={policy.minimumSeverity === value ? "is-current" : ""} onClick={() => void save({ ...policy, minimumSeverity: value })}>{label}</button>)}</div></div><label className="terminal-toggle-card"><span><strong>Desktop notifications</strong><small>{disabled ? "Unavailable on this device — no OS notification is sent." : "Show a native notification when policy allows interruption."}</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.desktopNotifications} onChange={event => void save({ ...policy, desktopNotifications: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><label className="terminal-toggle-card"><span><strong>Quiet hours</strong><small>Keep native notifications silent during the configured window.</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.quietHours.enabled} onChange={event => void save({ ...policy, quietHours: { ...policy.quietHours, enabled: event.target.checked } })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><div className="quiet-hours" role="group" aria-label="Quiet hours window"><label><span>Start</span><input type="time" disabled={disabled} aria-label="Quiet hours start time" value={policy.quietHours.start} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, start: event.target.value } }))} onBlur={() => void save(policy)}/></label><span aria-hidden="true">to</span><label><span>End</span><input type="time" disabled={disabled} aria-label="Quiet hours end time" value={policy.quietHours.end} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, end: event.target.value } }))} onBlur={() => void save(policy)}/></label></div>{error && <p className="settings-save-error" role="alert">{error}</p>}<div className="notification-diagnostic"><div><strong>Send test notification</strong><small>Bypasses the severity and quiet-hours policy above, so it answers only one question: can this device show you a notification at all.</small></div><button type="button" className="btn-ghost" disabled={disabled || testing} onClick={() => void sendTest()}>{testing ? "Sending…" : "Send test"}</button></div>{testResult && <p className={`notification-test-result${testResult.ok ? " is-ok" : " is-failed"}`} role="status">{testResult.message}</p>}</div></section>;
+  const save = async next => {
+    if (disabled) return;
+    await persist(next);
+  };
+  // The chime is played by the app itself, so it works — and can be set —
+  // even on a device that cannot show Windows notifications.
+  const soundDisabled = delivery.loading;
+  return <section className="settings-panel settings-panel-wide notification-settings pm-card"><div className="settings-panel__head"><Icon name="attention"/><div><h3>Notifications</h3><p>Failures, services coming up and decisions waiting for you. While you use Mission Control they appear at the top right; when you are in another app, Windows shows them.</p></div></div>{delivery.loading && <p className="notification-availability" role="status">Checking whether this device can show desktop notifications…</p>}{!delivery.loading && !delivery.available && <p className="notification-availability" role="status">This device cannot show desktop notifications{delivery.lastError ? ` — ${delivery.lastError}` : ""}. Notifications still appear inside Mission Control, with their sound. The policy below is saved and will apply if delivery becomes available.</p>}<div className={`attention-policy${disabled ? " is-unavailable" : ""}`}><div className="severity-choice"><span id="notify-from-label">Notify from</span><div role="radiogroup" aria-labelledby="notify-from-label" aria-disabled={disabled || undefined}>{[["info","All"],["warning","Warnings"],["critical","Failures only"]].map(([value,label]) => <button key={value} type="button" role="radio" aria-checked={policy.minimumSeverity === value} disabled={disabled} className={policy.minimumSeverity === value ? "is-current" : ""} onClick={() => void save({ ...policy, minimumSeverity: value })}>{label}</button>)}</div></div><div className="terminal-toggle-card notification-sound"><span><strong>Sound</strong><small>A short chime for each new notification. A failure sounds different from a server coming up, and a burst rings once.</small></span><span className="notification-sound__controls"><button type="button" className="btn-secondary" disabled={soundDisabled} onClick={() => playNotificationSound("alert", { force: true })}>Play</button><label className="pm-toggle"><input type="checkbox" aria-label="Play a sound for notifications" disabled={soundDisabled} checked={policy.sound !== false} onChange={event => void persist({ ...policy, sound: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></label></span></div><label className="terminal-toggle-card"><span><strong>Windows notifications</strong><small>{disabled ? "Unavailable on this device — notifications still appear inside the app." : "Shown only while you are in another app. When Mission Control is the window you are using, it tells you itself, so nothing arrives twice."}</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.desktopNotifications} onChange={event => void save({ ...policy, desktopNotifications: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><label className="terminal-toggle-card"><span><strong>Quiet hours</strong><small>No sound and no Windows notifications during this window. Everything still collects in the notification list.</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.quietHours.enabled} onChange={event => void save({ ...policy, quietHours: { ...policy.quietHours, enabled: event.target.checked } })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><div className="quiet-hours" role="group" aria-label="Quiet hours window"><label><span>Start</span><input type="time" disabled={disabled} aria-label="Quiet hours start time" value={policy.quietHours.start} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, start: event.target.value } }))} onBlur={() => void save(policy)}/></label><span aria-hidden="true">to</span><label><span>End</span><input type="time" disabled={disabled} aria-label="Quiet hours end time" value={policy.quietHours.end} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, end: event.target.value } }))} onBlur={() => void save(policy)}/></label></div>{error && <p className="settings-save-error" role="alert">{error}</p>}<div className="notification-diagnostic"><div><strong>Send a test notification</strong><small>Shows one in the app and in Windows, with its sound, ignoring the settings above — so it answers one question: can this computer show and play a notification.</small></div><button type="button" className="btn-secondary" disabled={disabled || testing} onClick={() => void sendTest()}>{testing ? "Sending…" : "Send test"}</button></div>{testResult && <p className={`notification-test-result${testResult.ok ? " is-ok" : " is-failed"}`} role="status">{testResult.message}</p>}</div></section>;
 }
 
 function VSCodeBridgeSettings({ workspace, onConfirm }) {
@@ -1885,11 +3101,11 @@ function SettingsResetFooter({ preferences, onReset }) {
 }
 
 function SettingsView({ preferences, onPreference }) {
-  return <div className="settings-view"><div className="settings-grid"><section className="settings-panel pm-card"><div className="settings-panel__head"><Icon name="settings"/><div><h3>Appearance and accessibility</h3><p>Choose a calm visual system for long development sessions.</p></div></div><SettingChoice label="Theme" detail="Orbital Dark, a daylight surface, or maximum contrast." value={preferences.theme} options={[{value:"orbital",label:"Orbital Dark"},{value:"solar",label:"Solar Light"},{value:"contrast",label:"High contrast"}]} onChange={value => onPreference("theme", value)}/><SettingChoice label="Text size" detail="Scale interface typography without changing terminal output." value={preferences.typeScale} options={[{value:"compact",label:"Compact"},{value:"comfortable",label:"Default"},{value:"large",label:"Large"}]} onChange={value => onPreference("typeScale", value)}/><SettingChoice label="Interface density" detail="Choose how much breathing room controls and rows use." value={preferences.density} options={[{value:"compact",label:"Compact"},{value:"comfortable",label:"Comfortable"},{value:"spacious",label:"Spacious"}]} onChange={value => onPreference("density", value)}/><SettingChoice label="Motion" detail="Reduce transitions while keeping state changes clear." value={preferences.motion} options={[{value:"full",label:"Full"},{value:"reduced",label:"Reduced"}]} onChange={value => onPreference("motion", value)}/></section></div></div>;
+  return <div className="settings-view"><div className="settings-grid"><section className="settings-panel pm-card"><div className="settings-panel__head"><Icon name="settings"/><div><h3>Appearance and accessibility</h3><p>Tune typography, density and motion for long development sessions.</p></div></div><SettingChoice label="Text size" detail="Scale interface typography without changing terminal output." value={preferences.typeScale} options={[{value:"compact",label:"Compact"},{value:"comfortable",label:"Default"},{value:"large",label:"Large"}]} onChange={value => onPreference("typeScale", value)}/><SettingChoice label="Interface density" detail="Choose how much breathing room controls and rows use." value={preferences.density} options={[{value:"compact",label:"Compact"},{value:"comfortable",label:"Comfortable"},{value:"spacious",label:"Spacious"}]} onChange={value => onPreference("density", value)}/><SettingChoice label="Motion" detail="Reduce transitions while keeping state changes clear." value={preferences.motion} options={[{value:"full",label:"Full"},{value:"reduced",label:"Reduced"}]} onChange={value => onPreference("motion", value)}/></section></div></div>;
 }
 
 function TerminalSettings({ preferences, onPreference }) {
-  return <div className="settings-view"><div className="settings-grid"><section className="settings-panel settings-panel-wide pm-card"><div className="settings-panel__head"><Icon name="terminal"/><div><h3>Terminal experience</h3><p>Readable monospace tuned independently from the application UI.</p></div></div><div className="terminal-size-control"><label htmlFor="terminal-font-size-range"><strong>Terminal font size</strong><p>Applied to every mounted terminal pane.</p></label><input id="terminal-font-size-range" type="range" min="11" max="18" step="1" value={preferences.terminalFontSize} aria-label="Terminal font size in pixels" aria-valuetext={`${preferences.terminalFontSize} pixels`} onChange={event => onPreference("terminalFontSize", Number(event.target.value))}/><output htmlFor="terminal-font-size-range" aria-live="polite">{preferences.terminalFontSize}px</output></div><SettingChoice label="Terminal theme" detail="Independent from the surrounding application theme." value={preferences.terminalTheme} options={[{value:"orbital",label:"Orbital"},{value:"solar",label:"Solar"},{value:"contrast",label:"Contrast"}]} onChange={value => onPreference("terminalTheme", value)}/><SettingChoice label="Cursor" detail="Choose a visible cursor shape for interactive shells." value={preferences.terminalCursor} options={[{value:"bar",label:"Bar"},{value:"block",label:"Block"},{value:"underline",label:"Underline"}]} onChange={value => onPreference("terminalCursor", value)}/><SettingChoice label="Scrollback" detail="Bounded terminal history retained by each mounted pane." value={preferences.terminalScrollback} options={[{value:1000,label:"1,000"},{value:5000,label:"5,000"},{value:20000,label:"20,000"}]} onChange={value => onPreference("terminalScrollback", value)}/><label className="terminal-toggle-card"><span><strong>Show command hints</strong><small>Display exact CLI and worker commands in operational surfaces.</small></span><span className="pm-toggle"><input type="checkbox" checked={preferences.showCommandHints} onChange={event => onPreference("showCommandHints", event.target.checked)}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label></section></div></div>;
+  return <div className="settings-view"><div className="settings-grid"><section className="settings-panel settings-panel-wide pm-card"><div className="settings-panel__head"><Icon name="terminal"/><div><h3>Terminal experience</h3><p>Readable monospace tuned independently from the application UI.</p></div></div><div className="terminal-size-control"><label htmlFor="terminal-font-size-range"><strong>Terminal font size</strong><p>Applied to every mounted terminal pane.</p></label><input id="terminal-font-size-range" type="range" min="11" max="18" step="1" value={preferences.terminalFontSize} aria-label="Terminal font size in pixels" aria-valuetext={`${preferences.terminalFontSize} pixels`} onChange={event => onPreference("terminalFontSize", Number(event.target.value))}/><output htmlFor="terminal-font-size-range" aria-live="polite">{preferences.terminalFontSize}px</output></div><SettingChoice label="Cursor" detail="Choose a visible cursor shape for interactive shells." value={preferences.terminalCursor} options={[{value:"bar",label:"Bar"},{value:"block",label:"Block"},{value:"underline",label:"Underline"}]} onChange={value => onPreference("terminalCursor", value)}/><SettingChoice label="Scrollback" detail="Bounded terminal history retained by each mounted pane." value={preferences.terminalScrollback} options={[{value:1000,label:"1,000"},{value:5000,label:"5,000"},{value:20000,label:"20,000"}]} onChange={value => onPreference("terminalScrollback", value)}/><label className="terminal-toggle-card"><span><strong>Show command hints</strong><small>Display exact CLI and worker commands in operational surfaces.</small></span><span className="pm-toggle"><input type="checkbox" checked={preferences.showCommandHints} onChange={event => onPreference("showCommandHints", event.target.checked)}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label></section></div></div>;
 }
 
 /* T122 — engine-contract and recovery-controller facts are diagnostics, not
@@ -1932,7 +3148,7 @@ function SecuritySettings({ workspace }) {
    where the thing lives — in a worker's own configuration — so this group
    reports them and points there, rather than growing a second place to edit
    them that could disagree with the first. */
-function ProjectDefaultSettings({ workspace, sessions = [], onNavigate }) {
+function ProjectDefaultSettings({ workspace, sessions = [], onNavigate, onConfigureAutoStart }) {
   const autoStart = sessions.filter(session => session.autoStart).length;
   return <div className="settings-view"><div className="settings-grid"><section className="settings-panel settings-panel-wide pm-card">
     <div className="settings-panel__head"><Icon name="projects"/><div><h3>Project defaults</h3><p>What this project does when it opens.</p></div></div>
@@ -1941,7 +3157,7 @@ function ProjectDefaultSettings({ workspace, sessions = [], onNavigate }) {
       <div><span>Workspace persistence</span><strong>{workspace?.persistent ? "Restored on open" : "Not persisted"}</strong></div>
       <div><span>Starts with the workspace</span><strong>{autoStart} of {sessions.length} worker{sessions.length === 1 ? "" : "s"}</strong></div>
     </div>
-    <p className="settings-note">A worker&apos;s restore policy, command and directory belong to that worker. <button type="button" className="settings-inline-link" onClick={() => onNavigate("workspace")}>Open Workspace</button> to change one.</p>
+    <p className="settings-note">A worker&apos;s restore policy, command and directory belong to that worker. <button type="button" className="settings-inline-link" onClick={() => onNavigate("workspace")}>Open Workspace</button> to change one{onConfigureAutoStart ? <>, or <button type="button" className="settings-inline-link" onClick={onConfigureAutoStart}>choose which terminals start with the workspace</button></> : null}.</p>
   </section></div></div>;
 }
 
@@ -1982,7 +3198,7 @@ const SETTINGS_GROUPS = [
 
 const SETTINGS_GROUP_KEY = "mission-control.settings-group.v1";
 
-function SettingsHub({ state, workspace, recovery, sessions = [], preferences, onPreference, onReset, onNavigate, onOpenIntegrations }) {
+function SettingsHub({ state, workspace, recovery, sessions = [], preferences, onPreference, onReset, onNavigate, onOpenIntegrations, onConfigureAutoStart }) {
   const [group, setGroup] = React.useState(() => {
     try {
       const stored = localStorage.getItem(SETTINGS_GROUP_KEY);
@@ -1997,29 +3213,58 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
   // duplicating it here would be the second entry point T249 warns about.
   const choose = id => (id === "integrations" ? onOpenIntegrations() : select(id));
 
-  return <div className="settings-hub feat-general application-settings-view">
-    <header className="settings-hub__header pm-page-hero feat-general"><div><span className="section-kicker">MISSION CONTROL SETTINGS</span><h1>Settings</h1><p>Application preferences for this device. Connected tools and bridges live in Integrations.</p></div></header>
-    <nav className="settings-hub__groups" aria-label="Settings groups">
+  // One line under each group name says what is inside it, so the rail can be
+  // scanned for a setting rather than opened group by group to find one.
+  const hints = {
+    appearance: "Text size, density and motion",
+    terminal: "Font, cursor and scrollback",
+    notifications: "What may interrupt you",
+    project: "Defaults for this project",
+    integrations: "Connected tools live there",
+    security: "Credentials and trust",
+    diagnostics: "Engine and recovery facts",
+    about: "Version and components"
+  };
+  const icons = {
+    appearance: <><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></>,
+    terminal: <><rect x="3.5" y="5" width="17" height="14" rx="2.2"/><path d="m7.5 10 2.5 2-2.5 2"/><path d="M12.5 14.5h4"/></>,
+    notifications: <><path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5Z"/><path d="M13.7 19.5a2 2 0 0 1-3.4 0"/></>,
+    project: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z"/>,
+    integrations: <><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><path d="M16.5 13.5v6M13.5 16.5h6"/></>,
+    security: <><path d="M12 3.5 19 6v5.5c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6Z"/><path d="m9 12 2 2 4-4"/></>,
+    diagnostics: <path d="M3.5 12h4l2.5-6 4 12 2.5-6h4"/>,
+    about: <><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8h.01"/></>
+  };
+
+  return <div className="settings-hub feat-general application-settings-view hub">
+    <header className="hub__head"><div className="hub__title"><h1>Settings</h1><p>Preferences for this device. Tools you connect to the project live in Integrations.</p></div></header>
+    <div className="hub__body">
+    <nav className="hub__rail" aria-label="Settings groups">
       {SETTINGS_GROUPS.map(([id, label]) => <button
         key={id}
         type="button"
-        className={group === id ? "is-current" : ""}
+        className={`hub__rail-item ${group === id ? "is-current" : ""}`}
         aria-current={group === id ? "page" : undefined}
         onClick={() => choose(id)}
-      >{label}{id === "integrations" && <b aria-hidden="true">→</b>}</button>)}
+      >
+        <span className="hub__rail-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[id]}</svg></span>
+        <span className="hub__rail-copy"><strong>{label}</strong><small>{hints[id]}</small></span>
+        {id === "integrations" && <b aria-hidden="true">→</b>}
+      </button>)}
     </nav>
-    <div className="settings-hub__layout settings-hub__layout-single">
+    <div className="hub__panel">
       <h2 className="sr-only">{SETTINGS_GROUPS.find(([id]) => id === group)?.[1] || "Settings"}</h2>
       {group === "appearance" && <SettingsView preferences={preferences} onPreference={onPreference}/>}
       {group === "terminal" && <TerminalSettings preferences={preferences} onPreference={onPreference}/>}
       {group === "notifications" && <NotificationSettings/>}
-      {group === "project" && <ProjectDefaultSettings workspace={workspace} sessions={sessions} onNavigate={onNavigate}/>}
+      {group === "project" && <ProjectDefaultSettings workspace={workspace} sessions={sessions} onNavigate={onNavigate} onConfigureAutoStart={onConfigureAutoStart}/>}
       {group === "security" && <SecuritySettings workspace={workspace}/>}
       {group === "diagnostics" && <DiagnosticsSettings state={state} workspace={workspace} recovery={recovery}/>}
       {group === "about" && <AboutSettings state={state}/>}
       {/* Restoring defaults is scoped to the preferences the two preference
           groups own, so it belongs with them and nowhere else. */}
       {(group === "appearance" || group === "terminal") && <SettingsResetFooter preferences={preferences} onReset={onReset}/>}
+    </div>
     </div>
   </div>;
 }
@@ -2029,7 +3274,7 @@ function AppSidebar({ view, workspace, pendingCount, onNavigate, onProject, onPa
   const renderNavButton = ([id, label, icon]) => <button key={id} data-nav-id={id} data-tooltip={`${label} · ${NAV_SHORTCUTS[id] || "Open"}`} aria-label={label} aria-current={view === id ? "page" : undefined} className={view === id ? "is-current" : ""} onClick={() => onNavigate(id)} title={`${label} · ${NAV_SHORTCUTS[id]}`}><Icon name={icon} size={17}/><span>{label}</span>{id === "needs" && pendingCount > 0 && <b aria-label={`${pendingCount} items need attention`}>{pendingCount}</b>}</button>;
   return <aside className="app-sidebar" aria-label="Application sidebar">
     <div className="app-sidebar__brand"><button className="top-brand" onClick={() => onNavigate("groundstation")} aria-label="Open Groundstation"><span>MC</span></button><div><strong>Mission Control</strong><small>Developer cockpit</small></div></div>
-    <button className="top-project" data-tooltip={`Switch project · ${workspace?.name || "none"}`} onClick={onProject} aria-label={`Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project:</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true">⌄</i></button>
+    <button className="top-project" data-tooltip={`Switch project · ${workspace?.name || "none"}`} onClick={onProject} aria-label={`Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true">⌄</i></button>
     <nav className="top-navigation" aria-label="Mission Control navigation">
       {NAVIGATION.slice(0, PRIMARY_NAV_COUNT).map(destination => renderNavButton(destination))}
       <div className="top-navigation__contextual" role="group" aria-label="Configuration">
@@ -2066,6 +3311,17 @@ function GroundstationApp() {
   const capabilityHandshake = useCapabilities();
   const { toast } = useToast();
   const [view, setView] = React.useState("groundstation");
+  const [recoveryBoot, setRecoveryBoot] = React.useState(null);
+  React.useEffect(() => {
+    let active = true;
+    missionApi().request("recovery.inspect")
+      .then(report => { if (active && report?.recoveryRequired) setRecoveryBoot(report); })
+      .catch(() => {
+        // No recovery surface is better than a wrong one; a failure here just
+        // means this launch is treated as clean.
+      });
+    return () => { active = false; };
+  }, []);
   const [focusedTerminal, setFocusedTerminal] = React.useState(null);
   const [expandedTerminal, setExpandedTerminal] = React.useState(null);
   const [selectedWorker, setSelectedWorker] = React.useState(null);
@@ -2089,6 +3345,7 @@ function GroundstationApp() {
   const [confirmation, setConfirmation] = React.useState(null);
   const [quickLookId, setQuickLookId] = React.useState(null);
   const [recipesOpen, setRecipesOpen] = React.useState(null); // null | { mode: "create"|"edit"|"duplicate", recipe }
+  const [autoStartManagerOpen, setAutoStartManagerOpen] = React.useState(false);
   const [missionGraphOpen, setMissionGraphOpen] = React.useState(false);
   const [missionAiPrompt, setMissionAiPrompt] = React.useState("");
   const missionAiReturnView = React.useRef("groundstation");
@@ -2211,9 +3468,9 @@ function GroundstationApp() {
   const [broadcastOpen, setBroadcastOpen] = React.useState(false);
   React.useEffect(() => { if (historyCursor === undefined && state) markHistoryReviewed(); }, [historyCursor, markHistoryReviewed, state]);
   React.useEffect(() => { if (view === "history" && historyCursor !== undefined && latestActivitySequence > historyCursor) markHistoryReviewed(); }, [historyCursor, latestActivitySequence, markHistoryReviewed, view]);
-  React.useEffect(() => { const onKey = event => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "b") { event.preventDefault(); setBroadcastOpen(value => !value); return; } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); if (!missionAiOpen) setPaletteOpen(value => !value); } else if (event.key === "Escape") { if (broadcastOpen) setBroadcastOpen(false); else if (helpOpen) setHelpOpen(false); else if (paletteOpen) setPaletteOpen(false); else if (missionAiOpen) closeMissionAI(); else if (missionGraphOpen) setMissionGraphOpen(false); else if (workerFocusId) setWorkerFocusId(null); else if (expandedTerminal) setExpandedTerminal(null); else if (inspectorOpen) setInspectorOpen(false); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [broadcastOpen, closeMissionAI, expandedTerminal, helpOpen, inspectorOpen, missionAiOpen, missionGraphOpen, paletteOpen, workerFocusId]);
+  React.useEffect(() => { const onKey = event => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "b") { event.preventDefault(); setBroadcastOpen(value => !value); return; } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); if (!missionAiOpen) setPaletteOpen(value => !value); } else if (event.key === "Escape") { if (document.querySelector("[data-radix-popper-content-wrapper],[role='dialog'],[role='alertdialog']")) return; if (broadcastOpen) setBroadcastOpen(false); else if (helpOpen) setHelpOpen(false); else if (paletteOpen) setPaletteOpen(false); else if (missionAiOpen) closeMissionAI(); else if (missionGraphOpen) setMissionGraphOpen(false); else if (workerFocusId) setWorkerFocusId(null); else if (expandedTerminal) setExpandedTerminal(null); else if (inspectorOpen) setInspectorOpen(false); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [broadcastOpen, closeMissionAI, expandedTerminal, helpOpen, inspectorOpen, missionAiOpen, missionGraphOpen, paletteOpen, workerFocusId]);
   React.useEffect(() => { const editable = target => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable; const onKey = event => { if (editable(event.target) || paletteOpen || missionAiOpen || missionGraphOpen) return; if (event.key === "F1" || (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey)) { event.preventDefault(); setHelpOpen(true); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [missionAiOpen, missionGraphOpen, paletteOpen]);
-  React.useEffect(() => { const onKey = event => { if (paletteOpen || missionAiOpen || missionGraphOpen || confirmation || workerDialog) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); setWorkerDialog({ mode: "create" }); return; } if (!event.altKey) return; const destination = { g: "groundstation", w: "workspace", r: "recipes", n: "needs", a: "agents", h: "history", i: "integrations" }[event.key.toLowerCase()]; if (destination) { event.preventDefault(); if (destination === "integrations") setIntegrationSection("overview"); setView(destination); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [confirmation, missionAiOpen, missionGraphOpen, paletteOpen, workerDialog]);
+  React.useEffect(() => { const onKey = event => { if (paletteOpen || missionAiOpen || missionGraphOpen || confirmation || workerDialog) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); setWorkerDialog({ mode: "create" }); return; } if (!event.altKey) return; const destination = { g: "groundstation", w: "workspace", r: "recipes", n: "needs", a: "workspace", h: "history", i: "integrations" }[event.key.toLowerCase()]; if (destination) { event.preventDefault(); if (destination === "integrations") setIntegrationSection("overview"); setView(destination); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [confirmation, missionAiOpen, missionGraphOpen, paletteOpen, workerDialog]);
   React.useEffect(() => { const onKey = event => { if (view !== "workspace" || paletteOpen || missionAiOpen || missionGraphOpen || !event.altKey || !/^[1-6]$/.test(event.key)) return; const id = terminalLayout.sessionIds[Number(event.key) - 1]; if (!id || !sessions.some(session => session.id === id)) return; event.preventDefault(); setFocusedTerminal(id); setSelectedWorker(id); }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [missionAiOpen, missionGraphOpen, paletteOpen, sessions, terminalLayout.sessionIds, view]);
   // Directional pane movement and layout cycling. Alt is used throughout the
   // app for navigation, so these compose with the existing Alt 1–6 shortcuts
@@ -2251,9 +3508,81 @@ function GroundstationApp() {
   // now reads one `decisions.list` (see useDecisions) which the engine builds from
   // all of these sources and refreshes on the same events.
 
-  const executeAction = React.useCallback(async (type, id, fields = {}) => { setNotice(type === "acknowledge" ? "Acknowledging…" : "Working…"); try { const params = { sessionId: id, action: { type, ...fields } }; const result = ["kill", "remove"].includes(type) ? await confirmedRequest("action.dispatch", params) : await missionApi().request("action.dispatch", params); if (result?.ok === false) throw new Error(result.error || "Action failed"); setNotice(type === "acknowledge" ? "Alert acknowledged; worker health is unchanged" : "Done"); await refresh(); } catch (value) { setNotice(value.message || String(value)); } }, [refresh]);
-  const dispatch = React.useCallback(async (type, id, fields = {}) => { const target = sessions.find(item => item.id === id); if (["kill", "remove"].includes(type)) { setConfirmation({ title: type === "kill" ? `Stop ${target?.name || id}?` : `Remove ${target?.name || id}?`, detail: type === "kill" ? "The engine will stop this worker and its active PTY." : "The worker definition will be removed from this workspace.", recovery: type === "kill" ? "You can start this worker again later." : "Removal may require recreating the worker configuration.", confirmLabel: type === "kill" ? "Stop worker" : "Remove worker", run: () => executeAction(type, id, fields) }); return; } await executeAction(type, id, fields); }, [executeAction, sessions]);
-  const executeBulk = React.useCallback(async (type, targets) => { if (!targets.length) return; setNotice(`${type === "start" ? "Starting" : "Stopping"} ${targets.length} workers…`); const results = await Promise.all(targets.map(async session => { try { const params = { sessionId: session.id, action: { type } }; if (type === "kill") await confirmedRequest("action.dispatch", params); else await missionApi().request("action.dispatch", params); return null; } catch (error) { return `${session.name}: ${error.message || String(error)}`; } })); await refresh(); const failures = results.filter(Boolean); setNotice(failures.length ? `${targets.length - failures.length}/${targets.length} workers updated · ${failures[0]}` : `${targets.length} workers ${type === "start" ? "started" : "stopped"}`); }, [refresh]);
+  // What you did yourself is confirmed quietly: one compact toast that says
+  // which worker, changes in place when the engine answers, never rings and
+  // never reaches Windows. It replaced a "Working…" toast followed by a
+  // separate "Done" that named nothing.
+  const sessionsRef = React.useRef(sessions);
+  sessionsRef.current = sessions;
+  const focusWorkerRef = React.useRef(null);
+  // The problem notices still on screen, by worker. Acknowledging a worker's
+  // alert takes them down with it: a toast about an error you have just
+  // acknowledged is the same interruption a second time.
+  const problemNoticesRef = React.useRef(new Map());
+  const executeAction = React.useCallback(async (type, id, fields = {}) => {
+    const name = sessionsRef.current.find(item => item.id === id)?.name || id;
+    const words = ACTION_FEEDBACK[type] || null;
+    const pending = words ? toast.progress(`${words.pending} ${name}…`) : null;
+    try {
+      const params = { sessionId: id, action: { type, ...fields } };
+      const result = ["kill", "remove"].includes(type) ? await confirmedRequest("action.dispatch", params) : await missionApi().request("action.dispatch", params);
+      if (result?.ok === false) throw new Error(result.error || "Action failed");
+      if (pending) pending.succeed(`${name} ${words.done}`);
+      if (type === "acknowledge") {
+        for (const noticeId of problemNoticesRef.current.get(id) || []) toast.dismiss(noticeId);
+        problemNoticesRef.current.delete(id);
+      }
+      await refresh();
+    } catch (value) {
+      const reason = value?.message || String(value);
+      if (!pending) { setNotice(reason); return; }
+      pending.fail(reason, {
+        title: `${name} ${words.failed}`,
+        source: name,
+        actions: [
+          ...(type === "remove" ? [] : [{ label: "Try again", run: () => void executeActionRef.current?.(type, id, fields) }]),
+          { label: "Open terminal", run: () => focusWorkerRef.current?.(id) }
+        ]
+      });
+    }
+  }, [refresh, toast, setNotice]);
+  const executeActionRef = React.useRef(executeAction);
+  executeActionRef.current = executeAction;
+  const dispatch = React.useCallback(async (type, id, fields = {}, confirmOverride = null) => { const target = sessions.find(item => item.id === id); if (["kill", "remove"].includes(type)) { setConfirmation({ title: confirmOverride?.title || (type === "kill" ? `Stop ${target?.name || id}?` : `Remove ${target?.name || id}?`), detail: confirmOverride?.detail || (type === "kill" ? "The engine will stop this worker and its active PTY." : "The worker definition will be removed from this workspace."), recovery: type === "kill" ? "You can start this worker again later." : "Removal may require recreating the worker configuration.", confirmLabel: type === "kill" ? "Stop worker" : "Remove worker", run: () => executeAction(type, id, fields) }); return; } await executeAction(type, id, fields); }, [executeAction, sessions]);
+  const executeBulk = React.useCallback(async (type, targets) => {
+    if (!targets.length) return;
+    const count = `${targets.length} worker${targets.length === 1 ? "" : "s"}`;
+    const pending = toast.progress(`${type === "start" ? "Starting" : "Stopping"} ${count}…`);
+    const results = await Promise.all(targets.map(async session => {
+      try {
+        const params = { sessionId: session.id, action: { type } };
+        if (type === "kill") await confirmedRequest("action.dispatch", params); else await missionApi().request("action.dispatch", params);
+        return null;
+      } catch (error) {
+        return `${session.name}: ${error.message || String(error)}`;
+      }
+    }));
+    await refresh();
+    const failures = results.filter(Boolean);
+    if (!failures.length) pending.succeed(`${count} ${type === "start" ? "started" : "stopped"}`);
+    else pending.fail(failures.slice(0, 3).join(" · "), { title: `${targets.length - failures.length} of ${targets.length} workers ${type === "start" ? "started" : "stopped"}` });
+  }, [refresh, toast]);
+  // Each worker's policy is saved on its own, so one refusal must not hide the
+  // others' outcome: every result is read, and the notice says how many landed.
+  const batchSetAutoStart = React.useCallback(async updates => {
+    if (!updates.length) return;
+    setNotice(`Saving the launch policy for ${updates.length} worker${updates.length === 1 ? "" : "s"}…`);
+    const failures = (await Promise.all(updates.map(async update => {
+      try {
+        const result = await missionApi().request("action.dispatch", { sessionId: update.id, action: { type: "setAutoStart", enabled: update.enabled } });
+        return result?.ok === false ? result.error || "not saved" : null;
+      } catch (error) {
+        return error.message || String(error);
+      }
+    }))).filter(Boolean);
+    await refresh();
+    setNotice(failures.length ? `${updates.length - failures.length} of ${updates.length} saved · ${failures[0]}` : "Launch policy saved");
+  }, [refresh]);
   const startWorkspace = React.useCallback(() => executeBulk("start", sessions.filter(session => !session.isAlive)), [executeBulk, sessions]);
   const stopWorkspace = React.useCallback(() => { const running = sessions.filter(session => session.isAlive); if (!running.length) return; setConfirmation({ title: `Stop ${running.length} running workers?`, detail: "Mission Control will request a clean stop for every active engine-owned PTY in this workspace.", recovery: "Workers remain configured and can be started together again.", confirmLabel: "Stop workspace", run: () => executeBulk("kill", running) }); }, [executeBulk, sessions]);
   // T084 — one mental model: Recipes is a place, and the builder is an action
@@ -2297,18 +3626,23 @@ function GroundstationApp() {
     catch (error) { setNotice(error.message || String(error)); }
   }, [refresh, terminalLayout]);
   const focusWorker = React.useCallback(id => { setFocusedTerminal(id); setSelectedWorker(id); if (!terminalLayout.sessionIds.includes(id)) terminalLayout.setSlotSession(0, id); setView("workspace"); }, [terminalLayout]);
+  focusWorkerRef.current = focusWorker;
   const inspectWorker = React.useCallback(id => { setSelectedWorker(id); if (id.startsWith("agent-")) { setView("agents"); return; } setWorkerFocusId(id); }, []);
   // T068 — one router for every "take me to the thing this decision is about".
   // The engine supplies the destination on the record, so a new decision source
   // gets working navigation without the renderer learning anything about it.
+  // A workspace destination is offered as "Open terminal", so it opens one.
+  // Sending it to the evidence dialog instead made the button a second,
+  // differently-worded copy of the card's own "Inspect evidence" action: two
+  // controls, one destination, and a label that promised something else.
   const openDecisionSource = React.useCallback(record => {
     const link = record?.deepLink;
     if (!link?.view) return;
-    if (link.view === "workspace" && link.params?.focus) { inspectWorker(link.params.focus); return; }
+    if (link.view === "workspace" && link.params?.focus) { focusWorker(link.params.focus); return; }
     if (link.view === "agents" && link.params?.focus) { setSelectedWorker(link.params.focus); setView("agents"); return; }
     if (link.view === "integrations") { setIntegrationSection(link.params?.section || "overview"); setView("integrations"); return; }
     setView(link.view);
-  }, [inspectWorker]);
+  }, [focusWorker]);
 
   // T036 — a native notification click arrives on the event channel as a deep
   // link. It routes to Needs You and selects the worker it was raised for, so
@@ -2319,13 +3653,149 @@ function GroundstationApp() {
     try {
       unsubscribe = missionApi().subscribe(message => {
         if (message?.type !== "notification:activate") return;
+        // A Windows toast button finishes its job here: "Open terminal" lands
+        // on the terminal, not merely on the window.
+        if (message.actionId === "focus-worker" && message.sessionId) {
+          focusWorkerRef.current?.(message.sessionId);
+          return;
+        }
         setView(message.route === "needs" ? "needs" : message.route || "needs");
         if (message.sessionId) setSelectedWorker(message.sessionId);
       });
     } catch { /* the deep link is a convenience; the queue is still reachable */ }
     return () => { try { unsubscribe?.(); } catch { /* already torn down */ } };
   }, []);
-  const saveWorker = React.useCallback(async value => { const editing = workerDialog?.mode === "edit"; const result = await missionApi().request("action.dispatch", { sessionId: editing ? workerDialog.configuration.id : null, action: editing ? { type: "reconfigure", patch: value } : { type: "create", definition: value } }); if (result?.ok === false) throw new Error(result.error || "Worker save failed"); if (!editing) setPendingWorkspaceWorker(value.id); await refresh(); setNotice(editing ? "Worker updated" : `${value.name} added to the terminal workspace`); }, [refresh, workerDialog]);
+  /* Operational events, in the app.
+     The intelligence layer has always detected these — a dev server accepting
+     connections, a build failing, an agent finishing a turn — and turned them
+     into an OS toast. Inside the app they went nowhere: the address a worker
+     had just started serving on was only reachable by opening a collapsed
+     panel and reading a row. They are notifications now, and each carries the
+     one action worth taking from it.
+
+     Readiness is verified, never claimed: `service.ready` is only published
+     after the port actually accepted a connection, so "Open" cannot offer a
+     dev server that never came up. The address is re-resolved from the
+     registry by `services.open` at click time, which is why the action sends
+     the service id rather than the URL it was rendered with. */
+  // The subscription below outlives any one render; the latest dispatch is
+  // read through a ref so Restart and Stop act on the current worker list
+  // without re-subscribing every time a session changes.
+  const dispatchRef = React.useRef(dispatch);
+  dispatchRef.current = dispatch;
+  React.useEffect(() => {
+    let unsubscribe = () => {};
+    const copyService = async (serviceId, generation) => {
+      try {
+        const result = await missionApi().request("services.copy", { serviceId, expectedGeneration: generation });
+        await navigator.clipboard.writeText(result.url);
+        toast.success(`Copied ${result.url}`, { compact: true, duration: 2200 });
+      } catch (error) {
+        toast.danger(error?.message || "Could not copy that address");
+      }
+    };
+    const whoHoldsPort = async (port, worker) => {
+      try {
+        const result = await missionApi().request("crashlens.port.inspect", { port });
+        const owner = result?.owners?.[0];
+        toast.info(result?.summary || `Port ${port} could not be inspected.`, owner?.owned && owner.sessionId
+          ? { title: `Who is using port ${port}`, actions: [{ label: `Stop ${owner.sessionName}`, tone: "danger", run: () => void dispatchRef.current("kill", owner.sessionId) }, { label: `Restart ${worker.name}`, run: () => void dispatchRef.current("restart", worker.id) }] }
+          : { title: `Who is using port ${port}`, remember: true, duration: 12000 });
+      } catch (error) {
+        toast.danger(error?.message || `Port ${port} could not be inspected`);
+      }
+    };
+    const openService = async (serviceId, generation) => {
+      try {
+        await missionApi().request("services.open", { serviceId, expectedGeneration: generation });
+        setView("workspace");
+      } catch (error) {
+        // A worker that restarted since the toast appeared invalidates the
+        // address, and the Protocol says so rather than opening the wrong one.
+        toast.danger(error?.message || String(error));
+      }
+    };
+    // Each action a notice can carry, run from the toast or from the list.
+    const runNoticeAction = (notice, actionId) => {
+      const data = notice.data || {};
+      if (actionId === "open-service") return void openService(data.serviceId, data.generation);
+      if (actionId === "copy-url") return void copyService(data.serviceId, data.generation);
+      if (actionId === "restart" && notice.workerId) return void dispatchRef.current("restart", notice.workerId);
+      if (actionId === "stop" && notice.workerId) return void dispatchRef.current("kill", notice.workerId);
+      if (actionId === "focus-worker" && notice.workerId) return focusWorker(notice.workerId);
+      if (actionId === "inspect-port" && data.port) return void whoHoldsPort(data.port, { id: notice.workerId, name: notice.workerName || "the worker" });
+      if (actionId === "review") return setView("needs");
+      if (actionId === "open-recipes") return setView("recipes");
+      return undefined;
+    };
+    const TOAST_TYPE = { critical: "danger", warning: "warning", success: "success", info: "info" };
+    // How long a notice stays on screen. A failure stays until it is dealt
+    // with; the rest leave on their own, and every one is still in the list.
+    const TOAST_DURATION = { critical: 0, warning: 20000, success: 12000, info: 9000 };
+    const PROBLEM_KINDS = new Set(["worker.error", "attention.needed", "worker.crashed", "worker.spawnFailed", "build.failed", "port.conflict"]);
+    try {
+      unsubscribe = missionApi().subscribe(message => {
+        if (message?.type !== "notification:new" || !message.notification?.id) return;
+        const notice = message.notification;
+        const delivery = notice.delivery || {};
+        const type = TOAST_TYPE[notice.tone] || "info";
+        if (notice.workerId && PROBLEM_KINDS.has(notice.kind)) {
+          const ids = problemNoticesRef.current.get(notice.workerId) || new Set();
+          ids.add(notice.id);
+          // Bounded: only the recent ones can still be on screen.
+          if (ids.size > 8) ids.delete(ids.values().next().value);
+          problemNoticesRef.current.set(notice.workerId, ids);
+        }
+        const options = {
+          id: notice.id,
+          title: notice.title,
+          source: notice.workerName || "",
+          remember: true,
+          duration: delivery.test ? 8000 : TOAST_DURATION[notice.tone],
+          // The center decided whether this rings; a Windows toast plays its
+          // own sound, so the app rings only when it is the one showing it.
+          sound: delivery.soundBy === "app" ? delivery.sound : null,
+          actions: (notice.actions || []).map(action => ({
+            label: action.label,
+            tone: action.id === "stop" ? "danger" : undefined,
+            keepOpen: action.id === "copy-url" || action.id === "inspect-port",
+            run: () => runNoticeAction(notice, action.id)
+          }))
+        };
+        // A burst beyond what the stack should show goes straight to the list,
+        // and one line says so.
+        if (delivery.collapsed) {
+          toast.remember(type, notice.body, options);
+          toast.info("More notifications arrived. They are in the notification list.", { id: "notification-overflow", compact: true, duration: 6000, remember: false });
+          return;
+        }
+        toast[type](notice.body, options);
+      });
+    } catch { /* without the bridge there is nothing to observe */ }
+    return () => { try { unsubscribe?.(); } catch { /* already torn down */ } };
+  }, [focusWorker, toast]);
+  // The two-field create is a "Start" button, so it starts the terminal now.
+  // The definition's autoStart is only the launch policy — whether it starts
+  // again the next time this project opens — and a new terminal is manual by
+  // default. A start that fails is reported rather than thrown: the worker
+  // exists by then, and a retry from the dialog would create a second one.
+  const saveWorker = React.useCallback(async (value, options = {}) => {
+    const editing = workerDialog?.mode === "edit";
+    const result = await missionApi().request("action.dispatch", { sessionId: editing ? workerDialog.configuration.id : null, action: editing ? { type: "reconfigure", patch: value } : { type: "create", definition: value } });
+    if (result?.ok === false) throw new Error(result.error || "Worker save failed");
+    let startError = null;
+    if (!editing && options.start === true && value.autoStart !== true) {
+      try {
+        const started = await missionApi().request("action.dispatch", { sessionId: value.id, action: { type: "start" } });
+        if (started?.ok === false) startError = started.error || "it could not be started";
+      } catch (error) {
+        startError = error.message || String(error);
+      }
+    }
+    if (!editing) setPendingWorkspaceWorker(value.id);
+    await refresh();
+    setNotice(editing ? "Worker updated" : startError ? `${value.name} added to the terminal workspace, but ${startError}` : `${value.name} added to the terminal workspace`);
+  }, [refresh, workerDialog]);
   const instantiateSavedCommand = React.useCallback(async commandId => { await missionApi().request("action.dispatch", { sessionId: null, action: { type: "instantiateSavedCommand", commandId } }); await refresh(); }, [refresh]);
   const createAgent = React.useCallback(async adapterId => { let createdSessionId = null; setAgentsLoading(true); setNotice(`Checking ${adapterId} CLI…`); try { const result = await missionApi().request("agent.create", { adapterId }); if (!result?.sessionId) throw new Error("Agent worker was created without a session ID"); createdSessionId = result.sessionId; setSelectedWorker(createdSessionId); setNotice(`Starting ${adapterId}…`); const started = await missionApi().request("action.dispatch", { sessionId: createdSessionId, action: { type: "start" } }); if (started?.ok === false) throw new Error(started.error || "Agent CLI could not be started"); await refresh(); setNotice(`${adapterId} is running under Mission Control supervision`); } catch (value) { await refresh(); if (createdSessionId) setSelectedWorker(createdSessionId); setNotice(createdSessionId ? `${adapterId} was added but could not start: ${value.message || String(value)}` : value.message || String(value)); } finally { setAgentsLoading(false); } }, [refresh]);
   const executeProjectOpen = React.useCallback(async project => { setProjectsLoading(true); try { await confirmedRequest("project.open", { projectId: project.id }); await refresh(); setView("groundstation"); } catch (value) { setNotice(value.message || String(value)); } finally { setProjectsLoading(false); } }, [refresh]);
@@ -2360,6 +3830,7 @@ function GroundstationApp() {
     ...(selectedSession ? [{ id: "context-open", label: selectedSession.id.startsWith("agent-") ? `Review ${selectedSession.name}` : `Inspect ${selectedSession.name}`, group: "Selected worker", icon: selectedSession.id.startsWith("agent-") ? "agents" : "terminal", aliases: ["focus","quick look","details","history","summary"], run: () => inspectWorker(selectedSession.id) }] : []),
     ...(selectedSession?.attentionRequired ? [{ id: "context-acknowledge", label: `Acknowledge ${selectedSession.name} alert`, group: "Selected worker", icon: "attention", run: () => dispatch("acknowledge", selectedSession.id) }] : []),
     { id: "new-worker", label: "Add a new worker", group: "Action", icon: "plus", shortcut: "N", run: () => setWorkerDialog({ mode: "create" }) },
+    { id: "autostart-manager", label: "Choose which terminals start with the workspace", group: "Workspace action", icon: "grid", aliases: ["autostart","auto-start","startup","boot","launch policy","on open","start with workspace"], run: () => setAutoStartManagerOpen(true) },
     { id: "mission-ai", label: "Open Mission AI", group: "Project intelligence", icon: "agents", aliases: ["gemini","what is happening","what is broken","what needs me","summary"], run: () => openMissionAI() },
     { id: "settings-mcp", label: "Open Secure MCP Gateway", group: "Integrations", icon: "command", aliases: ["claude","chatgpt","external ai","token","gateway"], run: () => { setIntegrationSection("mcp"); setView("integrations"); } },
     { id: "settings-mobile", label: "Open Mobile Companion", group: "Integrations", icon: "attention", aliases: ["android","phone","pairing","lan"], run: () => { setIntegrationSection("companion"); setView("integrations"); } },
@@ -2372,35 +3843,56 @@ function GroundstationApp() {
     ...activity.slice(-5).reverse().map(item => ({ id: `event-${item.sequence}`, label: eventTitle(item), group: "Recent history", icon: "history", run: () => setView("history") }))
   ], [activity, dispatch, focusWorker, inspectWorker, openMissionAI, selectedSession, sessions, startWorkspace, stopWorkspace]);
 
+  // The native window controls take the colour the status tape paints, once
+  // the shell is on screen and whenever the theme could have changed it.
+  const shellReady = Boolean(state);
+  React.useEffect(() => {
+    if (!shellReady) return undefined;
+    const frame = window.requestAnimationFrame(() => syncWindowChrome());
+    return () => window.cancelAnimationFrame(frame);
+  }, [shellReady, preferences.theme]);
   if (loading && !state) return <div className="boot-screen"><div className="boot-orbit"><span>MC</span></div><p>Bringing your workspace online</p></div>;
   if (error && !state) return <div className="boot-screen boot-error"><div className="boot-orbit"><span>!</span></div><h1>Groundstation unavailable</h1><p>{error}</p><button className="primary-button" onClick={refresh}>Reconnect</button></div>;
 
   const renderView = () => {
     if (view === "groundstation") return <LiveGroundstationView sessions={supervisedSessions} workspace={workspace} activity={activity} unseenActivity={unseenActivity} selectedId={selectedWorker} onSelect={setSelectedWorker} onFocus={inspectWorker} onAction={dispatch} onNavigate={setView} onDismissActivity={markHistoryReviewed} onRecipes={goToRecipes} onCreateRecipe={() => openRecipeBuilder()} onLaunchRecipe={launchRecipe} onAddWorker={() => setWorkerDialog({ mode: "create" })} onAskAI={prompt => openMissionAI(prompt)} onMissionGraph={() => setMissionGraphOpen(true)} onOpenDecisionSource={openDecisionSource} decisionCount={decisions.status === "ready" ? decisions.counts.pending : undefined} decisions={decisions}/>;
-    if (view === "mission-ai") return <MissionAIScreen initialPrompt={missionAiPrompt} onConfigure={() => { setIntegrationSection("intelligence"); setView("integrations"); }} onNeedsYou={() => setView("needs")} onEvidence={() => setView("history")}/>;
-    if (view === "workspace") return <WorkspaceView sessions={sessions} workspaceKey={recipeProjectKey} terminalLayout={terminalLayout} focusedId={focusedTerminal} expandedId={expandedTerminal} inspectorOpen={inspectorOpen} terminalPreferences={preferences} onInspector={() => setInspectorOpen(value => !value)} onFocus={setFocusedTerminal} onExpand={setExpandedTerminal} onAction={dispatch} onStartWorkspace={startWorkspace} onStopWorkspace={stopWorkspace} onRecipes={goToRecipes} onMissionGraph={() => setMissionGraphOpen(true)} onAddWorker={() => setWorkerDialog({ mode: "create" })} onReconfigure={session => setWorkerDialog({ mode: "edit", configuration: session })} onDuplicate={session => setWorkerDialog({ mode: "create", seed: { ...session, id: `${session.id}-copy`, name: `${session.name} copy` } })} onTerminalError={reportTerminalAlert} onTerminalRecovered={dismissTerminalAlert} onAskAI={prompt => openMissionAI(prompt)}/>;
+    if (view === "mission-ai") return <MissionAIScreen initialPrompt={missionAiPrompt} onConfirm={setConfirmation}/>;
+    if (view === "workspace") return <WorkspaceView needsCount={pendingCount} onReviewNeeds={() => setView("needs")} sessions={sessions} workspaceKey={recipeProjectKey} terminalLayout={terminalLayout} focusedId={focusedTerminal} expandedId={expandedTerminal} inspectorOpen={inspectorOpen} terminalPreferences={preferences} onInspector={() => setInspectorOpen(value => !value)} onFocus={setFocusedTerminal} onExpand={setExpandedTerminal} onAction={dispatch} onStartWorkspace={startWorkspace} onStopWorkspace={stopWorkspace} onRecipes={goToRecipes} onMissionGraph={() => setMissionGraphOpen(true)} onAddWorker={() => setWorkerDialog({ mode: "create" })} onReconfigure={session => setWorkerDialog({ mode: "edit", configuration: session })} onDuplicate={session => setWorkerDialog({ mode: "create", seed: { ...session, id: `${session.id}-copy`, name: `${session.name} copy` } })} onTerminalError={reportTerminalAlert} onTerminalRecovered={dismissTerminalAlert} onAskAI={prompt => openMissionAI(prompt)} onConfirm={setConfirmation}/>;
     if (view === "recipes") return <RecipesView sessions={sessions} onManage={openRecipeBuilder} onLaunch={launchRecipe} onDelete={deleteRecipe} onRunAction={runRecipeAction} onAskAI={() => openMissionAI("Design a practical Mission Control recipe (a repeatable workspace launch) for this project. Propose the backend, frontend, tests, Git, database, container, and agent terminals that are useful; define safe startup dependencies and readiness checks; explain the plan before requesting any action.")}/>;
-    if (view === "needs") return <NeedsView decisionRecords={decisions.records} decisionsStatus={decisions.status} decisionSources={decisions.sources} decisionsComplete={decisions.complete} onDecisionsRefresh={decisions.refresh} onResolveDecision={resolveDecision} onAcknowledgeDecision={decisions.acknowledge} onAction={dispatch} onFocus={inspectWorker} onDismissTerminalAlert={dismissTerminalAlert} onConfirm={setConfirmation} onOpenSource={openDecisionSource}/>;
+    if (view === "needs") return <NeedsView decisionRecords={decisions.records} decisionsStatus={decisions.status} decisionSources={decisions.sources} decisionsComplete={decisions.complete} onDecisionsRefresh={decisions.refresh} onResolveDecision={resolveDecision} onAcknowledgeDecision={decisions.acknowledge} onAction={dispatch} onFocus={inspectWorker} onOpenTerminal={focusWorker} onDismissTerminalAlert={dismissTerminalAlert} onConfirm={setConfirmation} onOpenSource={openDecisionSource}/>;
     if (view === "agents") return <AgentWorkspace sessions={sessions} activity={activity} adapters={agentAdapters} loading={agentsLoading} selectedId={selectedWorker} onSelect={setSelectedWorker} onCreate={createAgent} onAction={dispatch} onOpenTerminal={focusWorker} onConfirm={setConfirmation} decisionRecords={decisions.records} onOpenDecision={openDecisionSource} onNavigate={setView} onAskAI={prompt => openMissionAI(prompt)}/>;
     if (view === "history") return <HistoryView events={activity} onFocus={inspectWorker} onAskAI={prompt => openMissionAI(prompt)} projectKey={historyProjectKey}/>;
     if (view === "integrations") return <IntegrationHubView workspace={workspace} section={integrationSection} onSection={setIntegrationSection} onAskAI={() => openMissionAI()} capabilityHandshake={capabilityHandshake}>
       {integrationSection === "intelligence" && <MissionAISettings onOpen={() => openMissionAI()} onConfirm={setConfirmation}/>}
       {integrationSection === "vscode" && <VSCodeBridgeSettings workspace={workspace} onConfirm={setConfirmation}/>}
       {integrationSection === "mcp" && <McpGatewaySettings workspace={workspace} onConfirm={setConfirmation}/>}
-      {integrationSection === "automation" && <AutomationSettings workspace={workspace} sessions={sessions} onConfirm={setConfirmation}/>}
       {integrationSection === "companion" && <MobileCompanionSettings workspace={workspace} onConfirm={setConfirmation}/>}
       {integrationSection === "extensions" && <PluginPlatformSettings onConfirm={setConfirmation}/>}
     </IntegrationHubView>;
     if (view === "projects") return <ProjectsView data={projects} loading={projectsLoading} onChoose={chooseProject} onOpen={openProject} onRemove={async project => { await missionApi().request("project.removeRecent", { projectId: project.id }); setProjects(await missionApi().request("projects.list")); }}/>;
-    return <SettingsHub state={state} workspace={workspace} recovery={recovery} sessions={supervisedSessions} preferences={preferences} onPreference={updatePreference} onReset={requestPreferenceReset} onNavigate={setView} onOpenIntegrations={() => { setIntegrationSection("overview"); setView("integrations"); }}/>;
+    return <SettingsHub state={state} workspace={workspace} recovery={recovery} sessions={supervisedSessions} preferences={preferences} onPreference={updatePreference} onReset={requestPreferenceReset} onNavigate={setView} onOpenIntegrations={() => { setIntegrationSection("overview"); setView("integrations"); }} onConfigureAutoStart={() => setAutoStartManagerOpen(true)}/>;
   };
 
   return <div className={`shell theme-${preferences.theme} type-${preferences.typeScale} density-${preferences.density} motion-${preferences.motion} ${preferences.showCommandHints ? "show-command-hints" : "hide-command-hints"}`}>
       <a className="skip-link" href="#main-content">Skip to workspace content</a>
       <AppSidebar view={view} workspace={workspace} pendingCount={pendingCount} onNavigate={destination => { if (destination === "integrations") setIntegrationSection("overview"); setView(destination); }} onProject={() => setView("projects")} onPalette={() => setPaletteOpen(true)} onMissionAI={() => openMissionAI()}/>
       <main ref={mainContentRef} className="main-area" id="main-content" tabIndex="-1">
-        <StatusBar state={state} workspace={workspace} sessions={supervisedSessions} activity={activity} health={health} view={view} pendingCount={pendingCount} onHelp={() => setHelpOpen(true)}/>
-        <div className={`experience view-${view}`} aria-live="off">{renderView()}</div>
+        <StatusBar state={state} workspace={workspace} sessions={supervisedSessions} activity={activity} health={health} view={view} pendingCount={pendingCount} onHelp={() => setHelpOpen(true)} onReviewNeeds={() => setView("needs")}/>
+        <div className={`experience view-${view}`} aria-live="off">
+          {recoveryBoot && (
+            <RecoveryReview
+              report={recoveryBoot}
+              onDismiss={() => setRecoveryBoot(null)}
+              onResumed={started => {
+                void refresh();
+                toast.success(started.length
+                  ? `Started ${started.length} worker${started.length === 1 ? "" : "s"}.`
+                  : "No worker needed starting.");
+              }}
+            />
+          )}
+          <ViewErrorBoundary key={view}>{renderView()}</ViewErrorBoundary>
+        </div>
       </main>
       <CommandPalette open={paletteOpen} query={paletteQuery} onQuery={setPaletteQuery} items={paletteItems} onChoose={item => { item.run(); setPaletteOpen(false); setPaletteQuery(""); }} onClose={() => setPaletteOpen(false)}/>
       <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)}/>
@@ -2409,10 +3901,19 @@ function GroundstationApp() {
       <WorkerFocusDialog session={sessions.find(item => item.id === workerFocusId)} activity={activity} onClose={() => setWorkerFocusId(null)} onOpenTerminal={id => { setWorkerFocusId(null); focusWorker(id); }}/>
       <MissionGraph open={missionGraphOpen} sessions={sessions} onClose={() => setMissionGraphOpen(false)} onOpenTerminal={id => { setMissionGraphOpen(false); focusWorker(id); }} onOpenRecipes={() => { setMissionGraphOpen(false); goToRecipes(); }}/>
       <WorkspaceRecipes open={Boolean(recipesOpen)} mode={recipesOpen?.mode || "create"} editRecipe={recipesOpen?.recipe || null} projectKey={recipeProjectKey} sessions={sessions} layoutId={terminalLayout.layout.id} sessionIds={terminalLayout.sessionIds} onClose={() => setRecipesOpen(null)} onLaunch={launchRecipe} onAskAI={prompt => { setRecipesOpen(null); openMissionAI(prompt); }}onReload={async () => { const list = await missionApi().request("recipe.list").catch(() => null); const current = (list || []).find(item => item.id === recipesOpen?.recipe?.id); if (current) setRecipesOpen({ mode: "edit", recipe: current }); await refresh(); }} />
+      <AutoStartManager
+        open={autoStartManagerOpen}
+        sessions={sessions}
+        onClose={() => setAutoStartManagerOpen(false)}
+        onToggleAutoStart={(id, enabled) => dispatch("setAutoStart", id, { enabled })}
+        onBatchAutoStart={batchSetAutoStart}
+        onAskAI={prompt => openMissionAI(prompt)}
+      />
       {workerDialog && <WorkerDialog
         initialMode={workerDialog.mode}
         configuration={workerDialog.configuration || null}
         seed={workerDialog.seed || null}
+        projectName={workspace?.name || ""}
         existingIds={sessions.map(item => item.id)}
         savedCommands={presetCommands.length ? presetCommands : savedCommands}
         onClose={() => setWorkerDialog(null)}

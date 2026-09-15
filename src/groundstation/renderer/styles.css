@@ -289,7 +289,12 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .primary-button { color: var(--accent-ink); background: var(--accent); border-color: transparent; font-weight: 700; }
 .terminal-host { flex: 1; min-width: 0; min-height: 0; padding: 7px 5px 4px 9px; }
 .terminal-host .xterm { height: 100%; }
-.terminal-host .xterm-viewport { scrollbar-color: #252a28 transparent; scrollbar-width: thin; }
+.terminal-host .xterm-viewport { scrollbar-width: none; }
+/* The viewport is never the scroller in this terminal — the scrollable
+   element beside it is, and it draws its own slider. The viewport still
+   asks for a permanent gutter, so a track was reserved down every pane
+   that could never hold a thumb. Both rules retire it. */
+.terminal-host .xterm-viewport::-webkit-scrollbar { width: 0; height: 0; }
 .terminal-warning { padding: 6px 9px; color: var(--amber); background: color-mix(in srgb, var(--mc-warning) 8%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--mc-warning) 15%, transparent); font-size: 8px; }
 .terminal-pane-empty { align-items: center; justify-content: center; color: var(--dim); }
 .terminal-pane-empty > span { color: var(--accent); font-size: 20px; }
@@ -1515,7 +1520,7 @@ html:lang(de) .mission-actions button,html:lang(fr) .mission-actions button,html
 .terminal-drag-handle { display: grid; width: 25px; min-height: 25px; place-items: center; padding: 0; color: var(--mc-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--mc-radius-xs); font-size: 14px; line-height: 1; cursor: grab; }.terminal-drag-handle:hover { color: var(--mc-text); background: rgba(255,255,255,.04); border-color: var(--mc-border-strong); }.terminal-drag-handle:active { cursor: grabbing; }
 .terminal-pane.is-drop-target { border-color: var(--mc-accent) !important; box-shadow: inset 0 0 0 2px var(--mc-accent-soft) !important; }
 .terminal-host { padding: 3px 2px 2px 5px; background: var(--mc-void); }
-.terminal-host .xterm-viewport,.terminal-host .xterm-screen { background-color: #080a0d !important; }
+.terminal-host .xterm-viewport,.terminal-host .xterm-screen,.terminal-host .xterm-scrollable-element { background-color: #080a0d !important; }
 .terminal-pane-empty { background: radial-gradient(circle at 50% 30%,color-mix(in srgb, var(--mc-accent) 5%, transparent),transparent 38%),#090c11; border-style: dashed; }
 .terminal-pane-empty > span { color: #7fa9df; background: color-mix(in srgb, var(--mc-accent) 8%, transparent); border-color: color-mix(in srgb, var(--mc-accent) 17%, transparent); }
 .terminal-pane-empty > p { max-width: 330px; color: var(--mc-text-muted); line-height: 1.5; }
@@ -2213,3 +2218,4 @@ input,select,textarea { color: var(--text); background: #0e1110; border-color: v
   .reference-groundstation { width: calc(100vw - 222px); max-width: calc(100vw - 222px); grid-template-columns: minmax(0,1fr); }
   .reference-side-col { position: static; display: grid; width: 100%; grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
+

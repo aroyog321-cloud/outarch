@@ -77,17 +77,6 @@ const PROBES = {
           ? "The gateway is enabled but not listening. Check that the port is free, then re-enable it."
           : "Enable the gateway and issue a client credential to accept external AI requests."
   },
-  automation: {
-    label: "Automation",
-    method: "automation.list",
-    permissions: () => ["approval-gated", "no unattended execution"],
-    endpoint: () => "local engine",
-    lastSuccess: status => (status.audit || [])[0]?.at,
-    lastError: () => null,
-    recovery: status => (status.definitions || []).some(item => item.enabled)
-      ? null
-      : "No workflow is enabled. Enabling one only creates approval requests; nothing runs without a decision."
-  },
   companion: {
     label: "Mobile Companion",
     method: "mobile.status",

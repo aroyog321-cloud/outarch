@@ -574,7 +574,7 @@
   background: var(--mc-surface-2);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-md);
-  box-shadow: 0 4px 20px color-mix(in srgb, #000 30%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--mc-surface-0) 40%, transparent);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -665,50 +665,102 @@
   color: var(--mc-text-soft);
 }
 
-.vscode-tile-display {
+.vscode-tile-console {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  background: color-mix(in srgb, #000 50%, var(--mc-surface-1));
+  gap: 3px;
+  min-height: 140px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--mc-void);
   border: 1px solid var(--line);
   border-radius: var(--mc-radius-sm);
-  font-family: "SFMono-Regular", Consolas, "JetBrains Mono", monospace;
-  font-size: 12px;
+  font-family: var(--mc-font-mono, "SFMono-Regular", Consolas, "JetBrains Mono", monospace);
+  font-size: 11.5px;
+  line-height: 1.45;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mc-border-faint) transparent;
 }
 
-.vscode-tile-cmd-line {
+.vscode-tile-console::-webkit-scrollbar {
+  width: 5px;
+}
+.vscode-tile-console::-webkit-scrollbar-thumb {
+  background: var(--mc-border);
+  border-radius: 999px;
+}
+
+.vscode-console-empty {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  color: var(--mc-text-dim);
+  font-size: 11px;
+  padding: 8px 0;
+  font-style: italic;
 }
 
-.vscode-tile-prompt {
+.vscode-console-empty-prompt {
+  color: var(--mc-accent);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.vscode-log-line {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.vscode-log-line.is-input {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--mc-accent);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vscode-log-prompt {
   color: var(--mc-accent);
   font-weight: 800;
+  user-select: none;
 }
 
-.vscode-tile-cmd {
+.vscode-log-cmd {
   color: var(--mc-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600;
 }
 
-.vscode-tile-live-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
+.vscode-log-line.is-output {
+  color: #c5cbd5;
+  padding-left: 2px;
+}
+
+.vscode-log-line.is-system {
+  margin: 3px 0;
+}
+
+.vscode-log-system-pill {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--mc-radius-xs);
+  background: var(--mc-surface-2);
   color: var(--mc-text-dim);
+  border: 1px solid var(--line);
 }
 
-.vscode-tile-live-line i.pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--mc-ok);
-  box-shadow: 0 0 8px var(--mc-ok);
+.vscode-log-system-pill.is-ok {
+  color: var(--mc-ok);
+  border-color: color-mix(in srgb, var(--mc-ok) 30%, transparent);
+  background: color-mix(in srgb, var(--mc-ok) 8%, transparent);
+}
+
+.vscode-log-system-pill.is-fail {
+  color: var(--mc-danger);
+  border-color: color-mix(in srgb, var(--mc-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--mc-danger) 8%, transparent);
 }
 
 .vscode-tile-input-deck {

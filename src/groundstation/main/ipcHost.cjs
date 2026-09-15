@@ -17,8 +17,24 @@ class GroundstationIpcHost {
   #pluginPlatform;
   #notifications;
   #portInspector;
+  #localServiceRegistry;
+  #usageLedger;
+  #terminalWindowManager;
+  #workspaceBrowser;
+  #sessionRecoveryService;
+  #missionAiConversation;
+  #aiAssistant;
+  #agentActivityService;
+  #semanticEventRouter;
+  #onProjectSwitched;
+  #openServiceUrl;
+  #terminalLeases;
+  #resolveViewId;
+  #recoveryBoot;
+  #importCliUsage;
   #connections;
   #observedWebContents;
+  #trackedWebContents;
   #bound;
 
   constructor(options) {
@@ -39,8 +55,26 @@ class GroundstationIpcHost {
     this.#pluginPlatform = options.pluginPlatform || null;
     this.#notifications = options.notifications || null;
     this.#portInspector = options.portInspector || null;
+    this.#localServiceRegistry = options.localServiceRegistry || null;
+    this.#usageLedger = options.usageLedger || null;
+    this.#terminalWindowManager = options.terminalWindowManager || null;
+    this.#workspaceBrowser = options.workspaceBrowser || null;
+    this.#sessionRecoveryService = options.sessionRecoveryService || null;
+    this.#missionAiConversation = options.missionAiConversation || null;
+    this.#aiAssistant = options.aiAssistant || null;
+    this.#agentActivityService = options.agentActivityService || null;
+    this.#semanticEventRouter = options.semanticEventRouter || null;
+    this.#onProjectSwitched = typeof options.onProjectSwitched === "function" ? options.onProjectSwitched : null;
+    this.#openServiceUrl = typeof options.openServiceUrl === "function" ? options.openServiceUrl : null;
+    this.#terminalLeases = options.terminalLeases || null;
+    // Which presentation view a renderer speaks for. The main window is the
+    // default; a pop-out is registered by the main process when it is created.
+    this.#resolveViewId = typeof options.resolveViewId === "function" ? options.resolveViewId : null;
+    this.#recoveryBoot = options.recoveryBoot || null;
+    this.#importCliUsage = typeof options.importCliUsage === "function" ? options.importCliUsage : null;
     this.#connections = new Map();
     this.#observedWebContents = new Set();
+    this.#trackedWebContents = new Map();
     this.#bound = false;
   }
 
@@ -66,6 +100,10 @@ class GroundstationIpcHost {
         // renderer connection only after the initiating response is complete;
         // the next state.get binds to the new engine and terminal epoch.
         this.disposeConnections();
+        // Observers of the old engine (service discovery, agent activity) have
+        // to be re-pointed at the new one, or they keep describing the workers
+        // of the project that was just closed.
+        try { await this.#onProjectSwitched?.(); } catch {}
       }
       return response;
     });
@@ -97,9 +135,24 @@ class GroundstationIpcHost {
       mobileCompanion: this.#mobileCompanion,
       pluginPlatform: this.#pluginPlatform,
       notifications: this.#notifications,
-      portInspector: this.#portInspector
+      portInspector: this.#portInspector,
+      localServiceRegistry: this.#localServiceRegistry,
+      usageLedger: this.#usageLedger,
+      terminalWindowManager: this.#terminalWindowManager,
+      workspaceBrowser: this.#workspaceBrowser,
+      sessionRecoveryService: this.#sessionRecoveryService,
+      missionAiConversation: this.#missionAiConversation,
+      aiAssistant: this.#aiAssistant,
+      agentActivityService: this.#agentActivityService,
+      semanticEventRouter: this.#semanticEventRouter,
+      openServiceUrl: this.#openServiceUrl,
+      terminalLeases: this.#terminalLeases,
+      recoveryBoot: this.#recoveryBoot,
+      importCliUsage: this.#importCliUsage,
+      getViewId: () => this.#resolveViewId?.(webContents.id) || "main"
     });
     this.#connections.set(webContents.id, connection);
+    this.#trackedWebContents.set(webContents.id, webContents);
     if (!this.#observedWebContents.has(webContents.id)) {
       this.#observedWebContents.add(webContents.id);
       webContents.on("did-start-navigation", (_event, _url, isInPlace, isMainFrame) => {
@@ -114,7 +167,30 @@ class GroundstationIpcHost {
     return connection;
   }
 
+  // Unsolicited operational updates (service discovery, usage, pop-out state)
+  // reach every live renderer here rather than being polled. The event channel
+  // already carries engine notifications, so renderers observe one stream.
+  broadcast(message) {
+    if (!message || typeof message.type !== "string") return 0;
+    const envelope = { version: 1, ...message };
+    let delivered = 0;
+    for (const [id, webContents] of this.#trackedWebContents) {
+      if (!webContents || webContents.isDestroyed()) {
+        this.#trackedWebContents.delete(id);
+        continue;
+      }
+      try {
+        webContents.send(EVENT_CHANNEL, envelope);
+        delivered += 1;
+      } catch {
+        // A destroyed or navigating renderer must not stop the others.
+      }
+    }
+    return delivered;
+  }
+
   disposeConnection(webContentsId) {
+    this.#trackedWebContents.delete(webContentsId);
     const connection = this.#connections.get(webContentsId);
     if (!connection) return false;
     this.#connections.delete(webContentsId);
@@ -134,6 +210,7 @@ class GroundstationIpcHost {
     this.#bound = false;
     this.disposeConnections();
     this.#observedWebContents.clear();
+    this.#trackedWebContents.clear();
   }
 }
 

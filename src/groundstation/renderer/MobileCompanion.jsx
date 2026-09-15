@@ -8,7 +8,8 @@ const SCOPE_OPTIONS = [
   ["needs.read", "Needs You", "Current human decisions and blocker resolution"],
   ["memory.read", "Project Memory", "Bounded chapters and recovery links"],
   ["terminal.read", "Terminal Evidence", "Bounded redacted lines; disabled by default"],
-  ["actions.request", "Request Actions", "Creates a local approval; never executes remotely"]
+  ["actions.request", "Request Actions", "Creates a local approval; never executes remotely"],
+  ["assistant.ask", "Ask Mission AI", "Read-only answers about this project; nothing runs from the phone"]
 ];
 
 function timeLabel(timestamp) {
@@ -171,6 +172,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
   }, [status?.running, invitation, busy, invite]);
 
   // Countdown timer for invitation expiration
+  const autoInviteAttemptedRef = React.useRef(null);
   React.useEffect(() => {
     if (!invitation?.expiresAt) {
       setTimeLeft(0);
@@ -179,15 +181,20 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     const updateCountdown = () => {
       const remaining = Math.max(0, Math.floor((invitation.expiresAt - Date.now()) / 1000));
       setTimeLeft(remaining);
-      if (remaining === 0 && status?.running) {
-        // Auto refresh when expired
+      if (remaining === 0 && status?.running && !busy && autoInviteAttemptedRef.current !== invitation.expiresAt) {
+        autoInviteAttemptedRef.current = invitation.expiresAt;
         void invite();
       }
     };
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [invitation?.expiresAt, status?.running, invite]);
+  }, [invitation?.expiresAt, status?.running, busy, invite]);
+
+  const copyTimerRef = React.useRef(null);
+  React.useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   const configure = async configuration => {
     setBusy("configure");
@@ -221,7 +228,8 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedKey(key);
-      setTimeout(() => setCopiedKey(""), 2200);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedKey(""), 2200);
     } catch {
       setMessage("Could not access clipboard. Please copy manually.");
     }
@@ -233,7 +241,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     try {
       await confirmedRequest("mobile.device.revoke", { deviceId: device.id });
       await refresh();
-      setMessage(`${device.name} was revoked immediately.`);
+      setMessage(`${device.name} was revoked and removed. The revocation is in the audit trail.`);
     } catch (error) {
       setMessage(error.message || String(error));
     } finally {
@@ -248,10 +256,10 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     : !statusKnown && resourceState.statusError
       ? "Status unavailable"
       : status?.running
-        ? "Service Active"
+        ? "Running"
         : status?.enabled
-          ? "Connecting…"
-          : "Service Disabled";
+          ? "Starting…"
+          : "Off";
   const knownCount = value => statusKnown ? String(value ?? 0) : "—";
   const webEndpoints = (status?.endpoints || []).map(ep => ep.replace(/\/$/, "") + "/mobile");
   const activeEndpoint = selectedEndpoint && webEndpoints.includes(selectedEndpoint)
@@ -269,290 +277,168 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
   const secondsRemaining = timeLeft % 60;
   const formattedTime = `${minutesRemaining}:${String(secondsRemaining).padStart(2, "0")}`;
 
+  const serviceTone = status?.running ? "is-live" : status?.enabled || resourceState.statusError ? "is-warning" : "is-offline";
+  // Why the switch cannot be used, said beside it instead of left to a greyed button.
+  const blockedReason = !statusKnown
+    ? ""
+    : !workspace?.persistent
+      ? "Open a saved project first — a phone pairs with one project."
+      : !protectedStore
+        ? "This computer cannot encrypt device credentials, so pairing stays off."
+        : "";
+  const formattedCode = invitation?.code ? `${invitation.code.slice(0, 3)} ${invitation.code.slice(3)}` : "";
+  const grantedCount = (status?.scopes || []).length;
+
   return (
-    <section className={`settings-panel settings-panel-wide mobile-companion-settings ${status?.running ? "is-running" : ""}`}>
-      {/* Top Header Card */}
-      <header className="mobile-header-card">
-        <div className="mobile-title">
-          <span className="mobile-mark">MC</span>
+    <section className={`settings-panel settings-panel-wide mobile-companion-settings companion ${status?.running ? "is-running" : ""}`}>
+      <header>
+        <div className="settings-panel__head">
+          <span className="companion__mark" aria-hidden="true"><PhoneGlyph/></span>
           <div>
-            <h3>Mobile Supervision Companion</h3>
-            <p>Pair a smartphone for real-time monitoring and approval-gated operational control over LAN. It is not a remote shell or mobile IDE.</p>
+            <h3>Mobile Companion</h3>
+            <p>Follow this project from your phone on the same network, and ask for a worker to start, stop or restart — every request waits here for your approval. It is not a remote shell or mobile IDE.</p>
           </div>
         </div>
-        <div className="mobile-header-actions">
-          <div className={`mobile-service-badge ${status?.running ? "is-live" : status?.enabled ? "is-warning" : resourceState.statusError ? "is-warning" : "is-offline"}`}>
-            <i />
-            <span>{serviceLabel}</span>
-          </div>
-          <button
+        <div className={`companion__state ${serviceTone}`}>
+          <i aria-hidden="true"/>
+          <span><small>Phone service</small><strong>{serviceLabel}</strong></span>
+          {status?.enabled && <button
             type="button"
-            className={`btn-service-toggle ${status?.running ? "is-active" : ""}`}
-            disabled={!statusKnown || !workspace?.persistent || !protectedStore || Boolean(busy)}
-            onClick={() => void configure({ enabled: !status?.enabled })}
+            className="companion__switch"
+            disabled={!statusKnown || Boolean(busy)}
+            onClick={() => void configure({ enabled: false })}
           >
-            {busy === "configure" ? "Updating…" : status?.enabled ? "Disable Service" : "Enable Service"}
-          </button>
+            {busy === "configure" ? "Updating…" : "Turn off"}
+          </button>}
         </div>
       </header>
 
       {resourceState.statusError && <div className="integration-resource-notice" role="status"><span><strong>Mobile service status could not be refreshed.</strong> {statusKnown ? `Showing status verified ${refreshAge(resourceState.statusUpdatedAt)}.` : "Controls remain unavailable until Mission Control can verify the service."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
 
-      {/* LAN Security Banner */}
-      <div className="mobile-lan-banner">
-        <div className="mobile-lan-badge">LOCAL AREA NETWORK ONLY</div>
-        <div className="mobile-lan-text">
-          Zero cloud dependencies or remote exposure. End-to-end encrypted with X25519 key exchange, HKDF-SHA256, and AES-256-GCM.
-        </div>
-      </div>
+      <dl className="companion__facts">
+        <div><dt>Paired phones</dt><dd>{knownCount(status?.deviceCount)}</dd><small>{status?.revokedDeviceCount ? `${status.revokedDeviceCount} revoked, kept in the audit trail` : "Credentials held by the OS keychain"}</small></div>
+        <div><dt>Connected now</dt><dd>{knownCount(status?.activeClientCount)}</dd><small>Live updates over your network</small></div>
+        <div className={status?.pendingApprovalCount ? "has-attention" : ""}><dt>Waiting for you</dt><dd>{knownCount(status?.pendingApprovalCount)}</dd><small>Phone requests in Needs You</small></div>
+        <div><dt>Encryption</dt><dd>AES-256-GCM</dd><small>X25519 pairing · no cloud relay</small></div>
+      </dl>
 
-      {/* Security Stat Summary */}
-      <div className="mobile-stats-grid">
-        <div className="mobile-stat-card">
-          <span>TRANSPORT SECURITY</span>
-          <strong>AES-256-GCM</strong>
-          <small>Application-layer authenticated encryption</small>
-        </div>
-        <div className="mobile-stat-card">
-          <span>PAIRED DEVICES</span>
-          <strong>{knownCount(status?.deviceCount)} active · {knownCount(status?.revokedDeviceCount)} revoked</strong>
-          <small>Protected via OS DPAPI/Keychain</small>
-        </div>
-        <div className={`mobile-stat-card ${status?.pendingApprovalCount ? "has-attention" : ""}`}>
-          <span>PENDING REQUESTS</span>
-          <strong>{knownCount(status?.pendingApprovalCount)} waiting</strong>
-          <small>Approval-gated supervisor decisions</small>
-        </div>
-        <div className="mobile-stat-card">
-          <span>ACTIVE SESSIONS</span>
-          <strong>{knownCount(status?.activeClientCount)} connected</strong>
-          <small>Real-time LAN telemetry streams</small>
-        </div>
-      </div>
-
-      {/* Central Pairing Studio Hub */}
       {status?.running ? (
-        <div className="mobile-pairing-hub">
-          <div className="mobile-pairing-hub-header">
-            <div className="pairing-hub-title">
-              <span className="section-kicker">DEVICE PAIRING STUDIO</span>
-              <h4>Connect Your Smartphone</h4>
+        <section className="companion__pair" aria-label="Pair a phone">
+          <header>
+            <div>
+              <h4>Pair a phone</h4>
+              <p>{invitation ? <>Scan the code with the phone's camera, or open the link on it. The code works once and expires in <b className="companion__timer">{formattedTime}</b>.</> : "Create a one-time code to pair a phone."}</p>
             </div>
-            {invitation && (
-              <div className="pairing-timer-badge">
-                <span className="timer-dot" />
-                <span>Code expires in: <b>{formattedTime}</b></span>
-                <button
-                  type="button"
-                  className="btn-refresh-code"
-                  disabled={busy === "invite"}
-                  onClick={() => void invite()}
-                  title="Generate a fresh pairing code"
-                >
-                  {busy === "invite" ? "Generating…" : "Refresh Code"}
-                </button>
+            {invitation && <button type="button" className="companion__ghost" disabled={busy === "invite"} onClick={() => void invite()} title="Replace the code with a new one">
+              {busy === "invite" ? "Creating…" : "New code"}
+            </button>}
+          </header>
+          <div className="companion__pair-body">
+            <div className="companion__qr"><MobileQRCode url={pairingWebUrl} size={164}/></div>
+            <div className="companion__pair-detail">
+              <div className="companion__code">
+                <small>One-time code</small>
+                {invitation
+                  ? <strong aria-label={`Pairing code ${invitation.code.split("").join(" ")}`}>{formattedCode}</strong>
+                  : <button type="button" className="companion__primary" disabled={busy === "invite"} onClick={() => void invite()}>{busy === "invite" ? "Creating…" : "Create pairing code"}</button>}
+                {invitation && <button type="button" className="companion__ghost" onClick={() => void copyText(invitation.code, "code")}>{copiedKey === "code" ? "Copied" : "Copy code"}</button>}
               </div>
-            )}
-          </div>
-
-          <div className="mobile-pairing-grid">
-            {/* Left: Real Standards-Compliant QR Code */}
-            <div className="mobile-qr-section">
-              <div className="mobile-qr-frame">
-                <MobileQRCode url={pairingWebUrl} size={180} />
-                <div className="qr-scan-guide">
-                  <strong>Scan with Phone Camera</strong>
-                  <small>Opens Web Companion instantly with pre-filled code</small>
-                </div>
+              <div className="companion__link">
+                <code title={pairingWebUrl || ""}>{pairingWebUrl || "Waiting for a local address…"}</code>
+                <button type="button" className="companion__ghost" disabled={!pairingWebUrl} onClick={() => void copyText(pairingWebUrl, "url")}>{copiedKey === "url" ? "Copied" : "Copy link"}</button>
               </div>
-
-              {webEndpoints.length > 1 && (
-                <div className="mobile-endpoint-selector">
-                  <label htmlFor="endpoint-select">Network Interface:</label>
-                  <select
-                    id="endpoint-select"
-                    value={activeEndpoint || ""}
-                    onChange={e => setSelectedEndpoint(e.target.value)}
-                  >
-                    {webEndpoints.map(ep => (
-                      <option key={ep} value={ep}>{ep}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Right: One-Time Code & Direct URL Access */}
-            <div className="mobile-code-section">
-              <div className="code-display-card">
-                <div className="code-display-header">
-                  <span>ONE-TIME PAIRING CODE</span>
-                  <small>Kept in the link fragment; never sent to the server</small>
-                </div>
-                <div className="code-display-val">
-                  {invitation ? (
-                    <strong>{invitation.code}</strong>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-create-code"
-                      disabled={busy === "invite"}
-                      onClick={() => void invite()}
-                    >
-                      {busy === "invite" ? "Generating…" : "Generate Pairing Code"}
-                    </button>
-                  )}
-                </div>
-                {invitation && (
-                  <div className="code-actions">
-                    <button
-                      type="button"
-                      className="btn-action"
-                      onClick={() => void copyText(invitation.code, "code")}
-                    >
-                      {copiedKey === "code" ? "✓ Code Copied" : "Copy 6-Digit Code"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-action"
-                      onClick={() => void copyText(pairingWebUrl, "url")}
-                    >
-                      {copiedKey === "url" ? "✓ Link Copied" : "Copy Pairing Link"}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Direct Web Companion Address */}
-              <div className="mobile-direct-link-card">
-                <div className="direct-link-header">
-                  <span>DIRECT WEB COMPANION URL</span>
-                </div>
-                <div className="direct-link-row">
-                  <code>{pairingWebUrl || "Waiting for local address…"}</code>
-                  <button
-                    type="button"
-                    className="btn-copy-chip"
-                    onClick={() => void copyText(pairingWebUrl, "direct")}
-                  >
-                    {copiedKey === "direct" ? "Copied" : "Copy"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Step-by-Step Instructions */}
-              <div className="mobile-steps-list">
-                <div className="step-item">
-                  <span className="step-num">1</span>
-                  <span>Point your phone camera at the QR code (or open the link above).</span>
-                </div>
-                <div className="step-item">
-                  <span className="step-num">2</span>
-                  <span>Confirm the 6-digit code matches the screen.</span>
-                </div>
-                <div className="step-item">
-                  <span className="step-num">3</span>
-                  <span>Tap Authorize on your phone to establish the encrypted link.</span>
-                </div>
-              </div>
+              {webEndpoints.length > 1 && <label className="companion__endpoint">
+                <span>Network</span>
+                <select value={activeEndpoint || ""} onChange={event => setSelectedEndpoint(event.target.value)}>
+                  {webEndpoints.map(endpoint => <option key={endpoint} value={endpoint}>{endpoint}</option>)}
+                </select>
+              </label>}
+              <ol className="companion__steps">
+                <li>Open the link on the phone — it has to be on the same network as this computer.</li>
+                <li>Check the code on the phone matches the one here.</li>
+                <li>Tap Authorize &amp; Connect. The phone keeps an encrypted credential; the code is not reusable.</li>
+              </ol>
             </div>
           </div>
-        </div>
+        </section>
       ) : statusKnown ? (
-        <div className="mobile-disabled-card">
-          <div className="disabled-icon">📱</div>
-          <h4>Mobile Supervision is Currently Disabled</h4>
-          <p>Enable the local companion service above to pair your smartphone or tablet for encrypted telemetry and supervision.</p>
-          <button
+        <div className="companion__off">
+          <div>
+            <strong>{status?.enabled ? "The phone service is starting" : "The phone service is off"}</strong>
+            <p>{blockedReason || "Turn it on to pair a phone. It listens on your local network only, and a phone sees nothing until you pair it."}</p>
+          </div>
+          {!status?.enabled && <button
             type="button"
-            className="btn-enable-hero"
+            className="companion__primary"
             disabled={!workspace?.persistent || !protectedStore || Boolean(busy)}
             onClick={() => void configure({ enabled: true })}
           >
-            {busy === "configure" ? "Enabling…" : "Enable Mobile Companion"}
-          </button>
+            {busy === "configure" ? "Turning on…" : "Turn on"}
+          </button>}
         </div>
-      ) : <div className="mobile-disabled-card" aria-busy={resourceState.loading ? "true" : undefined}><h4>{resourceState.loading ? "Checking Mobile Companion…" : "Mobile Companion unavailable"}</h4><p>{resourceState.loading ? "Mission Control is verifying local service and secure-storage availability." : "Retry the status request before enabling or configuring mobile supervision."}</p></div>}
+      ) : <div className="companion__off" aria-busy={resourceState.loading ? "true" : undefined}><div><strong>{resourceState.loading ? "Checking Mobile Companion…" : "Mobile Companion unavailable"}</strong><p>{resourceState.loading ? "Mission Control is verifying local service and secure-storage availability." : "Retry the status request before enabling or configuring mobile supervision."}</p></div></div>}
 
-      {/* Permissions Matrix */}
-      <div className="mobile-permissions-section">
-        <span className="section-kicker">DEVICE PERMISSIONS</span>
-        <div className="mobile-permissions-grid">
+      <section className="companion__section" aria-label="What paired phones can do">
+        <header>
+          <h4>What paired phones can do</h4>
+          <p>{grantedCount} of {SCOPE_OPTIONS.length} allowed. Turning one off applies to every phone at once; turning one on applies to phones paired after that.</p>
+        </header>
+        <div className="companion__rows">
           {SCOPE_OPTIONS.map(([id, label, detail]) => (
-            <label key={id} className="permission-toggle-card">
-              <div className="permission-info">
-                <strong>{label}</strong>
-                <p>{detail}</p>
-              </div>
-              <div className="pm-toggle">
+            <label key={id} className="companion__row">
+              <span><strong>{label}</strong><small>{detail}</small></span>
+              <span className="pm-toggle">
                 <input
                   type="checkbox"
                   checked={(status?.scopes || []).includes(id)}
                   disabled={!protectedStore || Boolean(busy)}
                   onChange={() => toggleScope(id)}
                 />
-                <div className="pm-toggle-track">
-                  <div className="pm-toggle-thumb" />
-                </div>
-              </div>
+                <i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i>
+              </span>
             </label>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Paired Devices List */}
       {resourceState.devicesError && <div className="integration-resource-notice" role="status"><span><strong>Paired devices could not be refreshed.</strong> {resourceState.devicesUpdatedAt ? `Showing devices verified ${refreshAge(resourceState.devicesUpdatedAt)}.` : "No devices are shown because the device registry is unavailable."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
-      {resourceState.devicesUpdatedAt && !resourceState.devicesError && devices.length === 0 && <p className="integration-resource-empty">No mobile devices paired.</p>}
-      {devices.length > 0 && (
-        <div className="mobile-devices-section">
-          <header className="mobile-devices-header">
-            <div>
-              <span className="section-kicker">TRUSTED DEVICES</span>
-              <h4>Paired Mobile Clients ({devices.length})</h4>
-            </div>
-            <small>Revocation invalidates device credentials immediately</small>
-          </header>
-          <div className="mobile-devices-list">
-            {devices.map(device => (
-              <article key={device.id} className={`device-card ${device.state === "revoked" ? "is-revoked" : ""}`}>
-                <div className="device-avatar">
-                  {device.name.includes("iPhone") || device.name.includes("iOS") ? "📱" : device.name.includes("Android") ? "🤖" : "💻"}
-                </div>
-                <div className="device-details">
-                  <strong>{device.name}</strong>
-                  <small>
-                    {device.state === "revoked"
-                      ? "Revoked"
-                      : `${timeLabel(device.lastSeenAt)} · ${device.scopes?.length || 0} permissions`}
-                  </small>
-                </div>
-                <span className={`device-status-badge ${device.state === "revoked" ? "is-revoked" : "is-active"}`}>
-                  {device.state}
-                </span>
-                {device.state !== "revoked" && (
-                  <button
-                    type="button"
-                    className="btn-revoke"
-                    disabled={Boolean(busy) || !onConfirm}
-                    onClick={() => onConfirm?.({ title: `Revoke ${device.name}?`, detail: "This device loses access to Mobile Companion immediately.", recovery: "Pair the device again with a new one-time code to restore access.", confirmLabel: "Revoke device", run: () => revoke(device) })}
-                  >
-                    {busy === device.id ? "Revoking…" : "Revoke"}
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
+      <section className="companion__section" aria-label="Paired phones">
+        <header>
+          <h4>Paired phones</h4>
+          <p>Revoking a phone ends its access at once and removes it from this list.</p>
+        </header>
+        {resourceState.devicesUpdatedAt && !resourceState.devicesError && devices.length === 0 && <p className="integration-resource-empty">No mobile devices paired.</p>}
+        {/* A revoked device is removed from the register rather than kept in it
+            wearing a badge that says it is gone. The revocation itself stays in
+            the audit trail, where a security event can be read back with a time. */}
+        {devices.length > 0 && <ul className="companion__devices">
+          {devices.map(device => (
+            <li key={device.id}>
+              <span className="companion__device-icon" aria-hidden="true"><PhoneGlyph/></span>
+              <div>
+                <strong>{device.name}</strong>
+                <small>{`${timeLabel(device.lastSeenAt)} · ${device.scopes?.length || 0} permissions`}{device.scopes?.includes("assistant.ask") ? " · can ask Mission AI" : ""}</small>
+              </div>
+              <button
+                type="button"
+                className="companion__revoke"
+                disabled={Boolean(busy) || !onConfirm}
+                onClick={() => onConfirm?.({ title: `Revoke ${device.name}?`, detail: "This device loses access to Mobile Companion immediately and is removed from this list.", recovery: "Pair the device again with a new one-time code to restore access. The revocation stays in the audit trail.", confirmLabel: "Revoke device", run: () => revoke(device) })}
+              >
+                {busy === device.id ? "Revoking…" : "Revoke"}
+              </button>
+            </li>
+          ))}
+        </ul>}
+      </section>
 
-      {/* Status / Error Toast Message */}
-      {message && (
-        <div className={`mobile-status-toast ${status?.lastError ? "is-error" : ""}`} role="status">
-          {message}
-        </div>
-      )}
+      {message && <p className={`companion__message ${status?.lastError ? "is-error" : ""}`} role="status">{message}</p>}
     </section>
   );
+}
+
+function PhoneGlyph() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M11 17.5h2"/></svg>;
 }
 
 // Mobile paired-device approvals render only through the unified decision model

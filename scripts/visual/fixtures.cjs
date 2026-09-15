@@ -104,8 +104,10 @@ const FIXTURES = {
       { id: "att-2", sessionId: "tests", groupKey: "test-failure", state: "seen", severity: "warning", createdAt: now - 11 * MINUTE },
       { id: "att-3", sessionId: "api", groupKey: "exit-nonzero", state: "recovered", severity: "info", createdAt: now - 60 * MINUTE }
     ],
-    preferences: { minimumSeverity: "info", desktopNotifications: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } }
+    preferences: { minimumSeverity: "info", desktopNotifications: true, sound: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } }
   }),
+  "notification.status": () => ({ available: true, running: true, delivered: 3, suppressed: 1, lastDeliveryAt: now - MINUTE, lastSuppressedReason: "app-focused", lastError: null }),
+  "notification.test": () => ({ ok: true, delivered: true, at: now }),
   "attention.transition": () => ({ ok: true }),
   "attention.preferences.save": () => ({ ok: true }),
   // MC_FIXTURE_DECISIONS=degraded makes MCP fail to load and Mobile unavailable so
@@ -148,7 +150,8 @@ const FIXTURES = {
         { workerId: "web", dependsOn: ["api"] },
         { workerId: "tests", dependsOn: ["api", "web"] }
       ],
-      run: { phase: "completed", startedAt: now - 3 * 3600000, finishedAt: now - 3 * 3600000 + 9000 }
+      run: { phase: "completed", startedAt: now - 3 * 3600000, finishedAt: now - 3 * 3600000 + 9000 },
+      runHistory: [{ runId: "run-1", phase: "completed", startedAt: now - 3 * 3600000, finishedAt: now - 3 * 3600000 + 9000, durationMs: 9000, completed: ["api", "web"], failures: [] }]
     },
     {
       id: "r-review",
@@ -193,11 +196,19 @@ const FIXTURES = {
   "automation.approval.list": () => ([]),
   "automation.list": () => ({ approvals: [], workflows: [{ id: "w1", name: "Nightly integration run", enabled: true, trigger: "schedule", lastRunAt: now - 8 * 3600000 }] }),
   "mobile.approval.list": () => ([]),
-  "mobile.status": () => ({ enabled: false, devices: 0 }),
-  "mobile.device.list": () => ([]),
+  // MOBILE_RUNNING=1 photographs the pairing state instead of the switched-off one.
+  "mobile.status": () => process.env.MOBILE_RUNNING
+    ? { enabled: true, running: true, available: true, port: 37422, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "assistant.ask"], endpoints: ["http://192.168.1.50:37422"], deviceCount: 2, revokedDeviceCount: 1, activeClientCount: 1, pendingApprovalCount: 1, activeInvitation: { pairingId: "pair-1", code: "482913", expiresAt: Date.now() + 272000 } }
+    : { enabled: false, running: false, available: true, scopes: ["summary.read", "workers.read", "needs.read", "memory.read"], deviceCount: 0, revokedDeviceCount: 0, activeClientCount: 0, pendingApprovalCount: 0 },
+  "mobile.device.list": () => process.env.MOBILE_RUNNING
+    ? [{ id: "mobile-1", name: "Pixel 9", lastSeenAt: Date.now() - 120000, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "assistant.ask"], state: "active" }, { id: "mobile-2", name: "iPad", lastSeenAt: Date.now() - 7200000, scopes: ["summary.read", "workers.read"], state: "active" }]
+    : [],
   "plugin.approval.list": () => ([]),
   "plugin.status": () => ({ enabled: true, installed: 2 }),
-  "plugin.list": () => ([{ id: "p1", name: "Jira links", version: "1.2.0", enabled: true }, { id: "p2", name: "Slack notify", version: "0.9.1", enabled: false }]),
+  "plugin.list": () => ([
+    { enabled: true, source: "import", installedAt: Date.now() - 86400000, grantedPermissions: ["context.read"], manifest: { id: "jira-links", name: "Jira links", publisher: "acme", version: "1.2.0", description: "Links terminal output that mentions a ticket to its Jira issue.", surfaces: ["workspace"], actions: [], permissions: ["context.read"], contributions: [] } },
+    { enabled: false, source: "import", installedAt: Date.now() - 3 * 86400000, grantedPermissions: [], manifest: { id: "slack-notify", name: "Slack notify", publisher: "acme", version: "0.9.1", description: "Posts a message when a worker fails.", surfaces: [], actions: [], permissions: ["context.read"], contributions: [] } }
+  ]),
   "plugin.audit.list": () => ([]),
   // MC_FIXTURE_VSCODE=connected renders the bridge in its live state so the
   // terminal-control half of the panel can be reviewed too.
@@ -220,8 +231,23 @@ const FIXTURES = {
     { id: "mission-1", title: "Refactor authentication", state: "running", agentId: "agent-claude", steps: 6, completedSteps: 3, updatedAt: now - 2 * MINUTE },
     { id: "mission-2", title: "Review billing migration", state: "blocked", agentId: "agent-codex", steps: 4, completedSteps: 1, updatedAt: now - 19 * MINUTE }
   ]),
-  "projects.list": () => ([{ name: "acme-console", path: "D:/work/acme-console", lastOpenedAt: now - MINUTE }])
+  // Real shape from projectCoordinator.list(): a wrapper with registryError plus
+  // rich per-project inspection records. The bare array the harness used before
+  // rendered a switcher with no status, which hid the row layout defect.
+  "projects.list": () => ({
+    registryError: null,
+    projects: [
+      { id: "p-first", name: "first", rootPath: "D:\\first", configPath: "D:\\first\\termctl.config.json", status: "ready", current: true, error: null, lastOpenedAt: now - 45 * MINUTE },
+      { id: "p-v1", name: "Visual acceptance", rootPath: "C:\\Users\\Satish kumar\\AppData\\Local\\Temp\\mission-control-visual-xhkMBr", configPath: "x", status: "missing", current: false, error: "project folder is missing", lastOpenedAt: now - 3 * MINUTE },
+      { id: "p-v2", name: "Visual acceptance", rootPath: "C:\\Users\\Satish kumar\\AppData\\Local\\Temp\\mission-control-visual-WpoibM", configPath: "y", status: "missing", current: false, error: "project folder is missing", lastOpenedAt: now - 9 * MINUTE },
+      { id: "p-api", name: "acme-console", rootPath: "D:\\work\\acme-console", configPath: "z", status: "warning", current: false, error: null, lastOpenedAt: now - MINUTE },
+      { id: "p-new", name: "payments-service", rootPath: "D:\\work\\payments-service", configPath: "w", status: "uninitialized", current: false, error: null, lastOpenedAt: null }
+    ]
+  }),
+  "project.removeRecent": () => ({ removed: true })
 };
+
+Object.assign(FIXTURES, require("./aiFixtures.cjs")({ now, MINUTE }));
 
 function handle(method, params) {
   if (method === "state.get") {

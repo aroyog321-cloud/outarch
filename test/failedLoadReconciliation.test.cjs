@@ -31,10 +31,11 @@ test("Mission AI and VS Code do not turn an unknown or stale status into a healt
   const app = read("src/groundstation/renderer/App.jsx");
   const missionAi = read("src/groundstation/renderer/MissionAI.jsx");
 
-  assert.match(missionAi, /!status && resourceState\.loading[\s\S]*Checking status/);
-  assert.match(missionAi, /!status && resourceState\.error[\s\S]*Status unavailable/);
-  assert.match(missionAi, /Configuration is unknown, so Mission Control will not claim it is disabled or ready/);
-  assert.match(missionAi, /const statusActionable = Boolean\(status\) && !resourceState\.error/);
+  // Mission AI became a status panel on 2026-09-12. An unread status is still
+  // neither "ready" nor "needs a model": it says it does not know.
+  assert.match(missionAi, /!status \? \(error \? "Status unavailable" : "Checking…"\)/);
+  assert.match(missionAi, /"Unknown - status could not be read"/);
+  assert.match(missionAi, /Mission AI status could not be read\./);
 
   assert.match(app, /!statusKnown && resourceState\.loading \? "Checking status"/);
   assert.match(app, /!statusKnown && resourceState\.error \? "Status unavailable"/);

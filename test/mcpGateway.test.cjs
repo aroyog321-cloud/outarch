@@ -164,3 +164,45 @@ test("Secure MCP HTTP transport binds locally, authenticates, validates Origin, 
   assert.match(getDiscovery.body, /Mission Control Secure MCP Gateway/);
   assert.match(getDiscovery.body, /claude_desktop_config\.json/);
 });
+
+test("SecureMcpGateway getToken retrieves configured credentials and installClient auto-configures clients", async t => {
+  const fsMap = new Map();
+  const mockFs = {
+    existsSync: p => fsMap.has(p),
+    readFileSync: p => fsMap.get(p) || "{}",
+    writeFileSync: (p, content) => fsMap.set(p, content),
+    mkdirSync: () => {}
+  };
+  const mockOs = {
+    homedir: () => "/mock/home"
+  };
+
+  const { gateway, store } = fixture(["context.read"]);
+  gateway.fs = mockFs;
+  gateway.os = mockOs;
+  t.after(() => gateway.dispose());
+
+  const tokenInfo = gateway.getToken();
+  assert.equal(tokenInfo.configured, true);
+  assert.equal(tokenInfo.token, store.token());
+  assert.equal(tokenInfo.authorization, `Bearer ${store.token()}`);
+
+  const claudeCodeResult = gateway.installClient({ target: "claude-code" });
+  assert.equal(claudeCodeResult.ok, true);
+  assert.match(claudeCodeResult.message, /Claude Code/);
+  const claudeCodeJson = JSON.parse(fsMap.get(claudeCodeResult.filePath));
+  assert.ok(claudeCodeJson.mcpServers["mission-control"]);
+  assert.equal(claudeCodeJson.mcpServers["mission-control"].command, "npx");
+
+  const claudeDesktopResult = gateway.installClient({ target: "claude-desktop" });
+  assert.equal(claudeDesktopResult.ok, true);
+  assert.match(claudeDesktopResult.message, /Claude Desktop/);
+
+  const cursorResult = gateway.installClient({ target: "cursor", workspacePath: "/mock/workspace" });
+  assert.equal(cursorResult.ok, true);
+  assert.match(cursorResult.message, /Cursor/);
+  const cursorJson = JSON.parse(fsMap.get(cursorResult.filePath));
+  assert.equal(cursorJson.mcpServers["mission-control"].type, "http");
+  assert.equal(cursorJson.mcpServers["mission-control"].headers.Authorization, `Bearer ${store.token()}`);
+});
+

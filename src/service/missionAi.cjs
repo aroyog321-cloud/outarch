@@ -70,6 +70,41 @@ function responseText(value) {
   return text.slice(0, MAX_MISSION_AI_ANSWER_LENGTH);
 }
 
+// Gemini reports prompt tokens inclusive of any cached prefix. Counting the
+// cached tokens in both buckets would bill them twice, so the cached portion is
+// subtracted out and the two categories are recorded as disjoint.
+function geminiUsageRecord({ model, slot, outcome, httpStatus, latencyMs, at, usageMetadata }) {
+  const reported = usageMetadata && typeof usageMetadata === "object" ? usageMetadata : null;
+  const readCount = field => {
+    const value = Number(reported?.[field]);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  };
+  const promptTokens = readCount("promptTokenCount");
+  const cachedTokens = readCount("cachedContentTokenCount") ?? 0;
+  const hasCounts = reported !== null && promptTokens !== null;
+
+  return {
+    provider: "gemini",
+    model: model || null,
+    source: "api",
+    at,
+    outcome,
+    httpStatus,
+    latencyMs: Number.isFinite(latencyMs) ? latencyMs : null,
+    keySlot: slot,
+    tokens: {
+      input: hasCounts ? Math.max(0, promptTokens - cachedTokens) : null,
+      output: readCount("candidatesTokenCount"),
+      cacheRead: hasCounts ? cachedTokens : null,
+      cacheWrite: null,
+      reasoning: readCount("thoughtsTokenCount")
+    },
+    countSemantics: hasCounts ? "disjoint" : "unknown",
+    // An attempt with no reported counts is unknown coverage, never zero usage.
+    coverage: hasCounts ? "complete" : "unknown"
+  };
+}
+
 function safeApiError(value, status) {
   const source = value?.error?.message || value?.message || `Gemini request failed with status ${status}`;
   return redactText(String(source), { maxLength: 300 }).value;
@@ -168,6 +203,26 @@ class MissionAIService {
     // the answer, the model input and the API key must never reach this ring,
     // so nothing recorded below is derived from any of them.
     this.audit = [];
+    // Usage observers receive one record per real network attempt, including
+    // retries and key fallbacks. Counts and identifiers only: no prompt, answer
+    // or key ever reaches this channel, exactly like the audit ring above.
+    this.usageObservers = new Set();
+  }
+
+  onUsage(observer) {
+    if (typeof observer !== "function") return () => {};
+    this.usageObservers.add(observer);
+    return () => this.usageObservers.delete(observer);
+  }
+
+  #publishUsage(record) {
+    for (const observer of this.usageObservers) {
+      try {
+        observer(record);
+      } catch {
+        // A failing usage observer must not break an answer that succeeded.
+      }
+    }
   }
 
   record(kind, outcome, detail = {}) {
@@ -246,6 +301,7 @@ class MissionAIService {
         continue;
       }
 
+      const attemptStartedAt = this.now();
       const url = `${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`;
       const body = JSON.stringify({
         contents: [{ role: "user", parts: [{ text: input }] }],
@@ -279,6 +335,17 @@ class MissionAIService {
 
         if (!response.ok) {
           const errMsg = safeApiError(data, response.status);
+          // A rejected attempt still happened. Its token counts are unknown,
+          // which is not the same as zero.
+          this.#publishUsage(geminiUsageRecord({
+            model,
+            slot,
+            outcome: "failed",
+            httpStatus: response.status,
+            latencyMs: this.now() - attemptStartedAt,
+            at: this.now(),
+            usageMetadata: data?.usageMetadata
+          }));
           const isQuotaOrKeyError = response.status === 429 || response.status === 403 || response.status === 400 || /RESOURCE_EXHAUSTED|API_KEY_INVALID|quota|key/i.test(errMsg);
           if (isQuotaOrKeyError && slot === "primary" && order.includes("secondary")) {
             this.keyState.primary = response.status === 429 ? "exhausted" : "rejected";
@@ -290,8 +357,30 @@ class MissionAIService {
 
         this.keyState[slot] = "ok";
         this.keyState.activeSlot = slot;
+        // The response was paid for the moment it returned 200, so usage is
+        // recorded here rather than after decoding — a malformed answer still
+        // cost tokens.
+        this.#publishUsage(geminiUsageRecord({
+          model,
+          slot,
+          outcome: "success",
+          httpStatus: response.status,
+          latencyMs: this.now() - attemptStartedAt,
+          at: this.now(),
+          usageMetadata: data?.usageMetadata
+        }));
         return { data, slot };
       } catch (error) {
+        // A transport failure or timeout leaves usage genuinely unknown.
+        this.#publishUsage(geminiUsageRecord({
+          model,
+          slot,
+          outcome: error?.name === "AbortError" ? "cancelled" : "failed",
+          httpStatus: null,
+          latencyMs: this.now() - attemptStartedAt,
+          at: this.now(),
+          usageMetadata: null
+        }));
         if (error?.name === "AbortError") throw error;
         lastError = error;
         if (slot === "primary" && order.includes("secondary")) {

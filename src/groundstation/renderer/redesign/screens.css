@@ -1063,10 +1063,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 22px;
-  min-height: 62px;
+  gap: 20px;
+  min-height: 78px;
   margin: 0 -26px 18px;
-  padding: 11px 26px;
+  padding: 13px 26px;
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--mc-surface) 90%, transparent),
     color-mix(in srgb, var(--mc-surface) 78%, transparent));
@@ -1089,14 +1089,18 @@
 #root#root .shell .mc-gs-identity > div { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 #root#root .shell .mc-gs-identity strong {
   display: block; overflow: hidden;
-  font-size: 16px; font-weight: 700; line-height: 1.25; letter-spacing: -.02em;
+  font-size: 17.5px; font-weight: 700; line-height: 1.25; letter-spacing: -.022em;
   color: var(--mc-text);
   text-overflow: ellipsis; white-space: nowrap;
 }
-#root#root .shell .mc-gs-identity span {
+/* The status line is the span inside the name block. Written as any span in
+   the identity, it also caught the health light - itself a span - and at a
+   higher weight than the light's own rule: the light became a plain block, the
+   core inside it collapsed to nothing, and all that rendered was the halo. */
+#root#root .shell .mc-gs-identity > div > span {
   display: block; overflow: hidden;
-  margin-top: 3px;
-  color: var(--mc-text-muted); font-size: 12px; line-height: 1.4;
+  margin-top: 4px;
+  color: var(--mc-text-muted); font-size: 12.5px; line-height: 1.4;
   text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -1104,13 +1108,13 @@
 #root#root .shell .mc-gs-health {
   display: grid; place-items: center;
   flex: 0 0 auto;
-  width: 28px; height: 28px;
+  width: 34px; height: 34px;
   background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--mc-ok) 22%, transparent), transparent 70%);
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--mc-ok) 25%, transparent);
 }
 #root#root .shell .mc-gs-health i {
-  width: 8px; height: 8px;
+  width: 9px; height: 9px;
   background: var(--mc-ok);
   border-radius: 50%;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-ok) 25%, transparent), 0 0 14px 2px var(--mc-ok);
@@ -1136,17 +1140,22 @@
 #root#root .shell .mc-gs-statusbar.tone-neutral .mc-gs-health { background: none; border-color: var(--mc-border); }
 #root#root .shell .mc-gs-statusbar.tone-neutral .mc-gs-health i { background: var(--mc-text-dim); box-shadow: none; }
 
-/* Counts read as one instrument cluster: a single inset well, hairline
-   dividers between readings, no button chrome until you point at one. */
+/* Counts read as one instrument cluster: a shallow well holding four separate
+   readings. Each reading used to be chrome-free until hovered, separated only
+   by a one-pixel line drawn between neighbours, so Running and Idle had no
+   edge of their own and the four numbers ran together as a single smear. Each
+   now carries its own surface and border at rest, which is what makes it
+   legible as a discrete, pressable reading; the drawn separators are gone
+   because real edges replace them. */
 #root#root .shell .mc-gs-counts {
   display: flex;
   align-items: stretch;
-  gap: 2px;
-  padding: 3px;
+  gap: 5px;
+  padding: 5px;
   background: color-mix(in srgb, var(--mc-surface) 88%, transparent) !important;
   color: var(--mc-text) !important;
-  border: 1px solid var(--mc-border);
-  border-radius: var(--mc-radius-sm);
+  border: 1px solid var(--mc-hairline);
+  border-radius: var(--mc-radius-md);
   box-shadow: inset 0 1px 2px color-mix(in srgb, var(--mc-void) 70%, transparent);
 }
 #root#root .shell .mc-gs-counts button {
@@ -1155,44 +1164,40 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-width: 66px;
-  padding: 5px 12px;
+  gap: 3px;
+  min-width: 86px;
+  min-height: 50px;
+  padding: 7px 14px;
   color: var(--mc-text-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--mc-radius-xs);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
   text-align: center;
   cursor: pointer;
   transition: all var(--mc-motion-fast);
 }
-#root#root .shell .mc-gs-counts button + button::before {
-  content: "";
-  position: absolute;
-  inset: 6px auto 6px 0;
-  width: 1px;
-  background: var(--mc-border);
-}
 #root#root .shell .mc-gs-counts button:hover {
   color: var(--mc-text);
-  background: color-mix(in srgb, var(--mc-text) 6%, transparent);
-  border-color: color-mix(in srgb, var(--mc-border) 60%, transparent);
+  background: color-mix(in srgb, var(--mc-text) 8%, var(--mc-surface-3));
+  border-color: var(--mc-border-strong);
+  transform: translateY(-1px);
 }
+/* An engaged filter is a state of the manifest below, so it is stated in the
+   interaction accent rather than by another shade of grey. */
 #root#root .shell .mc-gs-counts button.is-active {
   color: var(--mc-text);
-  background: color-mix(in srgb, var(--mc-surface-2) 90%, transparent);
-  border-color: var(--mc-border-strong);
+  background: var(--mc-accent-soft);
+  border-color: var(--mc-accent-line);
   box-shadow: var(--mc-raise-1);
 }
-#root#root .shell .mc-gs-counts button.is-active + button::before,
-#root#root .shell .mc-gs-counts button:hover + button::before { opacity: 0; }
+#root#root .shell .mc-gs-counts button.is-active span { color: var(--mc-accent-strong); }
 #root#root .shell .mc-gs-counts b {
   color: var(--mc-text);
-  font-size: 15px; font-weight: 700; line-height: 1.05;
-  letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  font-size: 19px; font-weight: 700; line-height: 1.05;
+  letter-spacing: -.025em; font-variant-numeric: tabular-nums;
 }
-#root#root .shell .mc-gs-counts b small { color: var(--mc-text-dim); font-size: 10.5px; font-weight: 500; letter-spacing: 0; }
-#root#root .shell .mc-gs-counts span { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-text-muted); }
+#root#root .shell .mc-gs-counts b small { color: var(--mc-text-dim); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+#root#root .shell .mc-gs-counts span { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-text-muted); }
 #root#root .shell .mc-gs-counts button:first-child b { color: var(--mc-ok); }
 #root#root .shell .mc-gs-counts button:nth-child(3) b { color: var(--mc-ai-strong); }
 #root#root .shell .mc-gs-counts .mc-gs-needs.has-attention b { color: var(--mc-warning); }
@@ -1203,14 +1208,14 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 32px;
-  padding: 0 13px;
+  min-height: 36px;
+  padding: 0 15px;
   color: var(--mc-text-soft);
   background: var(--mc-surface-2);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
   box-shadow: var(--mc-raise-1);
-  font-size: 12px; font-weight: 550;
+  font-size: 12.5px; font-weight: 550;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1351,97 +1356,10 @@
 }
 #root#root .shell .mc-gs-attention > footer button:hover { color: var(--mc-text); }
 
-/* T104 — the clear state: a slim, modern nominal status waterline. Replaces the oversized box with an elegant ~42px waterline. */
-#root#root .shell .mc-gs-attention.is-clear {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 42px;
-  padding: 8px 18px;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--mc-ok) 9%, transparent) 0%,
-    color-mix(in srgb, var(--mc-surface) 75%, transparent) 40%,
-    color-mix(in srgb, var(--mc-surface) 65%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--mc-ok) 25%, var(--mc-border));
-  border-left: 3px solid var(--mc-ok);
-  border-radius: var(--mc-radius-md);
-  backdrop-filter: blur(16px);
-  box-shadow: var(--mc-raise-1);
-}
-#root#root .shell .mc-gs-attention.is-clear > header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 0 0 auto;
-  margin: 0;
-}
-#root#root .shell .mc-gs-attention.is-clear .mc-gs-nominal-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--mc-ok) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--mc-ok) 35%, transparent);
-  color: var(--mc-ok);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  box-shadow: 0 0 10px -2px color-mix(in srgb, var(--mc-ok) 30%, transparent);
-}
-#root#root .shell .mc-gs-attention.is-clear .mc-gs-nominal-pill svg {
-  color: var(--mc-ok);
-}
-/* In the clear state, the kicker must NOT be warning amber! It is calm and muted. */
-#root#root .shell .mc-gs-attention.is-clear > header .mc-gs-kicker {
-  color: color-mix(in srgb, var(--mc-ok) 70%, var(--mc-text-dim));
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .06em;
-}
-#root#root .shell .mc-gs-attention.is-clear > .mc-gs-attention__next {
-  margin: 0;
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--mc-text-soft);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#root#root .shell .mc-gs-attention.is-clear > footer {
-  margin: 0 0 0 auto;
-  flex: 0 0 auto;
-}
-#root#root .shell .mc-gs-attention.is-clear > footer button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 3px 12px;
-  color: var(--mc-accent);
-  background: color-mix(in srgb, var(--mc-accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--mc-accent) 28%, transparent);
-  border-radius: var(--mc-radius-xs);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-#root#root .shell .mc-gs-attention.is-clear > footer button::after {
-  content: " →";
-  font-size: 11px;
-}
-#root#root .shell .mc-gs-attention.is-clear > footer button:hover {
-  color: var(--mc-text-ink);
-  background: var(--mc-accent);
-  border-color: var(--mc-accent);
-  box-shadow: var(--mc-raise-2);
-}
+/* T104 — the clear state was removed on 2026-09-12 along with the band it
+   styled. The status tape already reports health and the needs-you count, so a
+   second surface saying the same thing in a full-width accent slab was the
+   loudest element on a page whose subject is what needs attention. */
 
 /* ------------------------------------------------- manifest + toolbar */
 
@@ -2930,6 +2848,14 @@
   white-space: nowrap;
 }
 
+/* The scope note and the preview of what a reset would change are two
+   sentences from two elements. Nothing separated them, so they ran together
+   into one unreadable line. */
+#root#root .shell .settings-reset-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 #root#root .shell .settings-reset-preview {
   font-size: 12px;
 }
@@ -3673,3 +3599,166 @@
   }
 }
 
+
+
+/* ==================================== Recipe Creator repairs, 2026-09-10 pass
+
+   1. The action bar is sticky at the foot of the scrolling form, but the
+      scroll area kept its own bottom padding, so the bar parked a little above
+      the true bottom of the scrollport and a worker row stayed visible in the
+      strip beneath it. Its background was translucent as well, so the rows it
+      covered ghosted through. The bar now sits flush, spans the dialog edge to
+      edge, and is opaque, with a soft lift so content reads as passing under.
+
+   2. Save stretched to fill the bar while Cancel stayed small, so the pair read
+      as one enormous button with a scrap beside it. Both are sized by their
+      content now, with Save holding a comfortable minimum.
+
+   3. The two AI shortcuts were the loudest things in the dialog - solid fills
+      against a form whose real primary action is Save. They keep the AI badge
+      but drop to an outline, so the eye lands on the work first.
+
+   4. Portalled dialogs force a floor under every small element, which left the
+      start-mode captions rendering larger than the labels above them. The
+      labels lead the scale again rather than the captions. */
+
+.recipes-dialog.recipes-dialog-v2 {
+  height: min(90vh, 880px);
+  max-height: min(90vh, 880px);
+}
+.recipes-dialog.recipes-dialog-v2 > header {
+  gap: 14px;
+  padding: 15px 22px 12px;
+}
+.recipes-dialog.recipes-dialog-v2 > header > div:first-child {
+  min-width: 0;
+}
+.recipes-dialog.recipes-dialog-v2 .recipes-content {
+  padding-bottom: 0;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-builder {
+  gap: 12px;
+}
+
+.recipes-dialog.recipes-dialog-v2 .recipe-builder__actions {
+  margin-top: 4px;
+  margin-inline: -22px;
+  /* Sub-pixel rounding of the dialog height left a two-pixel seam under the bar
+     through which the next row showed. Overshooting the bottom edge closes it;
+     the overflow of the scroll area clips whatever hangs past. */
+  bottom: -2px;
+  padding: 12px 22px 18px;
+  gap: 8px;
+  background: var(--mc-surface-2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 -12px 20px -14px var(--mc-void);
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-builder__actions > button {
+  flex: 0 0 auto;
+}
+/* A legacy rule sizes this button to the full width of its form, which is why
+   it filled the bar and pushed Cancel off the left edge. */
+.recipes-dialog.recipes-dialog-v2 .recipe-save {
+  width: auto;
+  min-width: 156px;
+  margin-top: 0;
+  justify-content: center;
+}
+
+.recipes-dialog.recipes-dialog-v2 :is(.recipe-ai-help, .recipe-ai-design) {
+  min-height: 28px;
+  padding: 0 10px;
+  color: var(--mc-text-muted);
+  background: transparent;
+  border-color: var(--mc-border);
+  font-size: 11px;
+  font-weight: 550;
+}
+.recipes-dialog.recipes-dialog-v2 :is(.recipe-ai-help, .recipe-ai-design):hover {
+  color: var(--mc-text);
+  background: var(--mc-surface-3);
+  border-color: var(--mc-border-strong);
+}
+.recipes-dialog.recipes-dialog-v2 :is(.recipe-ai-help, .recipe-ai-design) > span:first-child {
+  width: 15px;
+  height: 15px;
+  color: var(--mc-ai-strong);
+  background: color-mix(in srgb, var(--mc-ai) 20%, transparent);
+  font-size: 8px;
+}
+
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button {
+  min-height: 60px;
+  padding: 10px 11px;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button small {
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button.is-current small {
+  color: var(--mc-text-dim);
+}
+
+/* The title carried heavy negative tracking at a size set for the old wide
+   dialog, which reads loose beside the 11-13px scale of the form under it.
+   The two AI shortcuts each sat at the top of a three-line block, leaving a
+   hole down the right of the header and the intro; centring them against the
+   text they belong to turns that gap into deliberate margin. */
+.recipes-dialog.recipes-dialog-v2 > header h2 {
+  margin: 3px 0 4px;
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -.02em;
+}
+.recipes-dialog.recipes-dialog-v2 > header .recipe-header-actions {
+  align-self: flex-start;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-builder__intro {
+  align-items: center;
+}
+
+/* Only the simple worker list named an accent for its checkboxes, so the ones
+   in the advanced editor fell back to whatever accent the operating system
+   hands the browser - which is why they painted a different colour from every
+   other control in the dialog, and a different one again on another machine.
+   Every checkbox in the builder now states the product accent. */
+.recipes-dialog.recipes-dialog-v2 input[type="checkbox"] {
+  accent-color: var(--mc-accent);
+}
+
+/* The advanced toggle stacks a label over a caption, but nothing made its
+   wrapper a column, so the two ran together into one sentence with no break:
+   "Hide advanced controlsReadiness checks...". */
+.recipes-dialog.recipes-dialog-v2 .recipe-advanced-toggle > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-advanced-toggle strong {
+  color: var(--mc-text);
+  font-size: 13px;
+  font-weight: 620;
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-advanced-toggle small {
+  color: var(--mc-text-dim);
+  line-height: 1.35;
+}
+
+/* The policy grid styles every span inside it as a micro label, and the value
+   a select renders is a span too - so the chosen setting came out shouting in
+   spaced capitals next to the capitals of its own label. Only the label is a
+   label; the value reads as a value again. */
+.recipes-dialog.recipes-dialog-v2 .recipe-policy-grid .recipe-select span {
+  color: var(--mc-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}

@@ -15,9 +15,12 @@ const TERMINAL_THEMES = {
   // ANSI has sixteen slots and a program picks whichever it likes, so the
   // bright half is stated too: leaving it to xterm's defaults let a `FAIL`
   // line paint its own red next to the palette's.
-  orbital: { background: "#000000", foreground: "#fafafa", cursor: "#0070f3", cursorAccent: "#000000", selectionBackground: "#1f3a5f", black: "#171717", red: "#ff5f5f", green: "#32d583", yellow: "#f5b942", blue: "#3291ff", magenta: "#6cb2ff", cyan: "#32d583", white: "#fafafa", brightBlack: "#a1a1a1", brightRed: "#ff8a8a", brightGreen: "#5ce8a3", brightYellow: "#ffcf5c", brightBlue: "#6cb2ff", brightMagenta: "#8cc6ff", brightCyan: "#5ce8a3", brightWhite: "#ffffff" },
-  solar: { background: "#f7f5ed", foreground: "#27352d", cursor: "#347849", cursorAccent: "#f7f5ed", selectionBackground: "#c9dfcf", black: "#26312b", red: "#a23d38", green: "#347849", yellow: "#986719", blue: "#32699d", magenta: "#6653a8", cyan: "#277a75", white: "#fffdf8", brightBlack: "#788078" },
-  contrast: { background: "#000000", foreground: "#ffffff", cursor: "#75ff9a", cursorAccent: "#000000", selectionBackground: "#31513a", black: "#000000", red: "#ff7d73", green: "#75ff9a", yellow: "#ffd45e", blue: "#7fc5ff", magenta: "#c7b5ff", cyan: "#70fff0", white: "#ffffff", brightBlack: "#b8b8b8" }
+  //
+  // The scrollbar slider is stated as well. xterm derives it from the
+  // foreground at a fifth opacity and writes it into the terminal's own style
+  // element, which on a near-white foreground is a pale bar down the pane.
+  // These three keep it at the weight the rest of the app's scrollbars use.
+  orbital: { background: "#000000", foreground: "#fafafa", cursor: "#0070f3", cursorAccent: "#000000", selectionBackground: "#1f3a5f", black: "#171717", red: "#ff5f5f", green: "#32d583", yellow: "#f5b942", blue: "#3291ff", magenta: "#6cb2ff", cyan: "#32d583", white: "#fafafa", brightBlack: "#a1a1a1", brightRed: "#ff8a8a", brightGreen: "#5ce8a3", brightYellow: "#ffcf5c", brightBlue: "#6cb2ff", brightMagenta: "#8cc6ff", brightCyan: "#5ce8a3", brightWhite: "#ffffff", scrollbarSliderBackground: "#fafafa1a", scrollbarSliderHoverBackground: "#fafafa33", scrollbarSliderActiveBackground: "#fafafa47" }
 };
 
 function PaneIcon({ name, size = 14 }) {
@@ -25,7 +28,22 @@ function PaneIcon({ name, size = 14 }) {
     grip: <><circle cx="8" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.3" fill="currentColor" stroke="none"/></>,
     expand: <><path d="M14 5h5v5"/><path d="m19 5-7 7"/><path d="M10 19H5v-5"/><path d="m5 19 7-7"/></>,
     restore: <><rect x="5" y="7" width="12" height="12" rx="2"/><path d="M8 7V5h11v11h-2"/></>,
-    more: <><circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></>
+    more: <><circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></>,
+    controls: <><path d="M4 8h7"/><path d="M17 8h3"/><path d="M4 16h3"/><path d="M13 16h7"/><circle cx="14" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/></>,
+    search: <><circle cx="11" cy="11" r="6"/><path d="m20 20-3.7-3.7"/></>,
+    target: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></>,
+    play: <><path d="M8 5.6a.9.9 0 0 1 1.37-.77l9 6.4a.9.9 0 0 1 0 1.54l-9 6.4A.9.9 0 0 1 8 18.4Z" fill="currentColor" stroke="none"/></>,
+    stop: <><rect x="6.5" y="6.5" width="11" height="11" rx="1.8" fill="currentColor" stroke="none"/></>,
+    restart: <><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.6h-4.6"/></>,
+    bell: <><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9Z"/><path d="M13.7 19a2 2 0 0 1-3.4 0"/></>,
+    rename: <><path d="M4 20h16"/><path d="M14.5 4.5a2.1 2.1 0 0 1 3 3L8.5 16.5 4.5 17.5l1-4Z"/></>,
+    settings: <><path d="M4 7h9"/><path d="M18 7h2"/><path d="M4 17h4"/><path d="M13 17h7"/><circle cx="15.5" cy="7" r="2.4"/><circle cx="10.5" cy="17" r="2.4"/></>,
+    copy: <><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></>,
+    clear: <><path d="M4 18h16"/><path d="m9 14 7.5-7.5a2.1 2.1 0 0 1 3 3L12 17H7Z"/></>,
+    popout: <><path d="M14 4h6v6"/><path d="m20 4-8 8"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></>,
+    duplicate: <><rect x="4" y="4" width="11" height="11" rx="2"/><path d="M9 19h8a2 2 0 0 0 2-2V9"/></>,
+    trash: <><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2"/></>,
+    power: <><path d="M12 4v8"/><path d="M18.4 7.6a9 9 0 1 1-12.8 0"/></>
   };
   return <svg className="pane-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }
@@ -68,7 +86,7 @@ function activity(session, connection) {
   return line ? line.slice(0, 140) : "Running · no output reported yet";
 }
 
-export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI }) {
+export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, style, canEmpty = true, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI }) {
   const hostRef = React.useRef(null);
   const terminalRef = React.useRef(null);
   const fitRef = React.useRef(null);
@@ -77,6 +95,13 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   // Once it exits, the pane keeps reflowing xterm locally but must never send
   // another `terminal.resize` to a dead stream.
   const aliveRef = React.useRef(Boolean(session?.isAlive));
+  const headerRef = React.useRef(null);
+  // A pane header sheds its lowest-value controls as the pane narrows (the
+  // `pane-head` container queries own that, in CSS). Everything it sheds is in
+  // the ⋯ menu, which is present at every width, so a narrow pane never has a
+  // capability that is simply gone from the screen. The pane used to carry a
+  // second panel beside that menu holding the same three entries; one list is
+  // enough, and the width mirror that decided when to show it is gone with it.
   const minimizedRef = React.useRef(Boolean(minimized));
   const onTerminalErrorRef = React.useRef(onTerminalError);
   const onTerminalRecoveredRef = React.useRef(onTerminalRecovered);
@@ -184,6 +209,35 @@ export default function TerminalPane({ session, sessions, profile, active, expan
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(host);
+    // Every Mission Control shortcut is a `window` keydown listener, and xterm
+    // finishes a key it claims by calling stopPropagation on it. While a
+    // terminal had focus — which on the Workspace is nearly always — not one
+    // of them ever ran: the palette, the navigation chords, focus mode and the
+    // pane shortcuts were all dead exactly where they were most useful.
+    // Returning false here makes xterm skip the key without cancelling it, so
+    // it keeps propagating; every other key still belongs to the shell.
+    terminal.attachCustomKeyEventHandler(event => {
+      if (event.type !== "keydown") return true;
+      const key = String(event.key || "").toLowerCase();
+      const accelerator = event.ctrlKey || event.metaKey;
+      // This pane's own search. Its control has always advertised Ctrl F and
+      // nothing was ever listening for it. It is bound on the terminal rather
+      // than on the window because exactly one terminal has focus, and it is
+      // the one the search should open on.
+      if (accelerator && !event.shiftKey && !event.altKey && key === "f") {
+        event.preventDefault();
+        event.stopPropagation();
+        setFindOpen(true);
+        return false;
+      }
+      // Alt is the workspace modifier: pane focus, layout, focus mode, the
+      // in-app browser and every route jump.
+      if (event.altKey && !accelerator) return false;
+      if (accelerator && !event.altKey && (key === "k" || key === "n")) return false;
+      if (accelerator && event.shiftKey && ["b", "r", "s"].includes(key)) return false;
+      if (event.key === "F1") return false;
+      return true;
+    });
     terminalRef.current = terminal;
     fitRef.current = fit;
 
@@ -226,7 +280,9 @@ export default function TerminalPane({ session, sessions, profile, active, expan
 
     const open = async () => {
       if (!session.isAlive) {
-        terminal.writeln("\x1b[38;2;161;161;161mWorker is resting. Use Start when you are ready.\x1b[0m");
+        // The pane renders its own idle state over this host — what the worker
+        // is, the command starting it would run, and the control that runs it —
+        // so printing a line into the scrollback would say the same thing worse.
         setConnection("offline");
         return;
       }
@@ -356,10 +412,22 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   if (!session) return null;
   const uptimeLabel = uptime(session);
   const activityLabel = activity(session, connection);
-  const runAction = session.isAlive ? "restart" : "start";
-  const requestAction = type => {
+  // What an idle pane says about itself, from engine-reported state only: a
+  // worker that never started and one that ran and exited are different
+  // situations and the pane should not call both of them the same thing.
+  const idleState = session.spawnError
+    ? { title: "Could not start", detail: session.spawnError }
+    : session.status === "exited"
+      ? {
+          title: session.exitCode === 0 ? "Finished" : "Stopped",
+          detail: Number.isInteger(session.exitCode)
+            ? `The process exited with code ${session.exitCode}.`
+            : "The process is no longer running."
+        }
+      : { title: "Not running", detail: "This terminal has a command configured and nothing behind it yet." };
+  const requestAction = (type, fields = {}) => {
     setActionMenuOpen(false);
-    onAction?.(type, session.id);
+    onAction?.(type, session.id, fields);
   };
   const copySelection = async () => {
     setActionMenuOpen(false);
@@ -382,9 +450,25 @@ export default function TerminalPane({ session, sessions, profile, active, expan
     setMessage("Display cleared. The worker is still running.");
   };
 
+  const detachToWindow = async () => {
+    try {
+      // The pane this terminal is leaving is named so a later recall can return
+      // it to the same slot and split rather than a fallback position.
+      await missionApi().request("terminal.window.detach", {
+        workerId: session.id,
+        slotId: Number.isInteger(shortcut) ? `slot-${shortcut - 1}` : null
+      });
+    } catch (error) {
+      // The three-window limit and a failed window open both land here, and
+      // both need to be read: silently doing nothing looks like a broken menu.
+      setMessage(error instanceof Error ? error.message : "This terminal could not be opened in its own window.");
+    }
+  };
+
   return (
     <article
       className={`terminal-pane role-${profile?.key || "terminal"} ${active ? "is-active" : ""} ${expanded ? "is-expanded" : ""} ${minimized ? "is-minimized" : ""} ${dragOver ? "is-drop-target" : ""}`}
+      style={style}
       aria-label={minimized ? `${session.name}, minimized terminal` : undefined}
       onMouseDown={onFocus}
       onDragEnter={event => { if (event.dataTransfer.types.includes("application/x-mission-worker")) setDragOver(true); }}
@@ -400,7 +484,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         <span className="terminal-minimized-state">{session.isAlive ? "Live" : session.status}</span>
         <button type="button" className="icon-button terminal-restore" title={`Maximize ${session.name}`} aria-label={`Maximize ${session.name}`} onClick={event => { event.stopPropagation(); onToggleExpanded?.(); }}><PaneIcon name="restore"/></button>
       </header> : <>
-      <header className="terminal-pane__header">
+      <header className="terminal-pane__header" ref={headerRef}>
         <div className="terminal-pane__identity">
           <span className={`status-dot status-${session.status} role-${profile?.key || "terminal"}`} />
           <div>
@@ -419,9 +503,12 @@ Switch pane`}
               <strong>{session.name}</strong><span aria-hidden="true">⌄</span>
             </button>
             {chooserOpen && <div ref={chooserRef} className="terminal-session-menu" role="menu" onMouseDown={event => event.stopPropagation()}>
-              <div className="terminal-session-menu__label">SHOW IN THIS PANE</div>
+              <div className="terminal-session-menu__label">{canEmpty ? "SHOW IN THIS PANE" : "MOVE A TERMINAL HERE"}</div>
               {sessions.map(option => <button type="button" role="menuitem" className={option.id === session.id ? "is-current" : ""} key={option.id} onClick={() => { onSelectSession(option.id); setChooserOpen(false); }}><i className={`status-${option.status}`}/><span><strong>{option.name}</strong><small>{option.command}</small></span>{option.id === session.id && <b>Current</b>}</button>)}
-              <button type="button" role="menuitem" onClick={() => { onSelectSession(""); setChooserOpen(false); }}><i/><span><strong>Empty pane</strong><small>Free this position</small></span></button>
+              {/* Freeing a position only means something where a position can be
+                  empty. The mosaic mounts every worker, so there is nothing to
+                  free and the option would do nothing if offered. */}
+              {canEmpty && <button type="button" role="menuitem" onClick={() => { onSelectSession(""); setChooserOpen(false); }}><i/><span><strong>Empty pane</strong><small>Free this position</small></span></button>}
             </div>}
             {/* T086/T087 — progressive disclosure. State is the one fact that is
                 always visible, because it is the reason you would look at a pane
@@ -465,23 +552,61 @@ Switch pane`}
             <PaneIcon name="grip"/>
           </button>
           <button type="button" className="quiet-button" onClick={() => setFindOpen(value => !value)} aria-expanded={findOpen} title="Search terminal · Ctrl F">Find</button>
+          {/* Running or not running is the one thing about a terminal you change
+              most often, and it was two levels down a menu whose own label had
+              to be read to learn which of the two it would do. It is a control
+              now: one glyph, one verb, and the state is the glyph. */}
+          <button
+            type="button"
+            className={`icon-button terminal-pane__run ${session.isAlive ? "terminal-pane__run--stop" : "terminal-pane__run--start"}`}
+            title={session.isAlive ? `Stop ${session.name}` : `Start ${session.name} · ${session.command || "configured command"}`}
+            aria-label={session.isAlive ? `Stop ${session.name}` : `Start ${session.name}`}
+            onMouseDown={event => event.stopPropagation()}
+            onClick={() => requestAction(session.isAlive ? "kill" : "start")}
+          ><PaneIcon name={session.isAlive ? "stop" : "play"}/></button>
           <DropdownMenu.Root open={actionMenuOpen} onOpenChange={setActionMenuOpen}>
             <DropdownMenu.Trigger asChild><button type="button" className="icon-button terminal-more" aria-label={`More actions for ${session.name}`} onMouseDown={event => event.stopPropagation()}><PaneIcon name="more"/></button></DropdownMenu.Trigger>
+            {/* One grammar for every entry: a glyph, the verb, and either the
+                key that does it or one line saying what it touches. The pane
+                used to carry a second panel of its own alongside this one, so
+                half of these appeared twice with two different shapes; there is
+                one list now, and it is this one. */}
             <DropdownMenu.Portal><DropdownMenu.Content className="terminal-action-menu" align="end" sideOffset={7} collisionPadding={12} onCloseAutoFocus={event => event.preventDefault()}>
-              <DropdownMenu.Item className="terminal-action-item" onSelect={() => requestAction(runAction)}><span>{actionLabel(session)}</span><small>{session.isAlive ? "Restart the existing engine worker" : "Start its configured command"}</small></DropdownMenu.Item>
-              {session.attentionRequired && <DropdownMenu.Item className="terminal-action-item" onSelect={() => requestAction("acknowledge")}><span>Acknowledge alert</span><small>Clear the operator notification only</small></DropdownMenu.Item>}
+              <DropdownMenu.Label className="terminal-action-label">This terminal</DropdownMenu.Label>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); onFocus?.(); terminalRef.current?.focus(); }}><PaneIcon name="target"/><span>Focus terminal</span>{shortcut ? <kbd>Alt {shortcut}</kbd> : null}</DropdownMenu.Item>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); setFindOpen(true); }}><PaneIcon name="search"/><span>Find in output</span><kbd>Ctrl F</kbd></DropdownMenu.Item>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => void copySelection()}><PaneIcon name="copy"/><span>Copy selection</span></DropdownMenu.Item>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={clearDisplay}><PaneIcon name="clear"/><span>Clear display</span></DropdownMenu.Item>
+              {/* Drag is the pane's own gesture, so this offers the gesture
+                  rather than a button pretending to be one. It closes as the
+                  drag begins so the canvas underneath is visible while aiming. */}
+              <div
+                className="terminal-action-item is-compact terminal-action-drag"
+                role="menuitem"
+                tabIndex={-1}
+                draggable
+                aria-label={`Move ${session.name} to another terminal pane`}
+                onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-mission-worker", session.id); event.dataTransfer.setData("text/plain", session.id); setActionMenuOpen(false); }}
+              ><PaneIcon name="grip"/><span>Move to another pane</span><small>Drag onto the pane you want it in</small></div>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); void detachToWindow(); }}><PaneIcon name="popout"/><span>Pop out terminal</span><small>Its own window — the worker keeps running</small></DropdownMenu.Item>
+
               <DropdownMenu.Separator className="terminal-action-separator"/>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); onFocus?.(); terminalRef.current?.focus(); }}><span>Focus terminal</span></DropdownMenu.Item>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); setFindOpen(true); }}><span>Find in output</span></DropdownMenu.Item>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => void copySelection()}><span>Copy selection</span></DropdownMenu.Item>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={clearDisplay}><span>Clear display</span></DropdownMenu.Item>
+              <DropdownMenu.Label className="terminal-action-label">This worker</DropdownMenu.Label>
+              {session.isAlive && <DropdownMenu.Item className="terminal-action-item" onSelect={() => requestAction("restart")}><PaneIcon name="restart"/><span>Restart worker</span><small>Stop the running process and start it again</small></DropdownMenu.Item>}
+              {session.attentionRequired && <DropdownMenu.Item className="terminal-action-item" onSelect={() => requestAction("acknowledge")}><PaneIcon name="bell"/><span>Acknowledge alert</span><small>Clear the operator notification only</small></DropdownMenu.Item>}
+              <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); setRenaming(true); }}><PaneIcon name="rename"/><span>Rename</span><small>Change the display label only — the command and process are untouched</small></DropdownMenu.Item>
+              {onReconfigure && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onReconfigure(session); }}><PaneIcon name="settings"/><span>Reconfigure worker</span><small>Edit command, arguments, directory and restore policy</small></DropdownMenu.Item>}
+              {/* The launch policy is a setting, so it is offered as one: a
+                  checkbox item that states whether it is on, rather than an
+                  action whose label has to be read to learn the current state. */}
+              <DropdownMenu.CheckboxItem className="terminal-action-item" checked={Boolean(session.autoStart)} onCheckedChange={checked => requestAction("setAutoStart", { enabled: checked === true })}>
+                <PaneIcon name="power"/>
+                <span>Start with workspace</span>
+                <small>{session.autoStart ? "On — starts when this project opens" : "Off — stays idle until you start it"}</small>
+              </DropdownMenu.CheckboxItem>
+              {onDuplicate && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onDuplicate(session); }}><PaneIcon name="duplicate"/><span>Duplicate worker</span><small>Opens a new worker pre-filled from this one — review the command and directory before it is created</small></DropdownMenu.Item>}
               <DropdownMenu.Separator className="terminal-action-separator"/>
-              <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); setRenaming(true); }}><span>Rename</span><small>Change the display label only — the command and process are untouched</small></DropdownMenu.Item>
-              {onReconfigure && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onReconfigure(session); }}><span>Reconfigure worker</span><small>Edit command, arguments, directory and restore policy</small></DropdownMenu.Item>}
-              {onDuplicate && <DropdownMenu.Item className="terminal-action-item" onSelect={() => { setActionMenuOpen(false); onDuplicate(session); }}><span>Duplicate worker</span><small>Opens a new worker pre-filled from this one — review the command and directory before it is created</small></DropdownMenu.Item>}
-              <DropdownMenu.Separator className="terminal-action-separator"/>
-              {session.isAlive && <DropdownMenu.Item className="terminal-action-item is-warning" onSelect={() => requestAction("kill")}><span>Stop worker</span><small>Stop the active engine-owned PTY</small></DropdownMenu.Item>}
-              <DropdownMenu.Item className="terminal-action-item is-danger" onSelect={() => requestAction("remove")}><span>Delete terminal</span><small>Remove this worker definition after confirmation</small></DropdownMenu.Item>
+              <DropdownMenu.Item className="terminal-action-item is-danger" onSelect={() => requestAction("remove")}><PaneIcon name="trash"/><span>Delete terminal</span><small>Remove this worker definition after confirmation</small></DropdownMenu.Item>
             </DropdownMenu.Content></DropdownMenu.Portal>
           </DropdownMenu.Root>
           <button
@@ -502,6 +627,24 @@ Switch pane`}
         <i aria-hidden="true"/><span>{activityLabel}</span>
       </div>
       </>}
+      {/* A worker that is not running used to say so as one grey line printed
+          into an otherwise empty terminal, pointing at a "Start" that was two
+          levels down a menu. An empty pane is the clearest place in the app to
+          offer the one thing you would want from it, so it offers it: what the
+          worker is, what starting it will run, and the control that does it.
+          A failed worker is not idle — it keeps the crash lens below instead. */}
+      {!minimized && !session.isAlive && session.status !== "failed" && (
+        <div className="terminal-idle">
+          <span className="terminal-idle__mark" aria-hidden="true"><PaneIcon name="power" size={20}/></span>
+          <strong>{idleState.title}</strong>
+          <p>{idleState.detail}</p>
+          {session.command && <code title={`${session.command} ${(session.args || []).join(" ")}`.trim()}>{`${session.command} ${(session.args || []).join(" ")}`.trim()}</code>}
+          <button type="button" className="terminal-idle__start" onClick={() => requestAction("start")}>
+            <PaneIcon name="play"/><span>Start {session.name}</span>
+          </button>
+          <small>{session.autoStart ? "Starts automatically when this project opens." : "Stays idle until you start it. Change that under ⋯ · Start with workspace."}</small>
+        </div>
+      )}
       <div className="terminal-host" ref={hostRef} aria-hidden={minimized || undefined} inert={minimized ? "" : undefined}/>
       {session?.status === "failed" && (
         <CrashLens

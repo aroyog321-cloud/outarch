@@ -9,7 +9,9 @@ const MAX_MOBILE_DEVICES = 8;
 const MAX_MOBILE_APPROVALS = 100;
 const MAX_MOBILE_AUDIT = 200;
 const DEFAULT_MOBILE_PORT = 37422;
-const MOBILE_SCOPES = Object.freeze(["summary.read", "workers.read", "needs.read", "memory.read", "terminal.read", "actions.request"]);
+// assistant.ask is never a default: a phone that can ask Mission AI spends the
+// desktop's model quota, so the operator turns it on knowingly.
+const MOBILE_SCOPES = Object.freeze(["summary.read", "workers.read", "needs.read", "memory.read", "terminal.read", "actions.request", "assistant.ask"]);
 const DEFAULT_MOBILE_SCOPES = Object.freeze(["summary.read", "workers.read", "needs.read", "memory.read"]);
 
 function isPlainObject(value) {
@@ -75,7 +77,12 @@ class MobileCompanionStore {
   status() {
     const document = this.#readDocument();
     const devices = document.devices.map(publicDevice);
-    return { ...document.preferences, ...this.protectionStatus(), deviceCount: devices.filter(item => item.state === "paired").length, revokedDeviceCount: devices.filter(item => item.state === "revoked").length, pendingApprovalCount: document.approvals.filter(item => item.state === "pending").length, auditCount: document.audit.length, updatedAt: document.updatedAt };
+    // A revoked device is no longer a device, so the count of them comes from
+    // the audit trail rather than from a list it has been removed from. Bounded
+    // by the audit cap, which is the honest limit: the header reports what is
+    // still on record, not a running total since the beginning of time.
+    const revokedDeviceCount = document.audit.filter(item => item.kind === "device" && item.outcome === "revoked").length;
+    return { ...document.preferences, ...this.protectionStatus(), deviceCount: devices.filter(item => item.state === "paired").length, revokedDeviceCount, pendingApprovalCount: document.approvals.filter(item => item.state === "pending").length, auditCount: document.audit.length, updatedAt: document.updatedAt };
   }
 
   configure(value = {}) {
@@ -129,12 +136,20 @@ class MobileCompanionStore {
     return true;
   }
 
+  // Revoking forgets the device. It used to only stamp `revokedAt`, which left
+  // the row in the list for good: the operator revoked a phone, the card stayed
+  // on the screen wearing a "revoked" badge, and the only way to be rid of it
+  // was to never look at that tab again. Nothing needs the record afterwards —
+  // its credential is dead, its pending approvals are resolved by the caller,
+  // and the revocation itself is kept in the audit trail, which is where a
+  // security event belongs. The stored credential goes with it rather than
+  // sitting encrypted on disk for a device that can no longer use it.
   revokeDevice(id) {
     const current = this.#readDocument();
     const device = current.devices.find(item => item.id === String(id));
     if (!device || device.revokedAt) return false;
-    device.revokedAt = this.now();
-    this.#writeDocument({ ...current, updatedAt: this.now() });
+    const devices = current.devices.filter(item => item.id !== String(id));
+    this.#writeDocument({ ...current, devices, updatedAt: this.now() });
     return true;
   }
 

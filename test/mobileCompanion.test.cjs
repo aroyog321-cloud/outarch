@@ -90,3 +90,23 @@ test("paired devices cannot cross a Mission Control project switch", t => {
   const envelope = encryptEnvelope(envelopeKey(credential.secret), { operation: "snapshot" }, aad);
   assert.throws(() => gateway.openRequest({ deviceId: credential.deviceId, timestamp, nonce }, envelope), /different project/);
 });
+
+test("asking Mission AI from a phone needs its own permission and never offers terminal output by default", async t => {
+  const { gateway, store } = fixture(t);
+  const asked = [];
+  gateway.askAssistant = request => { asked.push(request); return Promise.resolve({ text: "All good", looked: [], model: { label: "Gemini" } }); };
+  const credential = pair(gateway);
+  const device = store.devices().find(item => item.id === credential.deviceId);
+  assert.throws(() => gateway.dispatch(device, { operation: "ask", text: "status?" }), /assistant\.ask/);
+
+  // Allowed after the fact is not enough: the phone keeps the permissions it was paired with.
+  store.configure({ scopes: ["summary.read", "assistant.ask"] });
+  assert.throws(() => gateway.dispatch(device, { operation: "ask", text: "status?" }), /assistant\.ask/);
+
+  const repaired = pair(gateway);
+  const allowed = store.devices().find(item => item.id === repaired.deviceId);
+  const answer = await gateway.dispatch(allowed, { operation: "ask", text: "  status?  ", history: [{ role: "user", text: "hi" }] });
+  assert.equal(answer.text, "All good");
+  assert.deepEqual(asked, [{ text: "status?", history: [{ role: "user", text: "hi" }], allowTerminal: false }]);
+  assert.ok(gateway.listAudit().some(record => record.capability === "assistant.ask" && record.outcome === "asked"));
+});

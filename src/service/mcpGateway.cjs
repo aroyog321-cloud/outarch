@@ -2,7 +2,10 @@
 
 const crypto = require("node:crypto");
 const EventEmitter = require("node:events");
+const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
+const path = require("node:path");
 const { redactText } = require("./contextSanitizer.cjs");
 
 const MCP_PROTOCOL_VERSION = "2026-07-28";
@@ -179,6 +182,71 @@ function validateArguments(schemaName, value) {
   return value;
 }
 
+function resolveClientConfigPath(target, workspacePath = "", customOs = os) {
+  const home = customOs.homedir();
+  switch (target) {
+    case "claude-desktop": {
+      if (process.platform === "win32") {
+        const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
+        return path.join(appData, "Claude", "claude_desktop_config.json");
+      }
+      if (process.platform === "darwin") {
+        return path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+      }
+      const configHome = process.env.XDG_CONFIG_HOME || path.join(home, ".config");
+      return path.join(configHome, "Claude", "claude_desktop_config.json");
+    }
+    case "claude-code": {
+      return path.join(home, ".claude.json");
+    }
+    case "cursor": {
+      if (workspacePath && typeof workspacePath === "string") {
+        return path.join(path.resolve(workspacePath), ".cursor", "mcp.json");
+      }
+      return path.join(home, ".cursor", "mcp.json");
+    }
+    // Codex CLI reads TOML from its home directory, which CODEX_HOME can move.
+    case "codex": {
+      return path.join(process.env.CODEX_HOME || path.join(home, ".codex"), "config.toml");
+    }
+    case "gemini-cli": {
+      return path.join(home, ".gemini", "settings.json");
+    }
+    default:
+      throw new TypeError(`Unsupported client install target: ${target}`);
+  }
+}
+
+const CLIENT_LABELS = Object.freeze({
+  "claude-desktop": "Claude Desktop",
+  "claude-code": "Claude Code",
+  cursor: "Cursor",
+  codex: "Codex CLI",
+  "gemini-cli": "Gemini CLI"
+});
+
+function tomlString(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
+}
+
+function withCodexServer(content, endpoint, token) {
+  const lines = String(content || "").split(/\r?\n/);
+  const kept = [];
+  let skipping = false;
+  for (const line of lines) {
+    const header = line.trim().match(/^\[([^\]]+)\]$/);
+    if (header) skipping = header[1].trim() === "mcp_servers.mission-control" || header[1].trim().startsWith("mcp_servers.mission-control.");
+    if (!skipping) kept.push(line);
+  }
+  while (kept.length && kept[kept.length - 1].trim() === "") kept.pop();
+  const section = [
+    "[mcp_servers.mission-control]",
+    `command = ${tomlString("npx")}`,
+    `args = [${["-y", "mcp-remote", endpoint, "--header", `Authorization: Bearer ${token}`].map(tomlString).join(", ")}]`
+  ];
+  return `${kept.length ? `${kept.join("\n")}\n\n` : ""}${section.join("\n")}\n`;
+}
+
 class SecureMcpGateway extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -191,6 +259,8 @@ class SecureMcpGateway extends EventEmitter {
     this.getEngineApi = options.getEngineApi;
     this.missionSupervisor = options.missionSupervisor || null;
     this.http = options.http || http;
+    this.fs = options.fs || fs;
+    this.os = options.os || os;
     this.now = options.now || Date.now;
     this.randomUUID = options.randomUUID || crypto.randomUUID;
     this.server = null;
@@ -304,6 +374,89 @@ class SecureMcpGateway extends EventEmitter {
     this.#audit({ kind: "credential", outcome: "rotated", client: "local-operator" });
     this.#emitStatus();
     return { token, endpoint: this.status().endpoint, authorization: `Bearer ${token}`, status: this.status() };
+  }
+
+  getToken() {
+    let token = "";
+    try { token = this.store.token(); }
+    catch { token = ""; }
+    const status = this.status();
+    return {
+      token,
+      configured: Boolean(token),
+      endpoint: status.endpoint,
+      authorization: token ? `Bearer ${token}` : "",
+      status
+    };
+  }
+
+  installClient({ target, workspacePath = "" } = {}) {
+    if (!Object.hasOwn(CLIENT_LABELS, target)) {
+      throw new TypeError(`Unsupported client install target: ${target}`);
+    }
+    const token = this.store.token();
+    const endpoint = this.status().endpoint;
+    const configPath = resolveClientConfigPath(target, workspacePath, this.os);
+    const dir = path.dirname(configPath);
+    if (!this.fs.existsSync(dir)) {
+      this.fs.mkdirSync(dir, { recursive: true });
+    }
+    if (target === "codex") {
+      const existing = this.fs.existsSync(configPath) ? this.fs.readFileSync(configPath, "utf8") : "";
+      this.fs.writeFileSync(configPath, withCodexServer(existing, endpoint, token), "utf8");
+      this.#audit({ kind: "client-install", outcome: "installed", client: target, target: configPath });
+      return { ok: true, target, filePath: configPath, message: "Successfully configured Codex CLI! Start a new Codex session to use Mission Control." };
+    }
+    let config = {};
+    if (this.fs.existsSync(configPath)) {
+      try {
+        const content = this.fs.readFileSync(configPath, "utf8");
+        config = content.trim() ? JSON.parse(content) : {};
+      } catch (err) {
+        throw new Error(`Could not parse existing ${target} configuration file: ${err.message}`);
+      }
+    }
+    if (!isPlainObject(config)) config = {};
+    if (!isPlainObject(config.mcpServers)) config.mcpServers = {};
+
+    if (target === "gemini-cli") {
+      config.mcpServers["mission-control"] = {
+        httpUrl: endpoint,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+    } else if (target === "cursor") {
+      config.mcpServers["mission-control"] = {
+        name: "mission-control",
+        type: "http",
+        url: endpoint,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+    } else {
+      config.mcpServers["mission-control"] = {
+        command: "npx",
+        args: [
+          "-y",
+          "mcp-remote",
+          endpoint,
+          "--header",
+          `Authorization: Bearer ${token}`
+        ]
+      };
+    }
+
+    this.fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    this.#audit({ kind: "client-install", outcome: "installed", client: target, target: configPath });
+    const targetLabel = CLIENT_LABELS[target];
+    return {
+      ok: true,
+      target,
+      filePath: configPath,
+      message: `Successfully configured ${targetLabel}! Restart ${targetLabel} to start using Mission Control.`
+    };
   }
 
   listApprovals() {
@@ -841,6 +994,8 @@ class SecureMcpGateway extends EventEmitter {
 }
 
 module.exports = {
+  CLIENT_LABELS,
+  withCodexServer,
   CLIENT_ACTIVE_WINDOW_MS,
   MAX_MCP_CONCURRENT_REQUESTS,
   MAX_MCP_REQUEST_BYTES,

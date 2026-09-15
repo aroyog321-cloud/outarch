@@ -34,7 +34,10 @@ test("trust boundaries use native disclosure and replace repeated authority pros
   assert.match(trust, /<section/);
   assert.match(trust, /<details>/);
   assert.match(trust, /<summary>View access and authority<\/summary>/);
-  assert.match(read("MissionAIScreen.jsx"), /<TrustBoundary/);
+  // Mission AI states its authority where it acts — the approval card and the
+  // composer — rather than in a boundary card above an empty conversation.
+  assert.doesNotMatch(read("MissionAIScreen.jsx"), /<TrustBoundary/);
+  assert.match(read("AssistantChat.jsx"), /aria-label="Approve what the assistant wants to do"/);
   assert.match(read("IntegrationsView.jsx"), /<TrustBoundary/);
   assert.match(read("PluginPlatform.jsx"), /Mission Control renders every contribution/);
 });
@@ -127,7 +130,8 @@ test("visual acceptance harness covers every route, theme, and target width", ()
   const capture = fs.readFileSync(path.resolve(__dirname, "..", "scripts", "visual", "capture-groundstation-matrix.cjs"), "utf8");
   const electronMain = fs.readFileSync(path.resolve(__dirname, "..", "src", "groundstation", "main", "index.cjs"), "utf8");
   assert.match(packageJson, /"groundstation:capture"/);
-  for (const route of ["groundstation", "workspace", "needs", "agents", "recipes", "history", "integrations", "settings"]) {
+  // Agents was removed as a destination, so the capture matrix no longer walks it.
+  for (const route of ["groundstation", "workspace", "needs", "recipes", "history", "integrations", "settings"]) {
     assert.match(electronMain, new RegExp(`"${route}"`));
   }
   for (const theme of ["orbital", "solar", "contrast"]) assert.match(electronMain, new RegExp(`"${theme}"`));

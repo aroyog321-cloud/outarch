@@ -30,8 +30,23 @@ const CAPABILITY_BY_MESSAGE = Object.freeze({
   diagnostics: "diagnostics.summary.read",
   "git:state": "git.summary.read",
   "task:state": "tasks.status.read",
-  "terminals:state": "terminals.identity.read"
+  "terminals:state": "terminals.identity.read",
+  "terminal:output": "terminals.activity.read"
 });
+
+function stripAnsi(text) {
+  if (typeof text !== "string" || !text) return "";
+  return text
+    .replace(/\x1b\][^\x07\x1b\r\n]*(?:\x07|\x1b\\|[\r\n]|$)/g, "")
+    .replace(/\x1b[\(\)][AB012UK]/g, "")
+    .replace(/\x1b\[[?><=0-9;]*[ -/]*[@-~]/g, "")
+    .replace(/\[[?><=][0-9;]*[a-zA-Z]/g, "")
+    .replace(/\([AB012UK]/g, "")
+    .replace(/\](?:633|133|1337);[^\r\n]*/g, "")
+    .replace(/\x1b[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+}
 
 function isPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -112,6 +127,7 @@ class VSCodeBridge extends EventEmitter {
     this.git = null;
     this.tasks = [];
     this.terminals = [];
+    this.terminalLogs = new Map();
     this.lastSyncAt = null;
     // T115 - the same audit depth MCP, Mobile and Plugins already had.
     // Connection metadata only: no file content, no terminal input, no editor
@@ -257,6 +273,20 @@ class VSCodeBridge extends EventEmitter {
     }
     const sanitized = redactText(params.input, { maxLength: MAX_TERMINAL_INPUT_BYTES });
     if (sanitized.redactions) throw new TypeError("terminal input appears to contain a secret and was blocked");
+
+    let logs = this.terminalLogs.get(terminalId);
+    if (!logs) {
+      logs = [];
+      this.terminalLogs.set(terminalId, logs);
+    }
+    logs.push({
+      type: "input",
+      text: params.input,
+      timestamp: this.now()
+    });
+    if (logs.length > 200) logs.splice(0, logs.length - 200);
+    this.#emitStatus();
+
     return this.#requestCommand("command:terminal-write", "terminals.input.write", {
       terminalId,
       input: params.input,
@@ -280,6 +310,7 @@ class VSCodeBridge extends EventEmitter {
     this.git = null;
     this.tasks = [];
     this.terminals = [];
+    this.terminalLogs.clear();
     this.lastSyncAt = null;
     this.#emitStatus();
   }
@@ -288,6 +319,7 @@ class VSCodeBridge extends EventEmitter {
     const client = this.client;
     this.client = null;
     this.#rejectPendingCommands("VS Code Bridge disconnected before the command completed");
+    this.terminalLogs.clear();
     if (!client) return false;
     this.record("connection", "disconnected", { capability: boundedText(reason, 80) || "requested" });
     try { this.#send(client.socket, { type: "disconnect", reason: boundedText(reason, 80) || "requested" }); } catch { /* Best effort. */ }
@@ -316,7 +348,10 @@ class VSCodeBridge extends EventEmitter {
       diagnostics: { ...this.diagnostics, items: this.diagnostics.items.map(item => ({ ...item })) },
       git: this.git ? { ...this.git } : null,
       tasks: this.tasks.map(task => ({ ...task })),
-      terminals: this.terminals.map(terminal => ({ ...terminal })),
+      terminals: this.terminals.map(terminal => ({
+        ...terminal,
+        logs: (this.terminalLogs.get(terminal.id) || []).slice(-100)
+      })),
       lastSyncAt: this.lastSyncAt,
       lastError: this.lastError
     };
@@ -566,6 +601,52 @@ class VSCodeBridge extends EventEmitter {
           cwd: canReadActivity ? (boundedText(item?.cwd, 1024) || null) : null
         };
       }).filter(item => item.id) : [];
+    } else if (message.type === "terminal:output") {
+      const terminalId = boundedText(message.terminalId, 100);
+      if (terminalId && /^[A-Za-z0-9_-]{1,100}$/.test(terminalId)) {
+        let logs = this.terminalLogs.get(terminalId);
+        if (!logs) {
+          logs = [];
+          this.terminalLogs.set(terminalId, logs);
+        }
+        if (typeof message.input === "string" && message.input.trim()) {
+          const rawInput = stripAnsi(message.input.trim());
+          if (rawInput) {
+            const sanitized = redactText(rawInput, { maxLength: 240 });
+            const last = logs[logs.length - 1];
+            if (!last || last.type !== "input" || last.text !== sanitized.value) {
+              logs.push({
+                type: "input",
+                text: sanitized.redactions ? "[command hidden: possible secret]" : sanitized.value,
+                timestamp: this.now()
+              });
+            }
+          }
+        }
+        if (typeof message.data === "string" && message.data) {
+          const clean = stripAnsi(message.data);
+          const chunks = clean.split("\n");
+          for (let i = 0; i < chunks.length; i++) {
+            const line = chunks[i].trimEnd();
+            if (!line.trim()) continue;
+            const sanitized = redactText(line, { maxLength: 1024 });
+            logs.push({
+              type: "output",
+              text: sanitized.redactions ? "[output redacted: secret pattern]" : sanitized.value,
+              timestamp: this.now()
+            });
+          }
+        }
+        if (typeof message.state === "string" && message.state !== "running" && message.exitCode !== undefined) {
+          logs.push({
+            type: "system",
+            text: `[Process exited with code ${message.exitCode}]`,
+            exitCode: message.exitCode,
+            timestamp: this.now()
+          });
+        }
+        if (logs.length > 200) logs.splice(0, logs.length - 200);
+      }
     } else {
       return;
     }

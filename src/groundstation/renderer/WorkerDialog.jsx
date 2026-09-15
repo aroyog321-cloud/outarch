@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  buildSimpleWorkerDefinition,
   buildWorkerDefinition,
   buildWorkerPatch,
   initialWorkerDraft,
@@ -7,16 +8,7 @@ import {
 } from "./workerForm.js";
 import TabSet, { tabPanelProps } from "./TabSet.jsx";
 
-const WORKER_TEMPLATES = [
-  { id: "shell", role: "terminal", badge: ">_", name: "Project shell", detail: "Interactive PowerShell rooted in this project", command: "powershell.exe", args: [], autoStart: true },
-  { id: "frontend", role: "service", badge: "WEB", name: "Frontend dev", detail: "Start the package development server", command: "npm.cmd", args: ["run", "dev"], autoStart: true },
-  { id: "backend", role: "agent", badge: "API", name: "Backend service", detail: "Start the package service process", command: "npm.cmd", args: ["run", "start"], autoStart: true },
-  { id: "tests", role: "test", badge: "✓", name: "Test watcher", detail: "Run package tests in watch mode", command: "npm.cmd", args: ["test", "--", "--watch"], autoStart: true },
-  { id: "docker", role: "container", badge: "DO", name: "Docker stack", detail: "Launch the project Compose services", command: "docker", args: ["compose", "up"], autoStart: false },
-  { id: "git", role: "git", badge: "BR", name: "Git status", detail: "Inspect branch and working-tree evidence", command: "git", args: ["status", "--short", "--branch"], autoStart: false }
-];
-
-const WORKER_DIALOG_AI_PROMPT = "Explain Mission Control's Add Worker dialog to a beginner. Cover Worker ID, Display name, Command, JSON Arguments, project-relative Working directory, Environment, Start automatically, PowerShell compatibility, templates, saved presets, and what Add worker does. Explain that one EngineAPI-owned PTY is created, Full Attach never duplicates it, and no mutation occurs without the user pressing Add worker. Then help me choose settings for my current project.";
+const WORKER_DIALOG_AI_PROMPT = "Explain Mission Control's Add terminal dialog. It asks for a name and an optional start command, and creates one engine-owned PTY in the open project folder; the command runs through the configured shell, which stays open afterwards so a failed command still leaves a usable prompt. Cover what happens on Start, that Full Attach never duplicates the PTY, that nothing is created until Start is pressed, and where the advanced settings (arguments, working directory, environment, PowerShell compatibility) live afterwards. Then help me choose a command for my current project.";
 
 function Field({ label, detail, children, wide = false }) {
   return (
@@ -60,8 +52,12 @@ function PresetList({ commands, busy, onInstantiate }) {
   );
 }
 
-export default function WorkerDialog({ initialMode = "create", configuration, seed = null, savedCommands, existingIds = [], onClose, onSave, onInstantiate, onAskAI }) {
+export default function WorkerDialog({ initialMode = "create", configuration, seed = null, savedCommands, existingIds = [], projectName = "", onClose, onSave, onInstantiate, onAskAI }) {
   const editing = Boolean(configuration);
+  // A duplicate is a create, but it carries a real command that has to be
+  // reviewed before a second copy of a process starts — so it gets the full
+  // form, not the two-field one.
+  const advanced = editing || Boolean(seed);
   const [mode, setMode] = React.useState(editing ? "edit" : initialMode);
   const [draft, setDraft] = React.useState(() => {
     // T094 — a duplicate is a create, pre-filled from the worker it copies and
@@ -69,12 +65,11 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
     // anything: the command and directory are exactly what needs reviewing
     // before a second copy of a process starts.
     const initial = initialWorkerDraft(configuration || seed);
-    if (!configuration) initial.id = nextAvailableWorkerId(initial.id, existingIds);
+    if (!configuration && seed) initial.id = nextAvailableWorkerId(initial.id, existingIds);
     return initial;
   });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [templateId, setTemplateId] = React.useState(configuration || seed ? "custom" : "shell");
   const titleId = React.useId();
   const dialogRef = React.useRef(null);
   const closeRef = React.useRef(onClose);
@@ -115,20 +110,23 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
     };
   }, []);
 
-  const update = (field, value) => { setTemplateId("custom"); setDraft(current => ({ ...current, [field]: value })); };
-  const applyTemplate = template => {
-    setTemplateId(template.id);
-    setDraft(current => ({ ...current, id: nextAvailableWorkerId(template.id === "shell" ? "terminal" : template.id, existingIds), name: template.name, command: template.command, argsText: JSON.stringify(template.args, null, 2), cwd: ".", autoStart: template.autoStart, powershellCompatibility: false }));
-    setError("");
-  };
+  const update = (field, value) => setDraft(current => ({ ...current, [field]: value }));
 
   const submit = async event => {
     event.preventDefault();
     setError("");
     try {
-      const value = editing ? buildWorkerPatch(draft) : buildWorkerDefinition(draft);
+      // Creating goes through the two-field path; editing keeps the full
+      // definition so existing workers stay configurable.
+      const value = editing
+        ? buildWorkerPatch(draft)
+        : seed
+          ? buildWorkerDefinition(draft)
+          : buildSimpleWorkerDefinition(draft, { platform: navigator.userAgent.includes("Windows") ? "win32" : "linux", existingIds });
       setBusy(true);
-      await onSave(value);
+      // The two-field path's button says "Start", so it asks for a start.
+      // A duplicate uses the full form, whose own restore toggle decides.
+      await onSave(value, { start: !editing && !seed });
       onClose();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : String(submitError));
@@ -158,7 +156,7 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
         <header className="dialog-header">
           <div>
             <span className="eyebrow">TERMINAL WORKSPACE</span>
-            <h2 id={titleId}>{editing ? `Edit ${configuration.name}` : "Add a terminal worker"}</h2>
+            <h2 id={titleId}>{editing ? `Edit ${configuration.name}` : "Add terminal"}</h2>
           </div>
           <div className="worker-dialog-header-actions">{!editing && <button type="button" className="worker-dialog-ai" onClick={() => onAskAI?.(WORKER_DIALOG_AI_PROMPT)} disabled={busy}><span>AI</span> Ask about this form</button>}<button type="button" className="dialog-close" onClick={onClose} disabled={busy} aria-label="Close dialog">×</button></div>
         </header>
@@ -177,7 +175,6 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
           />
         )}
 
-        {!editing && mode === "create" && <section className="worker-dialog-guide" aria-label="How adding a worker works"><div><b>1</b><span><strong>Choose a purpose</strong><small>Start from a template or enter your own command.</small></span></div><div><b>2</b><span><strong>Review the definition</strong><small>Name, command and folder stay visible before creation.</small></span></div><div><b>3</b><span><strong>Add one worker</strong><small>Mission Control registers one engine-owned terminal; auto-start is your choice.</small></span></div></section>}
 
         {error && <div className="dialog-error" role="alert">{error}</div>}
 
@@ -188,15 +185,15 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
         ) : (
           <form onSubmit={submit} {...(editing ? {} : tabPanelProps("worker-source", "create"))}>
             <div className="dialog-body worker-form">
-              {!editing && <section className="worker-template-section"><header><div><span className="section-kicker">QUICK START</span><strong>Choose what this terminal should do</strong></div><small>Templates only fill the form. Review every command before adding it.</small></header><div className="worker-template-grid">{WORKER_TEMPLATES.map(template => <button type="button" className={`pm-card pm-card--interactive worker-template-card role-${template.role || template.id} ${templateId === template.id ? "pm-card--selected is-selected" : ""}`} key={template.id} onClick={() => applyTemplate(template)}><span className={`worker-template-card__badge role-${template.role || template.id}`}>{template.badge}</span><span><strong>{template.name}</strong><small>{template.detail}</small></span><code>{template.command}</code></button>)}</div></section>}
-              <div className="worker-form-heading"><div><span>WORKER DEFINITION</span><strong>{editing ? "Update the supervised command" : `${WORKER_TEMPLATES.find(item => item.id === templateId)?.name || "Custom worker"} configuration`}</strong></div><span>{draft.autoStart ? "Starts immediately" : "Creates idle"} · project-relative</span></div>
+              {advanced ? (<>
+              <div className="worker-form-heading"><div><span>WORKER DEFINITION</span><strong>Update the supervised command</strong></div><span>{draft.autoStart ? "Starts immediately" : "Creates idle"} · project-relative</span></div>
               <Field label="Worker ID" detail="Stable identifier; it cannot be changed later.">
-                <input value={draft.id} disabled={editing || busy} onChange={event => update("id", event.target.value)} placeholder="backend" autoFocus={!editing} />
+                <input value={draft.id} disabled={editing || busy} onChange={event => update("id", event.target.value)} placeholder="backend" />
               </Field>
               <Field label="Display name">
-                <input value={draft.name} disabled={busy} onChange={event => update("name", event.target.value)} placeholder="Backend server" autoFocus={editing} />
+                <input value={draft.name} disabled={busy} onChange={event => update("name", event.target.value)} placeholder="Backend server" autoFocus />
               </Field>
-              <Field label="Command" detail="Defaults to an empty PowerShell terminal. Replace it with any executable you want Mission Control to supervise." wide>
+              <Field label="Command" detail="The executable Mission Control supervises." wide>
                 <input value={draft.command} disabled={busy} onChange={event => update("command", event.target.value)} placeholder="powershell.exe" />
               </Field>
               <Field label="Arguments" detail='JSON array, for example ["run", "dev"].' wide>
@@ -205,37 +202,52 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
               <Field label="Working directory" detail='Use "." for the open project folder, or a relative subfolder such as ./frontend.' wide>
                 <input value={draft.cwd} disabled={busy} onChange={event => update("cwd", event.target.value)} placeholder="." />
               </Field>
-
-              {editing && (
+              </>) : (<>
+              {/* Two fields, exactly as asked: what to call it, and what to run.
+                  Everything else — the id, the working directory, the shell — is
+                  derived, and stays editable afterwards for workers that need it. */}
+              <Field label="Name" detail="What this terminal is called in the workspace." wide>
+                <input value={draft.name} disabled={busy} onChange={event => update("name", event.target.value)} placeholder="Storefront" autoFocus />
+              </Field>
+              <Field label="Start command" detail="Optional. Runs in this project folder when the terminal opens; the shell stays open afterwards." wide>
+                <input value={draft.startCommand} disabled={busy} onChange={event => update("startCommand", event.target.value)} placeholder="npm run dev" spellCheck="false" />
+              </Field>
+              <p className="worker-form-note">Project: <strong>{projectName || "the open project"}</strong></p>
+              </>)}
+              {advanced && editing && (
                 <label className="terminal-toggle-card is-wide">
                   <span><strong>Replace environment overrides</strong><small>Existing values remain secret and unchanged unless you enable this.</small></span>
                   <span className="pm-toggle"><input type="checkbox" checked={draft.replaceEnvironment} disabled={busy} onChange={event => update("replaceEnvironment", event.target.checked)} /><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span>
                 </label>
               )}
-              <Field
-                label="Environment"
-                detail={editing && !draft.replaceEnvironment
-                  ? `Existing keys: ${configuration.envKeys?.join(", ") || "none"}`
-                  : "JSON object of string values. Values are never exposed in Groundstation state or activity."}
-                wide
-              >
-                <textarea rows="4" value={draft.envText} disabled={busy || (editing && !draft.replaceEnvironment)} onChange={event => update("envText", event.target.value)} spellCheck="false" />
-              </Field>
+              {advanced && (
+                <Field
+                  label="Environment"
+                  detail={editing && !draft.replaceEnvironment
+                    ? `Existing keys: ${configuration?.envKeys?.join(", ") || "none"}`
+                    : "JSON object of string values. Values are never exposed in Groundstation state or activity."}
+                  wide
+                >
+                  <textarea rows="4" value={draft.envText} disabled={busy || (editing && !draft.replaceEnvironment)} onChange={event => update("envText", event.target.value)} spellCheck="false" />
+                </Field>
+              )}
 
-              <label className="terminal-toggle-card">
-                <span><strong>Start automatically</strong><small>Launch now and during future workspace restores.</small></span>
-                <span className="pm-toggle"><input type="checkbox" checked={draft.autoStart} disabled={busy} onChange={event => update("autoStart", event.target.checked)} /><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span>
-              </label>
-              <label className="terminal-toggle-card">
-                <span><strong>PowerShell compatibility</strong><small>Explicit fallback that disables PSReadLine for this worker.</small></span>
-                <span className="pm-toggle"><input type="checkbox" checked={draft.powershellCompatibility} disabled={busy} onChange={event => update("powershellCompatibility", event.target.checked)} /><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span>
-              </label>
+              {advanced && (<>
+                <label className="terminal-toggle-card">
+                  <span><strong>Start automatically</strong><small>Launch now and during future workspace restores.</small></span>
+                  <span className="pm-toggle"><input type="checkbox" checked={draft.autoStart} disabled={busy} onChange={event => update("autoStart", event.target.checked)} /><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span>
+                </label>
+                <label className="terminal-toggle-card">
+                  <span><strong>PowerShell compatibility</strong><small>Explicit fallback that disables PSReadLine for this worker.</small></span>
+                  <span className="pm-toggle"><input type="checkbox" checked={draft.powershellCompatibility} disabled={busy} onChange={event => update("powershellCompatibility", event.target.checked)} /><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span>
+                </label>
+              </>)}
             </div>
             <footer className="dialog-footer">
-              <span>{editing ? "The worker stays idle until you start it." : draft.autoStart ? "This creates and starts one engine-owned PTY." : "This registers an idle worker without launching a process."}</span>
+              <span>{editing ? "The worker stays idle until you start it." : "Opens one terminal in this project and runs the command."}</span>
               <div>
                 <button type="button" className="btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Add worker"}</button>
+                <button type="submit" className="btn-primary" disabled={busy}>{busy ? (editing ? "Saving…" : "Starting…") : editing ? "Save changes" : "Start"}</button>
               </div>
             </footer>
           </form>

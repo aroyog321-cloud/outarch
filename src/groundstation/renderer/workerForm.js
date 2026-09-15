@@ -56,7 +56,8 @@ export function parseWorkerEnvironment(value) {
 }
 
 export function buildWorkerDefinition(draft) {
-  const id = requiredText(draft?.id, "Worker ID", 64);
+  const rawId = draft?.id ? String(draft.id).trim() : nextAvailableWorkerId(draft?.name || "worker");
+  const id = requiredText(rawId, "Worker ID", 64);
   if (!SESSION_ID_PATTERN.test(id)) {
     throw new Error("Worker ID may use only letters, numbers, dots, dashes, and underscores");
   }
@@ -109,31 +110,86 @@ export function nextAvailableWorkerId(base, existingIds = []) {
   return `${root}-${Date.now()}`;
 }
 
+// A friendly "start command" field changes command semantics: what the person
+// types is a shell command line, not an executable plus arguments. Splitting it
+// on spaces would break quoting, paths with spaces, PowerShell expressions and
+// Windows `.cmd` shims, so the text is passed to the configured shell intact and
+// never concatenated with a project path or an environment value.
+//
+// The shell is left open afterwards, because the intent is an interactive
+// terminal that happens to start with a command — a failed command must leave a
+// usable prompt and a visible error, not a window that vanishes.
+export function buildShellLaunch(commandText, platform = "win32") {
+  const text = String(commandText || "").trim();
+  if (text.includes("\0")) throw new Error("Start command cannot contain null bytes");
+  if (text.length > 4096) throw new Error("Start command cannot exceed 4096 characters");
+
+  if (platform === "win32") {
+    const args = ["-NoLogo", "-NoProfile", "-NoExit"];
+    // No command means a plain interactive shell, which is a valid thing to want.
+    if (text) args.push("-Command", text);
+    return { command: "powershell.exe", args };
+  }
+
+  const shell = platform === "darwin" ? "zsh" : "bash";
+  if (!text) return { command: shell, args: ["-i"] };
+  // `exec` hands the terminal back to an interactive shell once the command
+  // finishes, so the pane stays usable either way.
+  return { command: shell, args: ["-i", "-c", `${text}; exec ${shell} -i`] };
+}
+
+/**
+ * The two-field create path: a name and a command line, nothing else. The ID is
+ * derived and made collision-safe; the working directory is the open project.
+ */
+export function buildSimpleWorkerDefinition(draft, { platform = "win32", existingIds = [] } = {}) {
+  const name = requiredText(draft?.name, "Name", 80);
+  const launch = buildShellLaunch(draft?.startCommand, platform);
+  const id = nextAvailableWorkerId(draft?.id || name, existingIds);
+  if (!SESSION_ID_PATTERN.test(id)) {
+    throw new Error("A worker ID could not be derived from that name; use letters or numbers.");
+  }
+  return {
+    id,
+    name,
+    command: launch.command,
+    args: launch.args,
+    cwd: ".",
+    env: {},
+    powershellCompatibility: false,
+    autoStart: false
+  };
+}
+
 export function initialWorkerDraft(configuration = null) {
   if (!configuration) {
     // Mirror the visibly preselected "Project shell" template so the primary
     // create path submits successfully without an intermediate template click.
+    // The create path asks two questions, so the draft starts empty rather than
+    // pre-filled with a template's answers.
     return {
-      id: "terminal",
-      name: "Project shell",
+      id: "",
+      name: "",
+      startCommand: "",
       command: "powershell.exe",
       argsText: "[]",
       cwd: ".",
       envText: "{}",
       replaceEnvironment: true,
       powershellCompatibility: false,
-      autoStart: true
+      autoStart: false
     };
   }
   return {
     id: configuration.id,
     name: configuration.name || configuration.id,
+    startCommand: "",
     command: configuration.command || "",
     argsText: JSON.stringify(configuration.args || [], null, 2),
     cwd: configuration.cwd || ".",
     envText: "{}",
     replaceEnvironment: false,
     powershellCompatibility: configuration.powershellCompatibility === true,
-    autoStart: configuration.autoStart !== false
+    autoStart: configuration.autoStart === true
   };
 }

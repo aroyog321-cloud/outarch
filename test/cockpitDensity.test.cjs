@@ -6,21 +6,25 @@ const path = require("node:path");
 const rendererRoot = path.join(__dirname, "..", "src", "groundstation", "renderer");
 const read = (...parts) => fs.readFileSync(path.join(rendererRoot, ...parts), "utf8");
 
-test("the primary sidebar keeps the seven operator destinations in scan order", () => {
+test("the primary sidebar keeps the six operator destinations in scan order", () => {
   const app = read("App.jsx");
   const navigation = app.slice(app.indexOf("const NAVIGATION"), app.indexOf("const PRIMARY_NAV_COUNT"));
   const ids = [...navigation.matchAll(/\["([a-z-]+)", "/g)].map(match => match[1]);
 
+  // Agents is no longer a destination: being an AI agent is something a terminal
+  // *is*, detected from its output, so it shows as a Workspace folder and a
+  // Groundstation register rather than a separate place to visit.
   assert.deepEqual(
-    ids.slice(0, 7),
-    ["groundstation", "workspace", "needs", "agents", "recipes", "history", "settings"],
-    "the primary seven must stay in this order"
+    ids.slice(0, 6),
+    ["groundstation", "workspace", "needs", "recipes", "history", "settings"],
+    "the primary six must stay in this order"
   );
+  assert.equal(ids.includes("agents"), false, "Agents must not return as a sidebar destination");
   // Recipes is a daily verb, so it holds a slot rather than living only in a
-  // dialog. Integrations stays reachable but trails the seven.
-  assert.equal(ids[4], "recipes");
-  assert.equal(ids[7], "integrations");
-  assert.match(app, /const PRIMARY_NAV_COUNT = 7;/);
+  // dialog. Integrations stays reachable but trails the six.
+  assert.equal(ids[3], "recipes");
+  assert.equal(ids[6], "integrations");
+  assert.match(app, /const PRIMARY_NAV_COUNT = 6;/);
 });
 
 test("Integrations renders as a contextual group below the primary seven", () => {
@@ -202,6 +206,10 @@ test("Rename and Duplicate are label-level actions beside engine Reconfigure", (
   assert.match(app, /onDuplicate=\{session => setWorkerDialog\(\{ mode: "create", seed:/);
   const dialog = read("WorkerDialog.jsx");
   assert.match(dialog, /initialWorkerDraft\(configuration \|\| seed\)/);
-  assert.match(dialog, /if \(!configuration\) initial\.id = nextAvailableWorkerId\(initial\.id, existingIds\);/,
+  assert.match(dialog, /if \(!configuration && seed\) initial\.id = nextAvailableWorkerId\(initial\.id, existingIds\);/,
     "a duplicate must get a duplicate-safe id");
+  // A duplicate carries a real command, so it gets the full form and the full
+  // builder rather than the two-field create path.
+  assert.match(dialog, /const advanced = editing \|\| Boolean\(seed\);/,
+    "a duplicate must show the command it is copying");
 });

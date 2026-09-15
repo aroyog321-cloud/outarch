@@ -32,6 +32,20 @@ const terminalIds = new WeakMap();
 const managedTerminals = new Map();
 const terminalActivity = new Map();
 
+function stripAnsi(text) {
+  if (typeof text !== "string" || !text) return "";
+  return text
+    .replace(/\x1b\][^\x07\x1b\r\n]*(?:\x07|\x1b\\|[\r\n]|$)/g, "")
+    .replace(/\x1b[\(\)][AB012UK]/g, "")
+    .replace(/\x1b\[[?><=0-9;]*[ -/]*[@-~]/g, "")
+    .replace(/\[[?><=][0-9;]*[a-zA-Z]/g, "")
+    .replace(/\([AB012UK]/g, "")
+    .replace(/\](?:633|133|1337);[^\r\n]*/g, "")
+    .replace(/\x1b[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+}
+
 function workspaceForProject(id) {
   return (vscode.workspace.workspaceFolders || []).find(folder => projectId(folder.uri.fsPath) === id) || null;
 }
@@ -293,6 +307,7 @@ async function runTerminalCommand(message) {
       const input = typeof message.input === "string" ? message.input : "";
       if (!input || Buffer.byteLength(input, "utf8") > 4096 || /[\0\r\n]/.test(input)) throw new Error("Terminal input is invalid or too large");
       managed.terminal.sendText(input, message.addNewLine !== false);
+      send({ type: "terminal:output", terminalId: managed.id, input });
       id = managed.id;
     } else if (message.type === "command:terminal-focus") {
       if (!hasPermission("terminals.manage")) throw new Error("Terminal management permission was not granted");
@@ -405,19 +420,34 @@ function activate(context) {
   setStatus("disconnected");
   const terminalActivityDisposables = [];
   if (typeof vscode.window.onDidStartTerminalShellExecution === "function") {
-    terminalActivityDisposables.push(vscode.window.onDidStartTerminalShellExecution(event => {
+    terminalActivityDisposables.push(vscode.window.onDidStartTerminalShellExecution(async event => {
       const id = terminalId(event.terminal);
-      terminalActivity.set(id, { command: event.execution?.commandLine?.value || "", state: "running" });
+      const rawCommand = event.execution?.commandLine?.value || "";
+      const command = stripAnsi(rawCommand).trim();
+      terminalActivity.set(id, { command, state: "running" });
+      send({ type: "terminal:output", terminalId: id, input: command, state: "running" });
       scheduleSnapshot();
+      try {
+        if (typeof event.execution?.read === "function") {
+          const stream = event.execution.read();
+          for await (const chunk of stream) {
+            const cleaned = stripAnsi(chunk);
+            if (cleaned.trim() || cleaned.includes("\n")) {
+              send({ type: "terminal:output", terminalId: id, data: cleaned });
+            }
+          }
+        }
+      } catch { /* Stream ended or read error */ }
     }));
   }
   if (typeof vscode.window.onDidEndTerminalShellExecution === "function") {
     terminalActivityDisposables.push(vscode.window.onDidEndTerminalShellExecution(event => {
       const id = terminalId(event.terminal);
-      terminalActivity.set(id, {
-        command: event.execution?.commandLine?.value || terminalActivity.get(id)?.command || "",
-        state: event.exitCode === 0 ? "succeeded" : "failed"
-      });
+      const rawCommand = event.execution?.commandLine?.value || terminalActivity.get(id)?.command || "";
+      const command = stripAnsi(rawCommand).trim();
+      const state = event.exitCode === 0 ? "succeeded" : "failed";
+      terminalActivity.set(id, { command, state });
+      send({ type: "terminal:output", terminalId: id, state, exitCode: event.exitCode });
       scheduleSnapshot();
     }));
   }

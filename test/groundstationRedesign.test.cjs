@@ -17,7 +17,13 @@ const read = file => fs.readFileSync(path.join(rendererRoot, file), "utf8");
 test("the live surface is the redesigned one and still separates agents from workers", () => {
   const app = read("App.jsx");
   assert.match(app, /view === "groundstation"\) return <LiveGroundstationView/);
-  assert.match(app, /const workers = sessions\.filter\(session => !session\.id\.startsWith\("agent-"\)\)/);
+  assert.match(app, /const workers = sessions\.filter\(session => !isAgentSession\(session\)\);/);
+  assert.match(app, /const agents = sessions\.filter\(isAgentSession\);/);
+  assert.match(
+    app,
+    /function isAgentSession\(session\) \{[\s\S]{0,220}?session\.id\.startsWith\("agent-"\) \|\| liveAgentClassification\.get\(session\.id\)\?\.isAgent === true;/,
+    "an agent is either one the crew flow created or one the engine observed"
+  );
   assert.match(app, /workers\.map\(\(session, index\) => <ReferenceManifestRow/);
   // One scene: status bar, attention inbox, manifest, lower panels, inspector.
   for (const part of ["<GroundstationStatusBar", "<AttentionInbox", "<ManifestToolbar", "<ManifestList", "<WorkerInspector", "<ActivityWaterline"]) {
@@ -452,9 +458,13 @@ test("the one hand-built menu (terminal session chooser) has the full Radix-equi
 test("renderer-inferred worker roles are labelled as inferred, not presented as engine facts (T071)", () => {
   const app = read("App.jsx");
   const pane = read("TerminalPane.jsx");
-  // workerKind is a regex over name/command — every place it renders says so.
-  assert.match(app, /function workerKind\(session\) \{[\s\S]{0,120}\.toLowerCase\(\)/);
-  assert.match(app, /className="mc-ref-role is-inferred"[\s\S]{0,80}title="Role inferred from the command/);
+  // Classification prefers what the engine observed in this run; the regex over
+  // name/command is only the fallback, and every place it renders still says so.
+  assert.match(app, /const observed = session\?\.id \? liveAgentClassification\.get\(session\.id\) : null;/);
+  assert.match(app, /function workerKind\(session\) \{[\s\S]{0,700}\.toLowerCase\(\)/);
+  assert.match(app, /className=\{`mc-ref-role \$\{agent \? "" : "is-inferred"\}`\}[\s\S]{0,260}?"Role inferred from the command/);
+  // An observed agent is not an inference, so it must not claim to be one.
+  assert.match(app, /title=\{agent \? `Observed running \$\{agent\.agentType \|\| "an agent CLI"\}[\s\S]{0,120}?not guessed from its command`/);
   assert.match(app, /\{workerKind\(session\)\} · inferred/);
   assert.match(pane, /terminal-role-tag role-\$\{profile\?\.key \|\| "terminal"\}`\} title="Role inferred from the command/);
   assert.match(read("redesign/screens.css"), /\.mc-ref-role\.is-inferred,[\s\S]{0,80}text-decoration: underline dotted/);

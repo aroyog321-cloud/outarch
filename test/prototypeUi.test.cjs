@@ -32,17 +32,24 @@ test("the consolidated full-app concept is mapped onto the live renderer", () =>
     assert.match(bridge, new RegExp(token));
   }
   assert.match(base, /2\.19 shell contract/);
-  assert.match(base, /grid-template-columns: 212px minmax\(0, 1fr\)/);
+  assert.match(base, /grid-template-columns: var\(--mc-rail-w, 212px\) minmax\(0, 1fr\)/);
   assert.match(workspace, /container: workspace-stage \/ inline-size/);
   assert.match(screens, /2\.19 Groundstation contract/);
   assertReducedMotionIsCentral();
-  assert.match(app, /const workers = sessions\.filter\(session => !session\.id\.startsWith\("agent-"\)\)/);
+  assert.match(app, /const workers = sessions\.filter\(session => !isAgentSession\(session\)\);/);
+  assert.match(app, /const agents = sessions\.filter\(isAgentSession\);/);
+  assert.match(
+    app,
+    /function isAgentSession\(session\) \{[\s\S]{0,220}?session\.id\.startsWith\("agent-"\) \|\| liveAgentClassification\.get\(session\.id\)\?\.isAgent === true;/,
+    "an agent is either one the crew flow created or one the engine observed"
+  );
   assert.match(app, /workers\.map\(\(session, index\) => <ReferenceManifestRow/);
   assert.match(app, /data-tooltip=\{`Switch project/);
   assert.match(app, /className="app-sidebar__rail-label"/);
   assert.match(app, /pendingCount=\{pendingCount\}/);
   assert.match(status, /status-bar-premium__crumb"><b>\{VIEW_LABELS\[view\]/);
-  assert.match(missionAi, /mode === "ask" \? "Read-only answers" : "Approval-gated proposal"/);
+  // Authority is stated once for the whole conversation rather than per mode.
+  assert.match(read("src/groundstation/renderer/AssistantChat.jsx"), /Anything that changes your project asks first/);
 });
 
 test("overview failures open evidence before lifecycle mutation", () => {

@@ -19,10 +19,18 @@ const { NotificationPolicy } = require("./notificationPolicy.cjs");
 // Engine events that can plausibly create or clear an attention record. Output
 // is excluded — it is by far the highest-volume event and never on its own a
 // reason to interrupt someone.
+//
+// Until 2026-09-14 this listed "session:error", which the engine has never
+// emitted, and left out the two events that actually carry most failures:
+// "session:spawn-error" (a command that cannot start) and "session:supervision"
+// (an error printed by a worker that is still running — every Node crash inside
+// a PowerShell -NoExit terminal). Those failures raised attention in the engine
+// and never a notification.
 const TRIGGER_EVENTS = new Set([
   "session:status",
   "session:exit",
-  "session:error",
+  "session:spawn-error",
+  "session:supervision",
   "session:created",
   "session:removed",
   "attention:lifecycle",
@@ -52,6 +60,7 @@ class NotificationService extends EventEmitter {
   #lastDeliveryAt;
   #lastSuppressed;
   #live;
+  #publish;
 
   constructor(options = {}) {
     super();
@@ -70,6 +79,9 @@ class NotificationService extends EventEmitter {
     this.#lastDeliveryAt = null;
     this.#lastSuppressed = null;
     this.#live = new Set();
+    // With a sink, new attention records are handed to the notification center,
+    // which owns surfaces, sound and merging; this service only finds them.
+    this.#publish = typeof options.publish === "function" ? options.publish : null;
   }
 
   get supported() {
@@ -124,6 +136,27 @@ class NotificationService extends EventEmitter {
     this.#live.clear();
   }
 
+  /**
+   * Opening another project replaces the EngineAPI. A subscription left on the
+   * old instance hears nothing ever again, so every failure after a switch went
+   * unannounced. Rebinding follows the new engine, and the records that project
+   * already holds are marked seen: they are on the Needs You list, not news.
+   */
+  rebind() {
+    this.stop();
+    this.#seen.clear();
+    if (!this.start()) return false;
+    try {
+      const records = this.#getEngineApi()?.listAttention?.()?.records;
+      for (const record of Array.isArray(records) ? records : []) {
+        if (record?.id && record.state === "new") this.#seen.add(record.id);
+      }
+    } catch (error) {
+      this.#lastError = String(error?.message || error).slice(0, 240);
+    }
+    return true;
+  }
+
   #schedule() {
     if (this.#timer) return;
     this.#timer = setTimeout(() => {
@@ -159,6 +192,11 @@ class NotificationService extends EventEmitter {
       if (record.state !== "new") continue;
       if (this.#seen.has(record.id)) continue;
       this.#seen.add(record.id);
+
+      if (this.#publish) {
+        try { this.#publish(record); } catch (error) { this.#lastError = String(error?.message || error).slice(0, 240); }
+        continue;
+      }
 
       const decision = this.#policy.consider(record, preferences, this.#now());
       if (!decision.deliver) {

@@ -59,8 +59,14 @@ export default function ProjectsView({ data, loading, onChoose, onOpen, onRemove
                   <div className="project-row__body">
                     <strong>{project.name}</strong>
                     <code title={project.rootPath}>{project.rootPath}</code>
+                    {/* The status chip already names the condition, so a note
+                        here only earns its place when it says something the
+                        chip does not. "Missing" beside "project folder is
+                        missing" was the same fact twice in two registers. */}
+                    {project.error && !project.error.toLowerCase().includes(statusLabel(project).toLowerCase())
+                      && <em className="project-row__note">{project.error}</em>}
                   </div>
-                  <span className={`project-state project-state-${project.current ? "current" : project.status}`}>{statusLabel(project)}<small>{project.error || timeAgo(project.lastOpenedAt)}</small></span>
+                  <span className={`project-state project-state-${project.current ? "current" : project.status}`}>{statusLabel(project)}<small>{timeAgo(project.lastOpenedAt)}</small></span>
                   <div className="project-row__actions">
                     <button
                       type="button"

@@ -94,19 +94,22 @@ test("T116 - every integration has the same bounded, side-effect-free self-test"
   const diagnostics = read("IntegrationDiagnostics.jsx");
   const probes = diagnostics.slice(diagnostics.indexOf("const PROBES = {"), diagnostics.indexOf("function Fact("));
 
-  for (const id of ["intelligence", "vscode", "mcp", "automation", "companion", "extensions"]) {
+  // Automation left the Integrations surface on 2026-09-12. Its workflows still
+  // run and still raise approvals; those are decisions, and Needs You is where
+  // decisions are answered, so nothing became unreachable by removing the tab.
+  for (const id of ["intelligence", "vscode", "mcp", "companion", "extensions"]) {
     assert.ok(probes.includes(`${id}: {`), `${id} has no self-test descriptor`);
   }
   // Each of the five facts T116 names has a reader on every descriptor.
   for (const fact of ["permissions", "endpoint", "lastSuccess", "lastError", "recovery"]) {
-    assert.equal((probes.match(new RegExp(`\\b${fact}:`, "g")) || []).length, 6, `${fact} is not read for all six integrations`);
+    assert.equal((probes.match(new RegExp(`\\b${fact}:`, "g")) || []).length, 5, `${fact} is not read for all five integrations`);
   }
 
   // Bounded: a deadline, and only status methods - nothing that mutates.
   assert.match(diagnostics, /const TIMEOUT_MS = 6000;/);
   assert.match(diagnostics, /Promise\.race\(\[/);
   const methods = [...probes.matchAll(/method: "([^"]+)"/g)].map(match => match[1]);
-  assert.equal(methods.length, 6);
+  assert.equal(methods.length, 5);
   assert.ok(methods.every(method => /\.(status|list)$/.test(method)), `a self-test calls a non-read method: ${methods.join(", ")}`);
   assert.ok(!methods.some(method => /configure|rotate|resolve|install|invite|revoke|launch|disconnect/.test(method)));
 
@@ -118,22 +121,20 @@ test("T116 - every integration has the same bounded, side-effect-free self-test"
   assert.match(read("IntegrationsView.jsx"), /<IntegrationDiagnostics integrationId=\{section\} capability=\{currentCapability\}\/>/);
 });
 
-test("T118 - Mission AI's four states are named separately and none exposes the key", () => {
+test("T118 - Mission AI's states are named separately and none exposes a key", () => {
   const missionAi = read("MissionAI.jsx");
   const states = missionAi.slice(missionAi.indexOf("function missionAiStates("), missionAi.indexOf("function MissionAIStateFacts("));
 
-  for (const label of ["Provider", "Credential", "Protected storage", "Last request"]) {
+  for (const label of ["Built-in keys", "Models", "Your keys", "Access"]) {
     assert.ok(states.includes(`label: "${label}"`), `${label} is not reported as its own state`);
   }
-  // The distinctions T118 exists for.
-  assert.match(states, /status\.configured \? "Stored, OS-encrypted on this device" : "Not configured"/);
-  assert.match(states, /status\.available === false \? \(status\.error \|\| "Unavailable on this machine"\) : "Available"/);
-  assert.match(states, /status\.lastError\s*\n\s*\? `Failed - \$\{status\.lastError\}`/);
-  // A failed status read is "unknown", not "disabled" and not "ready".
+  // Keys missing is not a model listing that failed, and neither is "we do not know".
+  assert.match(states, /"Not set in this build"/);
+  assert.match(states, /Failed - \$\{mission\.modelsError\}/);
   assert.match(states, /"Unknown - status could not be read"/);
-  // Nothing reads the key.
+  // Presence only: nothing here reads a key.
   assert.doesNotMatch(states, /apiKey|api_key|secret|token/i);
-  assert.match(missionAi, /<MissionAIStateFacts status=\{status\} resourceState=\{resourceState\}\/>/);
+  assert.match(missionAi, /<MissionAIStateFacts status=\{status\} error=\{error\}\/>/);
 });
 
 test("T170 - integration status refreshes are coalesced with a debounce timer and support targeted refresh by integration id", () => {

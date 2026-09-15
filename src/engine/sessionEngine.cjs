@@ -20,6 +20,29 @@ const MAX_INPUT_PREVIEW_LENGTH = 180;
 const RESTART_EXIT_TIMEOUT_MS = 2500;
 const REMOVE_EXIT_TIMEOUT_MS = 2500;
 const SHUTDOWN_EXIT_TIMEOUT_MS = 5000;
+// A resize makes the terminal (ConPTY on Windows) repaint the visible screen,
+// and the repaint arrives as ordinary output. Opening a terminal re-fits it, so
+// without this an error already on screen — one you had acknowledged — was read
+// again as a new failure and announced a second time.
+const REDRAW_WINDOW_MS = 1500;
+const REDRAW_HISTORY_LINES = 400;
+const MAX_ATTENTION_CLAIMS = 50;
+
+// Rows as they appear on screen. Cursor positioning separates rows in a repaint
+// just as a newline does in a log.
+function screenLines(text) {
+  return stripAnsi(String(text || "").replace(/\u001b\[\d*(?:;\d*)?[Hf]/g, "\n"))
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .split(/\r\n|\r|\n/)
+    .map(line => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+// The same error printed again differs only in counters, times and line numbers.
+function errorSignature(line) {
+  return stripAnsi(String(line || "")).toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").trim().slice(0, 240);
+}
 
 function defaultPtyFactory(command, args, options) {
   // Keep the native dependency behind the default factory so engine tests and
@@ -261,6 +284,14 @@ class Session extends EventEmitter {
     // "lifecycle" is a spawn failure or a non-zero exit, which is the fact that
     // the process is dead and no amount of later text can undo.
     this.attentionOrigin = null;
+    // Signatures of the error lines behind the current attention, and — once
+    // acknowledged — the ones the operator has already seen, with the input
+    // count at that moment. An acknowledged error printed again is not news
+    // until something changes: a restart, a command typed, a success or a new
+    // build cycle in between.
+    this._attentionClaims = new Set();
+    this._acknowledged = null;
+    this._redrawUntil = 0;
     this.evidence = {};
     this._partialLine = "";
     this._rawReplay = new RawReplayBuffer();
@@ -373,13 +404,56 @@ class Session extends EventEmitter {
       .split("\n")
       .map(line => line.trim())
       .filter(Boolean);
-    const reason = lines.at(-1) || "Terminal output needs attention";
+    // The line that is the error, not whatever printed after it — a chunk that
+    // ends with the shell prompt used to make the prompt the reason.
+    const claim = [...lines].reverse().find(line => classify(line) === "claim");
+    const reason = claim || lines.at(-1) || "Terminal output needs attention";
     return reason.length > 240 ? `${reason.slice(0, 237)}...` : reason;
+  }
+
+  /**
+   * Output that arrives just after a resize and repeats rows already in the
+   * buffer is the terminal repainting its screen. Returns null for real output,
+   * or the rows that are new (usually none) when it is a repaint.
+   */
+  _redrawFrom(text, at) {
+    if (!(at <= this._redrawUntil)) return null;
+    const rows = screenLines(text);
+    if (!rows.length) return null;
+    const history = this.lines.slice(-REDRAW_HISTORY_LINES)
+      .concat(stripAnsi(this._partialLine))
+      .map(line => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    const novel = rows.filter(row => !history.some(line => line.includes(row)));
+    // Nothing on screen already: this is new output that happened to follow a resize.
+    if (novel.length === rows.length) return null;
+    return { novel, text: novel.length ? `${novel.join("\n")}\n` : "" };
   }
 
   _updateSupervision(text) {
     const nextActivity = classify(text);
-    if (!nextActivity) return;
+    if (!nextActivity) return null;
+
+    const lines = screenLines(text);
+    const claims = nextActivity === "claim" ? lines.filter(line => classify(line) === "claim") : [];
+    if (this._acknowledged) {
+      // Something changed since the acknowledgement: a command was typed, or
+      // the worker reported a success or started a new cycle. A failure after
+      // that is news again.
+      const moved = this._inputCount !== this._acknowledged.inputCount
+        || lines.some(line => ["nominal", "progress"].includes(classify(line)));
+      if (moved) this._acknowledged = null;
+    }
+    if (
+      nextActivity === "claim" &&
+      !this.attentionRequired &&
+      this._acknowledged &&
+      claims.length > 0 &&
+      claims.every(line => this._acknowledged.signatures.has(errorSignature(line)))
+    ) {
+      // The error the operator acknowledged, printed again. It stays acknowledged.
+      return { acknowledged: true };
+    }
 
     const previous = this._supervisionSummary();
     this.activity = nextActivity;
@@ -388,6 +462,12 @@ class Session extends EventEmitter {
       this.attentionReason = this._attentionReasonFrom(text);
       this.attentionSince = Date.now();
       this.attentionOrigin = "output";
+    }
+    if (nextActivity === "claim" && this.attentionRequired) {
+      for (const line of claims) {
+        if (this._attentionClaims.size >= MAX_ATTENTION_CLAIMS) break;
+        this._attentionClaims.add(errorSignature(line));
+      }
     }
     // T069 — a build that failed and then succeeded is history, not a decision.
     // Attention inferred from a log line is superseded when the same worker
@@ -400,8 +480,10 @@ class Session extends EventEmitter {
       this.attentionReason = null;
       this.attentionSince = null;
       this.attentionOrigin = null;
+      this._attentionClaims = new Set();
     }
     this._emitSupervisionIfChanged(previous);
+    return null;
   }
 
   _raiseAttention(reason) {
@@ -420,6 +502,10 @@ class Session extends EventEmitter {
 
   _resetSupervision() {
     const previous = this._supervisionSummary();
+    // A new run (or a new launch definition) owes nothing to the last one's
+    // acknowledgements.
+    this._attentionClaims = new Set();
+    this._acknowledged = null;
     this.activity = null;
     this.attentionRequired = false;
     this.attentionReason = null;
@@ -488,22 +574,42 @@ class Session extends EventEmitter {
       if (this.proc !== proc || this._disposed) return;
       const text = String(data);
       const sequence = ++this._outputSequence;
+      // The replay stays byte-exact: a repaint is still what the screen shows.
       this._rawReplay.append(text);
-      this.lastOutputAt = Date.now();
-      const supervisionText = this._partialLine + text;
-      this._consumeOutput(text);
-      const previousEvidence = this.evidence;
-      this.evidence = mergeEvidence(this.evidence, supervisionText, this.lastOutputAt);
-      for (const [category, evidence] of Object.entries(this.evidence)) {
-        if (evidenceFactsChanged(previousEvidence[category], evidence)) {
-          this.emit("evidence", { category, evidence: JSON.parse(JSON.stringify(evidence)) });
+      const at = Date.now();
+      const redraw = this._redrawFrom(text, at);
+      let supervisionText;
+      if (redraw) {
+        // Only rows that were not already on screen are output. A pure repaint
+        // is not activity, adds nothing to the log and re-reports nothing.
+        for (const row of redraw.novel) this._appendLine(row);
+        supervisionText = redraw.text;
+        if (supervisionText) this.lastOutputAt = at;
+      } else {
+        this.lastOutputAt = at;
+        supervisionText = this._partialLine + text;
+        this._consumeOutput(text);
+      }
+      if (supervisionText) {
+        const previousEvidence = this.evidence;
+        this.evidence = mergeEvidence(this.evidence, supervisionText, at);
+        for (const [category, evidence] of Object.entries(this.evidence)) {
+          if (evidenceFactsChanged(previousEvidence[category], evidence)) {
+            this.emit("evidence", { category, evidence: JSON.parse(JSON.stringify(evidence)) });
+          }
         }
       }
-      this._updateSupervision(supervisionText);
+      const supervision = supervisionText ? this._updateSupervision(supervisionText) : null;
+      // Readers of the raw stream (service discovery, build and port-conflict
+      // events) are told what this chunk really is, so they draw the same
+      // conclusion as the engine instead of re-reading a repaint or an
+      // acknowledged error as news.
       this.emit("data", text, {
         sequence,
-        at: this.lastOutputAt,
-        source: "pty"
+        at,
+        source: "pty",
+        ...(redraw ? { redraw: true, analysisText: redraw.text } : {}),
+        ...(supervision?.acknowledged ? { acknowledged: true } : {})
       });
     };
 
@@ -594,6 +700,8 @@ class Session extends EventEmitter {
       this.proc.resize(cols, rows);
       this.cols = cols;
       this.rows = rows;
+      // The terminal repaints its screen in answer; see REDRAW_WINDOW_MS.
+      this._redrawUntil = Date.now() + REDRAW_WINDOW_MS;
       return true;
     } catch (err) {
       return false;
@@ -735,6 +843,10 @@ class Session extends EventEmitter {
   acknowledgeAttention() {
     if (!this.attentionRequired) return false;
     const previous = this._supervisionSummary();
+    const signatures = new Set(this._attentionClaims);
+    if (this.attentionReason) signatures.add(errorSignature(this.attentionReason));
+    this._acknowledged = { signatures, inputCount: this._inputCount };
+    this._attentionClaims = new Set();
     this.activity = null;
     this.attentionRequired = false;
     this.attentionReason = null;
@@ -829,6 +941,28 @@ class SessionEngine extends EventEmitter {
     this.sessions = new Map();
     this.ptyFactory = options.ptyFactory || defaultPtyFactory;
     this._sessionCleanups = new Map();
+    // Recovery gate. When the previous session ended unexpectedly, the engine
+    // still loads every worker definition but must not relaunch processes
+    // before the operator has seen what was running. This defers the launch
+    // only; each worker keeps its saved autoStart preference, so suppressing
+    // one boot never rewrites the workspace.
+    this.deferAutoStart = options.deferAutoStart === true;
+  }
+
+  /**
+   * Ends the deferral and starts the workers that would have started at load.
+   * Returns the ids actually spawned so the caller can report them.
+   */
+  releaseAutoStart() {
+    this.deferAutoStart = false;
+    const started = [];
+    for (const session of this.sessions.values()) {
+      if (session.autoStart && !session.isAlive()) {
+        session.spawn();
+        started.push(session.id);
+      }
+    }
+    return started;
   }
 
   _wireSession(session) {
@@ -867,7 +1001,8 @@ class SessionEngine extends EventEmitter {
     this.sessions.set(session.id, session);
     this._wireSession(session);
     this.emit("session:created", { id: session.id, session: session.summary() });
-    if (session.autoStart) session.spawn();
+    if (session.autoStart && !this.deferAutoStart) session.spawn();
+    else if (session.autoStart) session._setStatus("idle");
     return session;
   }
 

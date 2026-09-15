@@ -21,7 +21,13 @@ test("Groundstation exposes baseline screen-reader and keyboard navigation seman
   assert.match(app, /aria-current=\{view === id \? "page"/);
   assert.match(app, /<nav className="top-navigation" aria-label="Mission Control navigation">/);
   assert.match(app, /<aside className="app-sidebar" aria-label="Application sidebar">/);
-  assert.match(toasts, /role=\{hasAction \? "alertdialog" : t\.type === "danger" \? "alert" : "status"\}/);
+  // A toast is not a dialog: it traps no focus and labels nothing, so claiming
+  // alertdialog told assistive tech to expect one, and made every surface that
+  // steps aside for a real dialog step aside for a notification. Measured on
+  // 2026-09-12: one persistent toast disabled Alt F and Alt B and blanked the
+  // whole in-app browser for as long as it was on screen.
+  assert.match(toasts, /role=\{hasAction \|\| t\.type === "danger" \? "alert" : "status"\}/);
+  assert.doesNotMatch(toasts, /"alertdialog"/);
   assert.match(toasts, /aria-live=\{t\.type === "danger" \? "assertive" : "polite"\}/);
   // T133/T142 — an action-bearing toast never auto-dismisses, and neither does
   // a failure: one the operator never saw is one they cannot act on. Escape
@@ -87,7 +93,8 @@ test("polish: theme-aware color-scheme, local-only font CSP, keyboard-activatabl
   const html = read("src/groundstation/renderer/index.html");
   const prefs = read("src/groundstation/renderer/useInterfacePreferences.js");
   const app = read("src/groundstation/renderer/App.jsx");
-  const reveal = read("src/groundstation/renderer/MissionAIScreen.jsx");
+  const reveal = read("src/groundstation/renderer/aiMarkdown.jsx");
+  const thread = read("src/groundstation/renderer/AssistantChat.jsx");
   const motion = read("src/groundstation/renderer/useReducedMotion.js");
 
   // T161 — no external font origins remain (fonts are @fontsource-variable, bundled).
@@ -106,15 +113,14 @@ test("polish: theme-aware color-scheme, local-only font CSP, keyboard-activatabl
   assert.match(motion, /prefers-reduced-motion: reduce/);
   assert.match(motion, /\.shell\.motion-reduced/);
   assert.match(reveal, /const shouldAnimate = animate && !reducedMotion;/);
-  // T134 — the transcript is a log, not a live region, so the character-by-character
-  // reveal is never announced; a dedicated atomic polite region announces the
-  // settled result once, replaced (setAnnouncement) rather than appended.
+  // T134 — a revealed answer is marked busy while it is still arriving.
   assert.match(reveal, /aria-busy=\{streaming \|\| undefined\}/);
-  assert.match(reveal, /<div className="mai-thread" role="log" aria-label="Mission AI conversation">/);
-  assert.doesNotMatch(reveal, /className="mai-thread" aria-live/);
-  assert.match(reveal, /<div className="mai-live-announce" aria-live="polite" aria-atomic="true">\{announcement\}<\/div>/);
-  assert.match(reveal, /setAnnouncement\(announceAnswer\(answer\)\)/);
-  assert.match(reveal, /className="mai-thinking" role="status"/);
+  // The conversation is a log. Replies land whole rather than being revealed
+  // character by character, so what the log announces is a finished message.
+  assert.match(thread, /className=\{`ai-thread \$\{compact \? "is-compact" : ""\}`\}\s*\n\s*role="log"/);
+  assert.doesNotMatch(thread, /StreamingReveal/);
+  // Working is announced as a status, separately from the answer itself.
+  assert.match(thread, /className="ai-msg__thinking" role="status"/);
 });
 
 test("modal dialogs contain focus and return it on close (T127/T132)", () => {
@@ -247,12 +253,15 @@ test("no renderer surface claims tab semantics without tabpanels", () => {
       `${name} hand-builds a tab widget; use TabSet so the tabpanel, aria-controls and roving tabindex come with it`
     );
   }
-  // The two Mission AI switches choose what the composer does next; they never
-  // swap a panel, so they are pressed-state toggles rather than tabs.
-  for (const name of ["MissionAI.jsx", "MissionAIScreen.jsx"]) {
+  // The Mission AI mode switch is gone: asking a question and asking for work
+  // are the same conversation, routed by the coordinator, so there is no widget
+  // left to give tab or toggle semantics to.
+  for (const name of ["MissionAI.jsx", "MissionAIScreen.jsx", "WorkspaceAssistant.jsx"]) {
     const source = fs.readFileSync(path.join(rendererDir, name), "utf8");
-    assert.match(source, /role="group" aria-label="Mission AI mode"/, `${name} keeps a labelled group`);
-    assert.match(source, /aria-pressed=\{mode === "ask"\}/, `${name} marks the active mode as pressed`);
-    assert.match(source, /aria-pressed=\{mode === "plan"\}/, `${name} marks the active mode as pressed`);
+    assert.doesNotMatch(source, /aria-label="Mission AI mode"/, `${name} must not reintroduce a mode switch`);
+  }
+  for (const name of ["MissionAIScreen.jsx", "WorkspaceAssistant.jsx"]) {
+    const source = fs.readFileSync(path.join(rendererDir, name), "utf8");
+    assert.match(source, /useConversation\(/, `${name} sends through the one assistant conversation`);
   }
 });

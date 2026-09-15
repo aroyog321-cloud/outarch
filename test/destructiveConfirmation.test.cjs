@@ -32,7 +32,11 @@ test("every destructive renderer flow opens a confirmation ceremony", () => {
   assert.match(agents, /if \(!onConfirm\) return;\s*onConfirm\(\{ \.\.\.ceremony, run: apply \}\);/);
 
   // Automation remove — ceremony added this batch, routed from App.
-  assert.match(app, /<AutomationSettings [^>]*onConfirm=\{setConfirmation\}/);
+  // Automation left the Integrations surface on 2026-09-12, so there is no
+  // renderer flow to confirm any more. The component keeps its ceremony and the
+  // Protocol keeps its confirmation gate, which is what actually protects the
+  // operation — a workflow can still be deleted through the engine.
+  assert.doesNotMatch(app, /<AutomationSettings/);
   assert.match(automation, /export function AutomationSettings\(\{ workspace, sessions, onConfirm \}\)/);
   assert.match(automation, /confirmLabel: "Remove workflow"/);
 });

@@ -584,8 +584,8 @@
   display: flex !important;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--mc-space-2) var(--mc-space-3);
-  padding: var(--mc-space-2) var(--mc-space-3) !important;
+  gap: var(--mc-space-1) var(--mc-space-2);
+  padding: var(--mc-space-1) var(--mc-space-2) !important;
   background: var(--mc-surface) !important;
   border: 1px solid var(--mc-border) !important;
   border-radius: var(--mc-radius-sm) !important;
@@ -593,7 +593,7 @@
 }
 
 #root#root .shell .view-workspace .workspace-title {
-  display: flex !important;
+  display: var(--mc-deck-aside, flex) !important;
   flex: 1 1 220px;
   min-width: 0;
   align-items: center;
@@ -644,7 +644,7 @@
 }
 
 #root#root .shell .view-workspace .workspace-toolbar-group {
-  display: flex !important;
+  display: var(--mc-deck-aside, flex) !important;
   flex: 0 0 auto;
   align-items: center;
   gap: var(--mc-space-2);
@@ -684,7 +684,7 @@
   display: flex !important;
   flex: 0 0 auto;
   gap: 2px;
-  padding: 2px !important;
+  padding: 1px !important;
   background: var(--mc-surface-2) !important;
   border: 1px solid var(--mc-border) !important;
   border-radius: var(--mc-radius-sm) !important;
@@ -1497,12 +1497,12 @@
   background: var(--mc-danger-soft);
 }
 #root#root .shell .experience .recipe-row-main p {
-  margin: 2px 0 0 !important;
-  overflow: hidden;
+  margin: 3px 0 0 !important;
   color: var(--mc-text-dim);
   font-size: 10.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  text-wrap: pretty;
+  white-space: normal;
 }
 
 /* The startup chain is the point of a recipe, so it is shown, not summarised. */
@@ -1547,8 +1547,115 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--mc-space-2);
 }
+/* Every action is the same height and never breaks across two lines, so the
+   control cluster keeps one baseline however long a label is. */
+#root#root .shell .experience .recipe-row > footer button {
+  min-height: 32px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+#root#root .shell .experience .recipe-row > footer .btn-primary {
+  min-width: 140px;
+  justify-content: center;
+}
+
+/* Placement is stated, not inherited from child order. A recipe that has run
+   before carries a fourth child - its run history - and with the three columns
+   auto-filled that child took the actions' cell and pushed the whole footer
+   onto a second row inside the narrowest track: the buttons then wrapped to
+   two lines each, at four different widths, and the row no longer shared any
+   column edge with the recipe above it. Naming the cell for each child makes a
+   row with history and a row without render identically, and gives the history
+   a full-width row of its own underneath. */
+#root#root .shell .experience .recipe-row > .recipe-row-main { grid-area: 1 / 1; }
+#root#root .shell .experience .recipe-row > .recipe-flow { grid-area: 1 / 2; }
+#root#root .shell .experience .recipe-row > footer { grid-area: 1 / 3; }
+#root#root .shell .experience .recipe-row > .recipe-run-history { grid-area: 2 / 1 / auto / -1; }
+
+/* Run history is reference material about a recipe, not part of its identity
+   line: quiet, closed by default, and separated by a hairline so it reads as a
+   footnote to the row rather than a second row. */
+#root#root .shell .experience .recipe-run-history {
+  margin-top: 2px;
+  padding-top: var(--mc-space-2);
+  border-top: 1px solid var(--mc-hairline);
+}
+#root#root .shell .experience .recipe-run-history > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 3px 9px 3px 7px;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+  border-radius: var(--mc-radius-pill);
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: .03em;
+  list-style: none;
+  cursor: pointer;
+  transition: color var(--mc-motion-fast), background var(--mc-motion-fast), border-color var(--mc-motion-fast);
+}
+#root#root .shell .experience .recipe-run-history > summary::-webkit-details-marker { display: none; }
+#root#root .shell .experience .recipe-run-history > summary::before {
+  content: "›";
+  display: inline-block;
+  color: var(--mc-text-dim);
+  font-size: 12px;
+  line-height: 1;
+  transition: transform var(--mc-motion-fast);
+}
+#root#root .shell .experience .recipe-run-history[open] > summary::before { transform: rotate(90deg); }
+#root#root .shell .experience .recipe-run-history > summary:hover {
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-3);
+  border-color: var(--mc-border);
+}
+#root#root .shell .experience .recipe-run-history > summary b {
+  color: var(--mc-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+#root#root .shell .experience .recipe-run-history > ol {
+  display: grid;
+  gap: var(--mc-space-1);
+  margin: var(--mc-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+#root#root .shell .experience .recipe-run-history > ol > li {
+  display: grid;
+  gap: 2px;
+  padding: var(--mc-space-2);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+  border-left: 2px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius-xs);
+}
+#root#root .shell .experience .recipe-run-history > ol > li.phase-completed { border-left-color: var(--mc-ok); }
+#root#root .shell .experience .recipe-run-history > ol > li.phase-failed { border-left-color: var(--mc-danger); }
+#root#root .shell .experience .recipe-run-history > ol > li.phase-cancelled { border-left-color: var(--mc-warning); }
+#root#root .shell .experience .recipe-run-history__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mc-space-2);
+}
+#root#root .shell .experience .recipe-run-history__head strong { color: var(--mc-text-soft); font-size: 11px; font-weight: 620; }
+#root#root .shell .experience .recipe-run-history__head span { color: var(--mc-text-dim); font-size: 10px; font-variant-numeric: tabular-nums; }
+#root#root .shell .experience .recipe-run-history > ol > li > small { color: var(--mc-text-dim); font-size: 10px; line-height: 1.45; }
+#root#root .shell .experience .recipe-run-history__failures {
+  display: grid;
+  gap: 1px;
+  margin: 3px 0 0;
+  padding-left: var(--mc-space-3);
+  color: var(--mc-danger);
+  font-size: 10px;
+}
+#root#root .shell .experience .recipe-run-history__rollback { color: var(--mc-warning); }
 
 /* Empty and error states match the rest of the product. */
 #root#root .shell .experience .page-empty-state {
@@ -1649,7 +1756,8 @@
 @media (max-width: 900px) {
   #root#root .shell .experience .recipes-page-layout { grid-template-columns: minmax(0, 1fr); }
   #root#root .shell .experience .recipe-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  #root#root .shell .experience .recipe-row > footer { justify-content: flex-end; }
+  #root#root .shell .experience .recipe-row > :is(.recipe-row-main, .recipe-flow, footer, .recipe-run-history) { grid-area: auto; }
+  #root#root .shell .experience .recipe-row > footer { justify-content: flex-end; flex-wrap: wrap; }
   #root#root .shell .experience .attention-policy { grid-template-columns: minmax(0, 1fr); }
 }
 

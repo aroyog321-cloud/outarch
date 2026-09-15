@@ -15,7 +15,7 @@ if (process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) app.disableHardwareAccelerat
 const { EngineHost } = require("../../service/engineHost.cjs");
 const { DiagnosticStore } = require("../../service/diagnosticStore.cjs");
 const { ProjectCoordinator } = require("../../service/projectCoordinator.cjs");
-const { ProjectRegistry } = require("../../service/projectRegistry.cjs");
+const { ProjectRegistry, projectIdFor } = require("../../service/projectRegistry.cjs");
 const { GroundstationRecoveryService } = require("../../service/recoveryController.cjs");
 const { RendererRecoverySupervisor } = require("../../service/rendererRecoverySupervisor.cjs");
 const { VSCodeBridge } = require("../../service/vscodeBridge.cjs");
@@ -32,11 +32,31 @@ const { MobileCompanionStore } = require("../../service/mobileCompanionStore.cjs
 const { MobileCompanionGateway } = require("../../service/mobileCompanion.cjs");
 const { PluginPlatformStore } = require("../../service/pluginPlatformStore.cjs");
 const { PermissionedPluginPlatform } = require("../../service/pluginPlatform.cjs");
+const { MissionAIConversation } = require("../../service/missionAiConversation.cjs");
+const { BuiltinMissionAiCredentials } = require("../../service/missionAiBuiltinKeys.cjs");
+const { ByokStore } = require("../../service/byokStore.cjs");
+const { AiAssistant } = require("../../service/aiAssistant.cjs");
+const { NotificationCenter, fromAttentionRecord, fromSemanticEvent } = require("../../service/notificationCenter.cjs");
+const { SessionJournal } = require("../../service/sessionJournal.cjs");
+const { SessionRecoveryService } = require("../../service/sessionRecoveryService.cjs");
+const { CliUsageImporter } = require("../../service/usageCliImport.cjs");
 const { createProtocolConnection } = require("../../protocol/connection.cjs");
 const { GroundstationIpcHost } = require("./ipcHost.cjs");
 const { parseGroundstationArgs } = require("./options.cjs");
+const { WorkspaceIntelligence } = require("./workspaceIntelligence.cjs");
+const { TerminalWindowManager } = require("./terminalWindowManager.cjs");
+const { WorkspaceBrowser } = require("./workspaceBrowser.cjs");
 
 let mainWindow = null;
+// The main window's native controls. Focus mode asks for a shallower strip so
+// the controls cost the terminal canvas as little as possible; the renderer
+// reserves whatever height the overlay reports, so the two cannot disagree.
+// The colour is the status tape's as painted (its surface at 94% over black);
+// the renderer sends the exact value once it has drawn the tape.
+const MAIN_TITLE_BAR_OVERLAY = Object.freeze({ color: "#161616", symbolColor: "#cbd0dc", height: 42 });
+const FOCUS_TITLE_BAR_HEIGHT = 32;
+const WINDOW_CHROME_COLOR = /^#[0-9a-f]{6}$/i;
+let windowChrome = { mode: "standard", color: MAIN_TITLE_BAR_OVERLAY.color };
 let engineHost = null;
 let ipcHost = null;
 let notifications = null;
@@ -51,13 +71,27 @@ let projectSupervision = null;
 let mcpGateway = null;
 let mobileCompanion = null;
 let pluginPlatform = null;
+let workspaceIntelligence = null;
+let terminalWindowManager = null;
+let workspaceBrowser = null;
+let missionAiConversation = null;
+let aiAssistant = null;
+let byokStore = null;
+let notificationCenter = null;
+let cliUsageImporter = null;
+// What the previous session left behind, read before the engine can relaunch
+// anything. Held here so the renderer can ask for it after it connects.
+let recoveryReport = null;
+const detachedTerminalWindows = new Set();
 let shutdownComplete = false;
 let shutdownInProgress = false;
 let recoveryDialogOpen = false;
 let rendererFailureDuringShutdown = null;
 let visualCaptureStarted = false;
 
-const VISUAL_CAPTURE_ROUTES = ["groundstation", "workspace", "needs", "agents", "recipes", "history", "settings", "integrations"];
+// Agents is no longer a destination — an AI agent is a classification a terminal
+// carries, shown in the Workspace folder and the Groundstation register.
+const VISUAL_CAPTURE_ROUTES = ["groundstation", "workspace", "needs", "recipes", "history", "settings", "integrations"];
 const VISUAL_CAPTURE_THEMES = ["orbital", "solar", "contrast"];
 const VISUAL_CAPTURE_VIEWPORTS = [
   // 720px remains an exploratory lower bound; production accepts 800x680.
@@ -149,6 +183,186 @@ function beginRendererLoad(window) {
   return loadRenderer(window);
 }
 
+// A detached terminal loads the same renderer bundle in pop-out mode. The query
+// is routing only — the main process already decided which worker this window
+// is for, and the per-window protocol connection is what actually scopes it.
+function loadPopoutRenderer(window, spec) {
+  const query = {
+    popout: "1",
+    worker: spec.workerId,
+    slot: String(spec.detachedSlot),
+    name: spec.workerName || spec.workerId
+  };
+  const developmentUrl = process.env.MISSION_CONTROL_RENDERER_URL;
+  if (developmentUrl && !app.isPackaged) {
+    const parsed = new URL(developmentUrl);
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)) {
+      return Promise.reject(new Error("MISSION_CONTROL_RENDERER_URL must use a loopback host"));
+    }
+    for (const [key, value] of Object.entries(query)) parsed.searchParams.set(key, value);
+    return window.loadURL(parsed.toString());
+  }
+  return window.loadFile(rendererEntry(), { query });
+}
+
+// Saved or default bounds are clamped to a display that still exists, so a
+// terminal cannot be stranded offscreen after a monitor is unplugged.
+function clampToWorkArea(width, height) {
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor) || screen.getPrimaryDisplay();
+  const area = display.workArea;
+  const clampedWidth = Math.max(320, Math.min(width, area.width));
+  const clampedHeight = Math.max(240, Math.min(height, area.height));
+  // Cascade the windows slightly so three pop-outs do not land exactly on top.
+  const offset = detachedTerminalWindows.size * 28;
+  return {
+    width: clampedWidth,
+    height: clampedHeight,
+    x: Math.round(area.x + Math.min(offset, Math.max(0, area.width - clampedWidth))),
+    y: Math.round(area.y + Math.min(offset, Math.max(0, area.height - clampedHeight)))
+  };
+}
+
+// Service and usage records are scoped to a project, so discovery has to be
+// keyed by the same identity the rest of the app uses.
+function currentProjectId() {
+  try {
+    const id = projectCoordinator?.list?.().currentProjectId;
+    if (id) return id;
+  } catch {
+    // A registry read failure must not stop the engine from being observed.
+  }
+  return engineHost?.currentOptions?.cwd || "default";
+}
+
+// Switching projects replaces the EngineAPI instance. Discovery has to follow
+// it, or the panels keep describing workers that belong to the previous
+// workspace.
+// A worker that starts again is a fresh attempt, so its last incident must not
+// swallow what it reports now. Bound to the current EngineAPI, and re-bound
+// when a project switch replaces it.
+let unbindIncidentMemory = null;
+function bindIncidentMemory() {
+  try { unbindIncidentMemory?.(); } catch { /* the old engine may already be disposed */ }
+  unbindIncidentMemory = null;
+  // Whether each worker's attention was raised at its last supervision event,
+  // so a Windows toast is taken back only when a raised alert actually clears
+  // (acknowledged, recovered or reset), not on every progress line.
+  const raised = new Map();
+  try {
+    unbindIncidentMemory = engineHost?.engineApi?.subscribe?.("all", event => {
+      const workerId = event?.sessionId || event?.id;
+      if (!workerId) return;
+      if (event.type === "session:status" && ["running", "starting"].includes(event.status)) {
+        notificationCenter?.forgetWorker(currentProjectId(), workerId);
+      } else if (event.type === "session:supervision") {
+        const now = event.attentionRequired === true;
+        if (raised.get(workerId) === true && !now) notificationCenter?.withdrawWorker(workerId);
+        raised.set(workerId, now);
+      } else if (event.type === "session:removed") {
+        raised.delete(workerId);
+      }
+    }) || null;
+  } catch { /* incident memory is a refinement, not a requirement */ }
+}
+
+async function rebindWorkspaceIntelligence() {
+  // Notifications follow the new engine first: the subscriptions on the old
+  // one would never hear another failure.
+  try {
+    notificationCenter?.forgetAll();
+    notifications?.rebind();
+    bindIncidentMemory();
+  } catch { /* a notification rebind must not block the project switch */ }
+  if (!workspaceIntelligence) return;
+  await terminalWindowManager?.recallAll();
+  // A preview points at a service of the project being closed; leaving it up
+  // would keep showing a page whose worker is gone.
+  workspaceBrowser?.close();
+  const engineApi = engineHost?.engineApi || null;
+  try { workspaceIntelligence.markCleanShutdown(); } catch {}
+  if (engineApi) {
+    workspaceIntelligence.beginSession(currentProjectId());
+    workspaceIntelligence.attachEngine(engineApi, currentProjectId());
+  }
+  else workspaceIntelligence.detachEngine();
+  ipcHost?.broadcast({ type: "services:changed", detail: "project:switched" });
+}
+
+async function createDetachedTerminalWindow(spec) {
+  const bounds = clampToWorkArea(spec.width, spec.height);
+  const window = new BrowserWindow({
+    ...bounds,
+    minWidth: spec.minWidth,
+    minHeight: spec.minHeight,
+    backgroundColor: "#080a09",
+    title: `${spec.workerName} — Mission Control`,
+    titleBarStyle: "hidden",
+    // A shallow strip, per the detached-terminal sketch: the terminal is the
+    // content, the chrome is only deep enough for identity and window controls.
+    titleBarOverlay: {
+      color: "#0a0b0d",
+      symbolColor: "#cbd0dc",
+      height: 32
+    },
+    show: false,
+    webPreferences: {
+      preload: path.resolve(__dirname, "../preload/index.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false
+    }
+  });
+
+  window.removeMenu();
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", event => event.preventDefault());
+  window.webContents.on("will-attach-webview", event => event.preventDefault());
+  window.webContents.on("before-input-event", (event, input) => {
+    if (!app.isPackaged && input.control && input.shift && input.key.toLowerCase() === "i") {
+      window.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
+  detachedTerminalWindows.add(window);
+  window.once("closed", () => detachedTerminalWindows.delete(window));
+  window.once("ready-to-show", () => window.show());
+
+  try {
+    await loadPopoutRenderer(window, spec);
+  } catch (error) {
+    detachedTerminalWindows.delete(window);
+    if (!window.isDestroyed()) window.destroy();
+    throw error;
+  }
+  return window;
+}
+
+// An operator who pasted a Gemini key into the old Mission AI settings did not
+// lose it when Mission AI moved to built-in keys: the first launch after the
+// change copies it into their own keys, where it is still theirs to use and
+// to remove. Best effort, once — a key the provider now refuses is left alone.
+async function migrateLegacyMissionAiKey() {
+  const legacyPath = path.join(app.getPath("userData"), "mission-ai-credentials.json");
+  const marker = `${legacyPath}.carried-over`;
+  try {
+    if (!fs.existsSync(legacyPath) || fs.existsSync(marker)) return;
+    const legacy = new MissionAiCredentialStore(legacyPath, { safeStorage });
+    if (!legacy.status().configured) return;
+    for (const slot of ["primary", "secondary"]) {
+      let key;
+      try { key = legacy.apiKey(slot); } catch { continue; }
+      try { await aiAssistant.addKey({ apiKey: key, provider: "gemini", label: slot === "primary" ? "Gemini (from Mission AI settings)" : "Gemini fallback (from Mission AI settings)" }); }
+      catch { /* already saved, refused, or offline: nothing to carry */ }
+    }
+    fs.writeFileSync(marker, `${new Date().toISOString()}\n`, "utf8");
+  } catch {
+    // A failed carry-over costs nothing: the operator can add the key again.
+  }
+}
+
 async function showManualRecovery(window) {
   if (recoveryDialogOpen || shutdownInProgress || shutdownComplete || window.isDestroyed()) return;
   recoveryDialogOpen = true;
@@ -182,6 +396,9 @@ function scheduleRendererRecovery(window, details = {}) {
 
 function createWindow(options = {}) {
   const visualCapture = Boolean(process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR);
+  // A new window starts with the standard strip; a renderer that is replaced
+  // mid focus mode must not hand its successor a 32px strip.
+  windowChrome = { ...windowChrome, mode: "standard" };
   const workArea = screen.getPrimaryDisplay().workAreaSize;
   const width = Math.min(1480, Math.max(960, Math.floor(workArea.width * 0.94)));
   const height = Math.min(940, Math.max(640, Math.floor(workArea.height * 0.92)));
@@ -198,11 +415,7 @@ function createWindow(options = {}) {
     backgroundColor: "#080a09",
     title: "Mission Control Groundstation",
     titleBarStyle: "hidden",
-    titleBarOverlay: {
-      color: "#0a0b0d",
-      symbolColor: "#cbd0dc",
-      height: 42
-    },
+    titleBarOverlay: { ...MAIN_TITLE_BAR_OVERLAY, color: windowChrome.color },
     show: false,
     webPreferences: {
       preload: path.resolve(__dirname, "../preload/index.cjs"),
@@ -295,6 +508,12 @@ async function shutdownAndClose(window) {
   let result;
   try {
     try { notifications?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
+    // Pop-outs are views, not processes: closing them first keeps the quit from
+    // racing with a window that would otherwise try to recall mid-shutdown.
+    try { await terminalWindowManager?.recallAll(); } catch { /* Engine shutdown remains authoritative. */ }
+    try { workspaceIntelligence?.markCleanShutdown(); } catch { /* Engine shutdown remains authoritative. */ }
+    try { workspaceIntelligence?.dispose(); } catch { /* Engine shutdown remains authoritative. */ }
+    try { notificationCenter?.dispose(); } catch { /* Engine shutdown remains authoritative. */ }
     try { await mcpGateway?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
     try { await mobileCompanion?.stop(); } catch { /* Engine shutdown remains authoritative. */ }
     result = await engineHost.shutdown();
@@ -337,6 +556,9 @@ async function shutdownAndClose(window) {
   void mobileCompanion?.dispose();
   pluginPlatform?.dispose();
   vscodeBridge?.dispose();
+  // The browser view is a child of the window being torn down, so it is closed
+  // before the window rather than left holding a destroyed parent.
+  workspaceBrowser?.dispose();
   // Keep the process-wide IPC handler bound through WebContents teardown.
   // Renderer effects can have invokes already queued when destroy() runs;
   // removing the handler here turns an otherwise clean shutdown into false
@@ -370,10 +592,9 @@ async function start() {
   });
   projectSupervision = new ProjectSupervisionService({ missionContext });
   missionAi = new MissionAIService({
-    credentialStore: new MissionAiCredentialStore(
-      path.join(app.getPath("userData"), "mission-ai-credentials.json"),
-      { safeStorage }
-    ),
+    credentialStore: new BuiltinMissionAiCredentials({
+      preferencesPath: path.join(app.getPath("userData"), "mission-ai-preferences.json")
+    }),
     missionContext,
     projectSupervision
   });
@@ -397,7 +618,9 @@ async function start() {
       { safeStorage }
     ),
     missionContext,
-    getEngineApi: () => engineHost?.engineApi || null
+    getEngineApi: () => engineHost?.engineApi || null,
+    // Read-only: the assistant's ask() offers the model no action tools.
+    askAssistant: request => aiAssistant ? aiAssistant.ask(request) : Promise.reject(new Error("Mission AI is not available on the desktop"))
   });
   pluginPlatform = new PermissionedPluginPlatform({
     store: new PluginPlatformStore(path.join(app.getPath("userData"), "plugin-platform.json")),
@@ -428,6 +651,27 @@ async function start() {
     const allowed = new Set(["https://github.com/radix-ui/primitives", "https://github.com/pacocoursey/cmdk"]);
     if (!allowed.has(url)) throw new Error("External resource is not allow-listed");
     await shell.openExternal(url);
+    return true;
+  });
+  // Accepts a mode ("standard" | "focus") or { mode, color }. Whatever is not
+  // given keeps its last value, so a colour update never undoes focus mode.
+  ipcMain.handle("mission-control:set-window-chrome", async (event, request) => {
+    assertTrustedMainFrame(event);
+    const input = typeof request === "string" ? { mode: request } : request && typeof request === "object" ? request : null;
+    if (!input) throw new TypeError("window chrome must be a mode or { mode, color }");
+    const mode = input.mode === undefined ? windowChrome.mode : input.mode;
+    if (mode !== "standard" && mode !== "focus") throw new TypeError("window chrome mode must be \"standard\" or \"focus\"");
+    const color = input.color === undefined ? windowChrome.color : input.color;
+    if (typeof color !== "string" || !WINDOW_CHROME_COLOR.test(color)) throw new TypeError("window chrome color must be #rrggbb");
+    windowChrome = { mode, color };
+    if (!mainWindow || mainWindow.isDestroyed() || typeof mainWindow.setTitleBarOverlay !== "function") return false;
+    try {
+      mainWindow.setTitleBarOverlay({ ...MAIN_TITLE_BAR_OVERLAY, color, height: mode === "focus" ? FOCUS_TITLE_BAR_HEIGHT : MAIN_TITLE_BAR_OVERLAY.height });
+    } catch {
+      // Platforms without an overlay (macOS draws its own traffic lights) have
+      // nothing to resize; the renderer's reserved strip resolves to zero there.
+      return false;
+    }
     return true;
   });
   ipcMain.handle("mission-control:set-pending-badge", async (event, rawCount) => {
@@ -463,7 +707,23 @@ async function start() {
   });
   try {
     const startupOptions = projectCoordinator.resolveStartupOptions(options);
-    await engineHost.open(startupOptions);
+    // The gate. The journal is read before the engine opens, because opening it
+    // is what spawns every autoStart worker — a recovery screen shown after
+    // that point would arrive too late to prevent the relaunch it is asking
+    // about. The id matches the one the rest of the app uses post-open, so both
+    // read the same journal file.
+    let deferAutoStart = false;
+    try {
+      const gateProjectId = projectIdFor(startupOptions.configPath);
+      const gate = new SessionRecoveryService(new SessionJournal());
+      recoveryReport = gate.inspect(gateProjectId, []);
+      deferAutoStart = recoveryReport?.recoveryRequired === true;
+    } catch {
+      // An unreadable journal must never stop the app from starting; it just
+      // means this boot proceeds normally with no recovery prompt.
+      recoveryReport = null;
+    }
+    await engineHost.open({ ...startupOptions, deferAutoStart });
     try {
       projectCoordinator.rememberCurrent();
     } catch (registryError) {
@@ -480,24 +740,188 @@ async function start() {
   mainWindow = createWindow({ load: false });
   // T033/T036 — the notifier is main-process because only the main process owns
   // the OS notification surface and the window a click has to bring forward.
+  const focusMainWindow = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  // One notification center decides every surface: the in-app toast, the
+  // Windows toast (only when Mission Control is not the window in use), the
+  // sound, and whether two signals are really one incident.
+  notificationCenter = new NotificationCenter({
+    Notification,
+    platform: process.platform,
+    isAppFocused: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized() && mainWindow.isFocused()),
+    getPreferences: () => engineHost?.engineApi?.getAttentionPreferences?.() || null,
+    getProjectName: () => engineHost?.engineApi?.getWorkspace?.()?.name || null,
+    // The taskbar button flashes for a failure you have not seen yet, and stops
+    // as soon as the window is focused. It never steals focus.
+    flashWindow: () => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isFocused()) mainWindow.flashFrame(true);
+    },
+    // A click on a Windows toast. Opening a service happens here, because the
+    // embedded browser lives in this process; everything else is a deep link
+    // the renderer follows. The address is re-resolved at click time, so a
+    // toast that sat in the action centre across a restart cannot open a
+    // stale port.
+    onActivate: payload => {
+      focusMainWindow();
+      const serviceId = payload?.notice?.data?.serviceId;
+      if (payload?.actionId !== "open-service" || !serviceId) return;
+      const current = workspaceIntelligence?.services.getService(serviceId);
+      if (!current || current.state === "stale") {
+        ipcHost?.broadcast({ type: "services:changed", detail: "stale-activation" });
+        return;
+      }
+      try {
+        workspaceBrowser?.open({ url: current.url });
+      } catch {
+        void shell.openExternal(current.url);
+      }
+    }
+  });
+  notificationCenter.on("notification", notification => ipcHost?.broadcast({ type: "notification:new", notification }));
+  mainWindow.on("focus", () => {
+    try { mainWindow.flashFrame(false); } catch { /* the window may be closing */ }
+  });
+
+  // T033/T036 — attention records (a worker that failed, printed an error or
+  // needs a decision) are found here and handed to the center.
   notifications = new NotificationService({
     Notification,
     getEngineApi: () => engineHost?.engineApi || null,
-    focusWindow: () => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
+    focusWindow: focusMainWindow,
+    publish: record => {
+      const engineApi = engineHost?.engineApi;
+      let snapshot = null;
+      try { snapshot = engineApi?.getSnapshot?.(record.sessionId) || null; } catch { snapshot = null; }
+      const notice = fromAttentionRecord(record, snapshot);
+      if (notice) notificationCenter.publish({ ...notice, projectId: currentProjectId() });
     }
   });
   notifications.start();
+  bindIncidentMemory();
   // T026 — read-only port-owner inspection. It is given the engine only so it
   // can prove ownership; it has no path that terminates anything.
   portInspector = new PortInspector({ getEngineApi: () => engineHost?.engineApi || null });
+
+  workspaceIntelligence = new WorkspaceIntelligence({
+    onChange: message => ipcHost?.broadcast(message)
+  });
+  // One route from event to desktop. The intelligence layer already broadcasts
+  // the event to every renderer; this is the single place that turns it into an
+  // OS notification, so three pop-outs cannot each raise their own copy.
+  workspaceIntelligence.events.on("event", event => {
+    const notice = fromSemanticEvent(event);
+    if (notice) notificationCenter.publish(notice);
+  });
+  // The same event also reaches the renderers, which is what lets a service
+  // coming up, a build failing or an agent finishing a turn be an in-app
+  // notification with the action on it. Without this the operational events
+  // existed only as OS toasts and as rows in a panel: an operator watching the
+  // app never learned that the frontend they just restarted was serving.
+  workspaceIntelligence.events.on("event", event => ipcHost?.broadcast({ type: "workspace:event", event }));
+  workspaceIntelligence.beginSession(currentProjectId());
+  workspaceIntelligence.attachEngine(engineHost.engineApi, currentProjectId());
+  terminalWindowManager = new TerminalWindowManager({
+    createWindow: createDetachedTerminalWindow,
+    // Closing a pop-out returns the terminal to its reserved pane; the main
+    // window has to hear about it even though it did not initiate the recall.
+    onRecalled: payload => ipcHost?.broadcast({ type: "terminal:recalled", ...payload })
+  });
+  terminalWindowManager.subscribe(event => ipcHost?.broadcast(event));
+  // The browser view is a child of the main window's content view, so it lives
+  // and dies with that window rather than being a surface of its own.
+  workspaceBrowser = new WorkspaceBrowser({ getWindow: () => mainWindow });
+  workspaceBrowser.subscribe(event => ipcHost?.broadcast(event));
+  // Agent CLIs meter themselves; this reads the counts they leave on disk so an
+  // agent terminal is not silently missing from the project total.
+  cliUsageImporter = new CliUsageImporter({ ledger: workspaceIntelligence.usage });
+
+  missionAiConversation = new MissionAIConversation({ missionAi, missionSupervisor });
+
+  // The assistant behind Mission AI and the Workspace chat. Its spend is
+  // recorded as assistant spend, which keeps it out of the project Usage panel.
+  byokStore = new ByokStore(path.join(app.getPath("userData"), "ai-keys.json"), { safeStorage });
+  aiAssistant = new AiAssistant({
+    builtin: missionAi.credentialStore,
+    byokStore,
+    getEngineApi: () => engineHost?.engineApi || null,
+    localServiceRegistry: workspaceIntelligence.services,
+    workspaceBrowser,
+    preferencesPath: path.join(app.getPath("userData"), "ai-preferences.json"),
+    onUsage: usage => {
+      try { workspaceIntelligence.usage.record({ ...usage, surface: "assistant", projectId: currentProjectId() }); }
+      catch { /* Metering never breaks an answer. */ }
+    }
+  });
+  // Every step of a turn — a tool starting, an approval appearing, the reply
+  // landing — reaches the renderers as it happens, so a long answer shows its
+  // progress instead of a spinner.
+  aiAssistant.on("conversation", payload => ipcHost?.broadcast({ type: "ai:conversation", ...payload }));
+  aiAssistant.on("change", payload => ipcHost?.broadcast({ type: "ai:changed", ...payload }));
+  aiAssistant.on("navigate", payload => ipcHost?.broadcast({ type: "notification:activate", route: payload?.route || "workspace" }));
+  void migrateLegacyMissionAiKey();
+  void aiAssistant.reconcileKeysOnStartup();
+  // Mission AI's own Gemini calls are the one source whose token counts are
+  // reported by the provider, so they are recorded rather than estimated. This
+  // is the single write point: every Mission AI request passes through it,
+  // whether it came from the conversation or from a direct ask/plan call, so
+  // nothing is counted twice.
+  // Marked as assistant spend, which is what keeps it out of the Usage panel:
+  // that panel answers "what is this project costing me?", and a number that
+  // moved every time the operator asked Mission AI about it could not answer
+  // that. The records are still written, so the spend is auditable.
+  missionAi?.onUsage?.(usage => {
+    try {
+      workspaceIntelligence.usage.record({ ...usage, surface: "assistant", projectId: currentProjectId() });
+    } catch {
+      // Metering must never break the answer the user asked for.
+    }
+  });
+
   ipcHost = new GroundstationIpcHost({
     ipcMain,
     getEngineApi: () => engineHost.engineApi,
     createProtocolConnection,
+    localServiceRegistry: workspaceIntelligence.services,
+    usageLedger: workspaceIntelligence.usage,
+    agentActivityService: workspaceIntelligence.agents,
+    semanticEventRouter: workspaceIntelligence.events,
+    sessionRecoveryService: workspaceIntelligence.recovery,
+    terminalWindowManager,
+    missionAiConversation,
+    aiAssistant,
+    // Write authority is decided in the main process. A renderer that lost the
+    // handoff, or a pop-out for a different worker, is refused at the protocol
+    // rather than being trusted to stop sending keystrokes.
+    terminalLeases: terminalWindowManager.leases,
+    // The gate's findings and the one action that ends the deferral it caused.
+    importCliUsage: async () => {
+      const workspace = engineHost?.engineApi?.getWorkspace?.();
+      const summary = cliUsageImporter.import({
+        projectId: currentProjectId(),
+        projectPath: workspace?.directory || workspace?.path || null
+      });
+      if (summary.recordsImported) ipcHost?.broadcast({ type: "usage:changed" });
+      return summary;
+    },
+    recoveryBoot: {
+      getReport: () => recoveryReport,
+      isDeferred: () => engineHost?.engineApi?.autoStartDeferred === true,
+      resume: async () => {
+        const started = engineHost?.engineApi?.releaseAutoStart?.() || [];
+        if (started.length) ipcHost?.broadcast({ type: "services:changed", detail: "recovery:resumed" });
+        return started;
+      }
+    },
+    workspaceBrowser,
+    resolveViewId: webContentsId => terminalWindowManager.viewIdForWebContents(webContentsId),
+    onProjectSwitched: rebindWorkspaceIntelligence,
+    // The protocol already resolved the service id and proved the address is a
+    // loopback HTTP(S) URL with no credentials; this only performs the open.
+    openServiceUrl: async url => { await shell.openExternal(url); },
     onShutdown: () => shutdownAndClose(mainWindow),
     projectService: projectCoordinator,
     recoveryService,
@@ -508,7 +932,7 @@ async function start() {
     mcpGateway,
     mobileCompanion,
     pluginPlatform,
-    notifications,
+    notifications: notificationCenter,
     portInspector
   });
   ipcHost.bind();

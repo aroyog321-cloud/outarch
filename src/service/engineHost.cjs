@@ -74,6 +74,13 @@ class EngineHost {
     const normalizedOptions = this.#normalizeOptions(options);
     this.#opening = true;
     const { configPath, configExplicit, cwd } = normalizedOptions;
+    // Recovery gate: after an unclean shutdown the caller opens the workspace
+    // with launches deferred, so every definition loads but nothing respawns
+    // until the operator has reviewed what was running. Saved autoStart values
+    // are untouched — only this boot is held.
+    const engineOptions = options.deferAutoStart === true
+      ? { ...this.#engineOptions, deferAutoStart: true }
+      : this.#engineOptions;
     let lease = null;
     let engineApi = null;
 
@@ -82,13 +89,13 @@ class EngineHost {
         // Invalid roots must fail before the lease or any configured PTY exists.
         this.#validateWorkspaceFile(configPath);
         lease = this.#acquireWorkspaceLease(configPath);
-        engineApi = new this.#EngineAPI(this.#engineOptions);
+        engineApi = new this.#EngineAPI(engineOptions);
         engineApi.loadProject(configPath);
       } else {
         if (configExplicit) {
           throw new Error(`workspace file does not exist: ${configPath}`);
         }
-        engineApi = new this.#EngineAPI(this.#engineOptions);
+        engineApi = new this.#EngineAPI(engineOptions);
         const shell = defaultShell(this.#platform, this.#env);
         engineApi.loadProject({
           sessions: [

@@ -313,7 +313,12 @@ class MissionContextService {
       },
       overall: summarizeWorkers(workers),
       workers,
-      attention: Array.isArray(attentionState.records) ? attentionState.records.slice(0, MAX_CONTEXT_ATTENTION).map(clone) : [],
+      attention: Array.isArray(attentionState.records)
+        ? attentionState.records
+            .filter(record => record && record.state !== "recovered" && record.state !== "resolved" && record.state !== "dismissed")
+            .slice(0, MAX_CONTEXT_ATTENTION)
+            .map(clone)
+        : [],
       missions: (engineApi.listMissions?.() || []).slice(0, MAX_CONTEXT_MISSIONS).map(clone),
       projectMemory: clone(memory),
       recipes: (engineApi.listRecipes?.() || []).slice(0, MAX_CONTEXT_RECIPES).map(clone),

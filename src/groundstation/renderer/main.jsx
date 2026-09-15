@@ -4,6 +4,7 @@ import "@fontsource-variable/inter/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@xterm/xterm/css/xterm.css";
 import App from "./App.jsx";
+import DetachedTerminalWindow, { readPopoutRoute } from "./DetachedTerminalWindow.jsx";
 import "./tokens.css";
 import "./styles.css";
 import "./uiFoundation.css";
@@ -37,9 +38,14 @@ import "./redesign/surfaces.css";
 
 document.documentElement.lang = navigator.language || "en";
 
+// A detached terminal window loads this same bundle. The query says which view
+// to mount; the main process already decided which worker the window is for and
+// scopes its protocol connection accordingly, so this is routing, not authority.
+const popoutRoute = readPopoutRoute();
+
 createRoot(document.getElementById("root")).render(
   // Groundstation effects own explicit IPC terminal subscriptions. React's
   // development-only StrictMode remount would open a second stream before the
   // asynchronous close request from the first mount reaches the main process.
-  <App />
+  popoutRoute ? <DetachedTerminalWindow route={popoutRoute} /> : <App />
 );

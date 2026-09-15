@@ -134,7 +134,7 @@ class EngineAPI extends EventEmitter {
     this.#recipeRunHistory = new Map();
     this.#missions = new Map();
     this.#attentionRecords = new Map();
-    this.#attentionPreferences = { minimumSeverity: "info", desktopNotifications: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } };
+    this.#attentionPreferences = { minimumSeverity: "info", desktopNotifications: true, sound: true, quietHours: { enabled: false, start: "22:00", end: "07:00" } };
     this.#resourceSampler = options.resourceSampler || new ResourceSampler({
       probe: options.resourceProbe,
       now: options.now,
@@ -444,12 +444,18 @@ class EngineAPI extends EventEmitter {
     return { ok: true, record: JSON.parse(JSON.stringify(record)) };
   }
 
+  // How notifications should behave, without materialising attention records —
+  // the notification center reads this for every notice it delivers.
+  getAttentionPreferences() {
+    return JSON.parse(JSON.stringify(this.#attentionPreferences));
+  }
+
   saveAttentionPreferences(value) {
     if (!this.#workspaceStore) return { ok: false, error: "attention preferences require a persistent project workspace" };
     const minimumSeverity = ["info", "warning", "critical"].includes(value?.minimumSeverity) ? value.minimumSeverity : "info";
     const time = input => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input || "")) ? String(input) : null;
     const quietHours = { enabled: value?.quietHours?.enabled === true, start: time(value?.quietHours?.start) || "22:00", end: time(value?.quietHours?.end) || "07:00" };
-    this.#attentionPreferences = { minimumSeverity, desktopNotifications: value?.desktopNotifications !== false, quietHours };
+    this.#attentionPreferences = { minimumSeverity, desktopNotifications: value?.desktopNotifications !== false, sound: value?.sound !== false, quietHours };
     try { this.#workspaceStore.setAttentionPreferences(this.#attentionPreferences); } catch (error) { return { ok: false, error: error.message }; }
     this.#publish("attention:preferences", this.#attentionPreferences);
     return { ok: true, preferences: JSON.parse(JSON.stringify(this.#attentionPreferences)) };
@@ -1283,6 +1289,19 @@ class EngineAPI extends EventEmitter {
 
   resize(id, cols, rows) {
     return this.#sessionEngine.resize(id, cols, rows);
+  }
+
+  /**
+   * Ends a recovery deferral: starts the workers whose saved autoStart would
+   * have launched them at load. Returns the ids actually started.
+   */
+  releaseAutoStart() {
+    if (typeof this.#sessionEngine.releaseAutoStart !== "function") return [];
+    return this.#sessionEngine.releaseAutoStart();
+  }
+
+  get autoStartDeferred() {
+    return this.#sessionEngine.deferAutoStart === true;
   }
 
   attachRawStream(id) {

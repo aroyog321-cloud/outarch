@@ -41,12 +41,16 @@ export function describePreferenceReset(preferences) {
 
 function normalize(value) {
   return {
-    theme: ["orbital", "solar", "contrast"].includes(value?.theme) ? value.theme : DEFAULT_INTERFACE_PREFERENCES.theme,
+    // Orbital is the only shipped appearance. Solar Light and High contrast
+    // were retired, so a stored value naming either one is not preserved: it
+    // normalises back to Orbital, which is what migrates an existing install
+    // instead of leaving it pinned to a palette that no longer has a control.
+    theme: ["orbital"].includes(value?.theme) ? value.theme : DEFAULT_INTERFACE_PREFERENCES.theme,
     typeScale: ["compact", "comfortable", "large"].includes(value?.typeScale) ? value.typeScale : DEFAULT_INTERFACE_PREFERENCES.typeScale,
     density: ["compact", "comfortable", "spacious"].includes(value?.density) ? value.density : DEFAULT_INTERFACE_PREFERENCES.density,
     motion: ["full", "reduced"].includes(value?.motion) ? value.motion : DEFAULT_INTERFACE_PREFERENCES.motion,
     terminalFontSize: Number.isInteger(value?.terminalFontSize) && value.terminalFontSize >= 11 && value.terminalFontSize <= 18 ? value.terminalFontSize : DEFAULT_INTERFACE_PREFERENCES.terminalFontSize,
-    terminalTheme: ["orbital", "solar", "contrast"].includes(value?.terminalTheme) ? value.terminalTheme : DEFAULT_INTERFACE_PREFERENCES.terminalTheme,
+    terminalTheme: ["orbital"].includes(value?.terminalTheme) ? value.terminalTheme : DEFAULT_INTERFACE_PREFERENCES.terminalTheme,
     terminalCursor: ["bar", "block", "underline"].includes(value?.terminalCursor) ? value.terminalCursor : DEFAULT_INTERFACE_PREFERENCES.terminalCursor,
     terminalScrollback: [1000, 5000, 20000].includes(value?.terminalScrollback) ? value.terminalScrollback : DEFAULT_INTERFACE_PREFERENCES.terminalScrollback,
     showCommandHints: typeof value?.showCommandHints === "boolean" ? value.showCommandHints : DEFAULT_INTERFACE_PREFERENCES.showCommandHints
@@ -69,6 +73,24 @@ export default function useInterfacePreferences() {
     const scheme = preferences.theme === "solar" ? "light" : "dark";
     document.documentElement.style.colorScheme = scheme;
     document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", scheme);
+  }, [preferences.theme]);
+
+  // The theme is a class on `.shell`, but Radix portals every menu, dialog,
+  // tooltip and popover into <body> — outside it. Those surfaces were resolving
+  // the dark defaults from `:root` whatever theme was chosen, so in Solar Light
+  // every popover, and the document body behind the app, painted dark.
+  //
+  // Mirroring the class onto the root element is provably neutral inside the
+  // shell: the theme block is one set of declarations, so applying it at the
+  // root and again on `.shell` leaves `.shell` resolving exactly what it did
+  // before. Only what lives outside the shell changes — which is the bug.
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const applied = `theme-${preferences.theme}`;
+    for (const name of ["theme-orbital", "theme-solar", "theme-contrast"]) {
+      root.classList.toggle(name, name === applied);
+    }
+    return () => root.classList.remove(applied);
   }, [preferences.theme]);
 
   const update = React.useCallback((field, value) => setPreferences(current => normalize({ ...current, [field]: value })), []);

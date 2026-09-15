@@ -6,8 +6,8 @@ const GROUPS = [
   ["Operate", [["Ctrl K", "Mission Command"], ["N", "Create a worker"], ["? / F1", "Keyboard help"], ["Esc", "Close the active layer"]]],
   ["Workers", [["Enter", "Open selected worker"], ["Hold Space", "Quick Look"], ["Double-click", "Focus worker or terminal"], ["Drag", "Move a worker between panes"]]],
   ["Groundstation manifest", [["↑ ↓", "Move through the manifest"], ["Ctrl F", "Search name or command"], ["Ctrl Shift R", "Restart or start the selection"], ["Ctrl Shift S", "Stop the selection (confirmed)"], ["Ctrl Shift F", "Pin the selection to the top"], ["Esc", "Clear the selection"]]],
-  ["Terminal canvas", [["Alt 1–6", "Focus a pane"], ["Alt ← ↑ → ↓", "Move focus between panes"], ["Alt L", "Cycle canvas layout"], ["Ctrl F", "Search the active terminal"]]],
-  ["Resize panes", [["Drag a split", "Resize terminals"], ["← → ↑ ↓ on a split", "Resize by 2%"], ["Double-click split", "Reset the split to 50%"], ["Inspector", "Show structured engine facts"]]]
+  ["Terminal canvas", [["Alt 1–6", "Focus a pane"], ["Alt ← ↑ → ↓", "Move focus between panes"], ["Alt L", "Cycle canvas layout"], ["Alt F", "Focus mode — every terminal, no chrome"], ["Alt B", "Mission Control browser"], ["Ctrl F", "Search the active terminal"]]],
+  ["Resize terminals", [["Drag an edge", "Resize that terminal; its neighbours give way"], ["Drag a corner", "Resize width and height at once"], ["Arrow keys", "On a focused edge, resize by 24px"], ["Double-click", "On an edge, even out the sizes"], ["Esc", "Put a dragged terminal back"], ["Inspector", "Show structured engine facts"]]]
 ];
 
 export default function HelpOverlay({ open, onClose }) {
