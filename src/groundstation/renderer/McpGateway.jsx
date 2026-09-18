@@ -1,5 +1,6 @@
 import React from "react";
 import { confirmedRequest, missionApi } from "./missionApi.js";
+import { copyText } from "./clipboard.js";
 
 const SCOPE_CHOICES = [
   { id: "context.read", label: "Mission Context", detail: "Workers, health, dependencies, missions, recipes, and bounded editor state." },
@@ -30,9 +31,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
   const [busy, setBusy] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [installerStatus, setInstallerStatus] = React.useState({});
-  const [testTool, setTestTool] = React.useState("mission_control_supervision");
-  const [testResult, setTestResult] = React.useState(null);
-  const [testBusy, setTestBusy] = React.useState(false);
+  const [clientStatuses, setClientStatuses] = React.useState({});
   const [copyFeedback, setCopyFeedback] = React.useState("");
   const [resourceState, setResourceState] = React.useState({
     loading: true,
@@ -42,12 +41,15 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     auditUpdatedAt: null
   });
 
+  const workspacePath = workspace?.directory || workspace?.path || "";
+
   const refresh = React.useCallback(async () => {
     setResourceState(current => ({ ...current, loading: true }));
-    const [statusResult, auditResult, tokenResult] = await Promise.allSettled([
+    const [statusResult, auditResult, tokenResult, clientsResult] = await Promise.allSettled([
       missionApi().request("mcp.status"),
       missionApi().request("mcp.audit.list", { limit: 6 }),
-      missionApi().request("mcp.getToken")
+      missionApi().request("mcp.getToken"),
+      missionApi().request("mcp.clientStatus", { workspacePath })
     ]);
     const now = Date.now();
     if (statusResult.status === "fulfilled") {
@@ -61,6 +63,9 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     if (tokenResult.status === "fulfilled" && tokenResult.value?.token) {
       setToken(tokenResult.value.token);
     }
+    if (clientsResult.status === "fulfilled" && clientsResult.value) {
+      setClientStatuses(clientsResult.value);
+    }
     setResourceState(current => ({
       ...current,
       loading: false,
@@ -70,7 +75,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
       auditUpdatedAt: auditResult.status === "fulfilled" ? now : current.auditUpdatedAt
     }));
     return statusResult.status === "fulfilled" ? statusResult.value : null;
-  }, []);
+  }, [workspacePath]);
 
   React.useEffect(() => {
     let active = true;
@@ -82,10 +87,13 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
         setStatus(notification.status);
         setScopes(notification.status?.scopes || []);
         setResourceState(current => ({ ...current, statusError: "", statusUpdatedAt: Date.now() }));
+        void missionApi().request("mcp.clientStatus", { workspacePath }).then(res => {
+          if (active && res) setClientStatuses(res);
+        }).catch(() => {});
       }, { type: "integration:event", integration: "mcp" });
     } catch { /* Status request remains authoritative. */ }
     return () => { active = false; unsubscribe?.(); };
-  }, [refresh, workspace?.path]);
+  }, [refresh, workspacePath]);
 
   const configure = async (operation, configuration) => {
     setBusy(operation);
@@ -108,7 +116,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
       setToken(result.token);
       setShowToken(true);
       setStatus(result.status);
-      setMessage("New MCP access token generated. Use 1-Click Auto-Install below to update your AI clients instantly.");
+      setMessage("New MCP access token generated. Use Connect below to update your AI clients.");
       await refresh();
     } catch (error) { setMessage(error.message || String(error)); }
     finally { setBusy(""); }
@@ -121,7 +129,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
 
   const copyText = async (text, label) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopyFeedback(label);
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
       copyTimerRef.current = setTimeout(() => setCopyFeedback(""), 2500);
@@ -136,10 +144,11 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     try {
       const result = await missionApi().request("mcp.installClient", {
         target,
-        workspacePath: workspace?.directory || workspace?.path || ""
+        workspacePath
       });
       setInstallerStatus(prev => ({ ...prev, [target]: "connected" }));
       setMessage(result.message || `Successfully configured ${target}!`);
+      await refresh();
       setTimeout(() => {
         setInstallerStatus(prev => ({ ...prev, [target]: "" }));
       }, 4000);
@@ -151,30 +160,42 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     }
   };
 
-  const runToolTest = async () => {
-    setTestBusy(true);
-    setTestResult(null);
-    const start = Date.now();
-    try {
-      const result = await missionApi().request("mcp.tool.call", {
-        name: testTool,
-        arguments: {}
+  const removeClient = target => {
+    const client = localClients.find(c => c.id === target);
+    const targetLabel = client?.name || target;
+
+    const performRemoval = async () => {
+      setBusy(`remove-${target}`);
+      setMessage("");
+      try {
+        const result = await missionApi().request("mcp.removeClient", {
+          target,
+          workspacePath
+        });
+        setInstallerStatus(prev => ({ ...prev, [target]: "removed" }));
+        setMessage(result.message || `Successfully removed OUTARCH from ${targetLabel}!`);
+        await refresh();
+        setTimeout(() => {
+          setInstallerStatus(prev => ({ ...prev, [target]: "" }));
+        }, 4000);
+      } catch (error) {
+        setInstallerStatus(prev => ({ ...prev, [target]: "failed" }));
+        setMessage(error?.message || `Failed to remove ${targetLabel}`);
+      } finally {
+        setBusy("");
+      }
+    };
+
+    if (onConfirm) {
+      onConfirm({
+        title: `Remove OUTARCH from ${targetLabel}?`,
+        detail: `OUTARCH's server entry is removed from ${client?.where || "the client configuration file"}. Every other setting in that file stays as it is.`,
+        recovery: "You can click Connect at any time to re-enable OUTARCH in this tool.",
+        confirmLabel: "Remove integration",
+        run: performRemoval
       });
-      const elapsed = Date.now() - start;
-      setTestResult({
-        ok: true,
-        elapsed,
-        data: result
-      });
-    } catch (error) {
-      const elapsed = Date.now() - start;
-      setTestResult({
-        ok: false,
-        elapsed,
-        error: error?.message || String(error)
-      });
-    } finally {
-      setTestBusy(false);
+    } else {
+      void performRemoval();
     }
   };
 
@@ -231,8 +252,6 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     }
   }, null, 2);
 
-  // One row per local client: where its configuration lives, the one-click
-  // install, and the snippet for anyone who prefers to paste it themselves.
   const localClients = [
     { id: "claude-code", name: "Claude Code", where: "~/.claude.json", copy: claudeCliCommand, copyLabel: "Copy command" },
     { id: "codex", name: "Codex CLI", where: "~/.codex/config.toml", copy: codexConfigSnippet, copyLabel: "Copy TOML" },
@@ -241,15 +260,13 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     { id: "claude-desktop", name: "Claude Desktop", where: "claude_desktop_config.json", copy: claudeConfigSnippet, copyLabel: "Copy JSON" }
   ];
 
-  const samplePrompt = "Use Mission Control MCP tools to inspect running workers, detect any failures or warnings, and summarize current project health.";
-
   return <section className={`settings-panel settings-panel-wide mcp-gateway-settings pm-card pm-card--feat-mcp ${running ? "is-running" : ""}`}>
     <header>
       <div className="settings-panel__head">
         <span className="mcp-mark">M</span>
         <div>
           <h3>Secure MCP Gateway</h3>
-          <p>Lets AI tools running on this computer — Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop — see this project and ask Mission Control to act. It listens on 127.0.0.1 only, so nothing off this machine can reach it.</p>
+          <p>Lets AI tools running on this computer — Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop — see this project and ask OUTARCH to act. It listens on 127.0.0.1 only, so nothing off this machine can reach it.</p>
         </div>
       </div>
       <div className={`mcp-state ${running ? "is-live" : status?.lastError || resourceState.statusError ? "is-risk" : ""}`}>
@@ -258,7 +275,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
       </div>
     </header>
 
-    {resourceState.statusError && <div className="integration-resource-notice" role="status"><span><strong>Gateway status could not be refreshed.</strong> {statusKnown ? `Showing status verified ${relativeTime(resourceState.statusUpdatedAt)}.` : "Controls remain unavailable until Mission Control can verify the gateway."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
+    {resourceState.statusError && <div className="integration-resource-notice" role="status"><span><strong>Gateway status could not be refreshed.</strong> {statusKnown ? `Showing status verified ${relativeTime(resourceState.statusUpdatedAt)}.` : "Controls remain unavailable until OUTARCH can verify the gateway."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
 
     <div className="mcp-summary">
       <div><span>ENDPOINT</span><strong title={status?.endpoint}>{status?.endpoint || (resourceState.loading ? "Loading…" : "Unavailable")}</strong><small>127.0.0.1 only · strict Origin checks</small></div>
@@ -267,32 +284,47 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
       <div className={status?.pendingApprovalCount ? "has-attention" : ""}><span>APPROVALS</span><strong>{knownCount(status?.pendingApprovalCount)} waiting</strong><small>Mutations execute only from Needs You</small></div>
     </div>
 
-    {/* Connect a local AI tool. Each install writes only the mission-control
-        entry into that tool's own configuration file and leaves the rest of the
-        file as the operator had it. */}
-    <section className="mcp-clients" aria-label="Connect a local AI tool">
+    {/* Connect / Remove Local AI Tools */}
+    <section className="mcp-clients" aria-label="Connect or remove local AI tools">
       <header>
         <div>
-          <h4>Connect a local AI tool</h4>
-          <p>One click writes the gateway address and token into the tool's configuration. Restart the tool afterwards.</p>
+          <h4>Local AI tool connections</h4>
+          <p>One click adds or removes the gateway address and authentication token in each tool's configuration file.</p>
         </div>
       </header>
       <ul>
-        {localClients.map(client => <li key={client.id} className={installerStatus[client.id] ? `is-${installerStatus[client.id]}` : ""}>
-          <div className="mcp-clients__copy">
-            <strong>{client.name}</strong>
-            <code>{client.where}</code>
-            {installerStatus[client.id] && <span className="mcp-clients__done" role="status">{installerStatus[client.id] === "connected" ? "Connected — restart it to pick up the change" : "Could not write its configuration"}</span>}
-          </div>
-          <div className="mcp-clients__actions">
-            <button type="button" className="mcp-clients__copy-button" onClick={() => void copyText(client.copy, `${client.name} setup copied`)}>
-              {copyFeedback === `${client.name} setup copied` ? "Copied" : client.copyLabel}
-            </button>
-            <button type="button" className="mcp-clients__install" onClick={() => void autoInstall(client.id)} disabled={Boolean(busy) || !token}>
-              {busy === `install-${client.id}` ? "Connecting…" : "Connect"}
-            </button>
-          </div>
-        </li>)}
+        {localClients.map(client => {
+          const isInstalled = Boolean(clientStatuses[client.id]?.installed);
+          const currentStatus = installerStatus[client.id];
+
+          return <li key={client.id} className={currentStatus ? `is-${currentStatus}` : isInstalled ? "is-connected" : ""}>
+            <div className="mcp-clients__copy">
+              <strong>{client.name}</strong>
+              <code>{client.where}</code>
+              <span className={`mcp-clients__badge ${isInstalled ? "is-connected" : "is-idle"}`}>
+                {isInstalled ? "Connected" : "Not connected"}
+              </span>
+              {currentStatus && <span className="mcp-clients__done" role="status">
+                {currentStatus === "connected"
+                  ? "Connected — restart tool to apply changes"
+                  : currentStatus === "removed"
+                    ? "Removed from configuration"
+                    : "Operation failed"}
+              </span>}
+            </div>
+            <div className="mcp-clients__actions">
+              <button type="button" className="mcp-clients__copy-button" onClick={() => void copyText(client.copy, `${client.name} setup copied`)}>
+                {copyFeedback === `${client.name} setup copied` ? "Copied" : client.copyLabel}
+              </button>
+              <button type="button" className="mcp-clients__install" onClick={() => void autoInstall(client.id)} disabled={Boolean(busy) || !token} title={isInstalled ? "Update client configuration with current token" : "Configure client"}>
+                {busy === `install-${client.id}` ? "Saving…" : isInstalled ? "Update" : "Connect"}
+              </button>
+              {isInstalled && <button type="button" className="mcp-clients__remove" onClick={() => removeClient(client.id)} disabled={Boolean(busy)} title={`Remove OUTARCH from ${client.name}`}>
+                {busy === `remove-${client.id}` ? "Removing…" : "Remove"}
+              </button>}
+            </div>
+          </li>;
+        })}
       </ul>
       {!token && <p className="mcp-clients__hint">Turn the gateway on to issue a token, then connect a tool.</p>}
     </section>
@@ -338,41 +370,6 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
       </div>
     </div>
 
-    {/* Interactive MCP Testing Playground */}
-    <div style={{ marginTop: "16px", padding: "14px", background: "var(--mc-surface-2, #101612)", border: "1px solid var(--mc-line, #223227)", borderRadius: "var(--mc-radius-sm, 6px)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
-        <div>
-          <span style={{ color: "var(--mc-ok, #4ade80)", fontSize: "9px", fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase" }}>INTERACTIVE MCP TESTER</span>
-          <h4 style={{ margin: "2px 0 0", fontSize: "12px", fontWeight: 600 }}>Test MCP Tools Live in Workspace</h4>
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <select value={testTool} onChange={event => setTestTool(event.target.value)} disabled={testBusy} style={{ background: "var(--mc-surface, #090d0b)", color: "var(--mc-text, #e1ede4)", border: "1px solid var(--mc-line, #223227)", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontFamily: "var(--mc-font-mono, monospace)" }}>
-            <option value="mission_control_supervision">mission_control_supervision</option>
-            <option value="mission_control_context">mission_control_context</option>
-            <option value="mission_control_worker">mission_control_worker</option>
-            <option value="mission_control_memory">mission_control_memory</option>
-            <option value="mission_control_attention">mission_control_attention</option>
-          </select>
-          <button type="button" onClick={() => void runToolTest()} disabled={testBusy} style={{ background: "var(--mc-ok, #4ade80)", color: "#09130c", border: "none", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>
-            {testBusy ? "Running Test…" : "Execute Tool Test"}
-          </button>
-        </div>
-      </div>
-      {testResult && <div style={{ marginTop: "10px", padding: "10px", background: "var(--mc-surface, #090d0b)", border: "1px solid var(--mc-line, #223227)", borderRadius: "4px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-          <span style={{ fontSize: "10px", color: testResult.ok ? "var(--mc-ok, #4ade80)" : "var(--mc-danger, #ef4444)", fontWeight: 700 }}>
-            {testResult.ok ? `✓ Tool executed successfully (${testResult.elapsed}ms)` : `✗ Tool test failed (${testResult.elapsed}ms)`}
-          </span>
-          <button type="button" onClick={() => void copyText(JSON.stringify(testResult.data || testResult.error, null, 2), "Result copied!")} style={{ fontSize: "10px", padding: "2px 8px", cursor: "pointer" }}>
-            {copyFeedback === "Result copied!" ? "Copied!" : "Copy Response JSON"}
-          </button>
-        </div>
-        <pre style={{ margin: 0, maxHeight: "160px", overflowY: "auto", fontSize: "10px", color: "var(--mc-text-dim, #7f9986)", fontFamily: "var(--mc-font-mono, monospace)", lineHeight: "1.4" }}>
-          <code>{JSON.stringify(testResult.data || testResult.error, null, 2)}</code>
-        </pre>
-      </div>}
-    </div>
-
     {/* Footer Controls */}
     <footer>
       <div>
@@ -383,7 +380,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
         <button disabled={Boolean(busy) || !protectedStore} onClick={() => void configure("permissions", { scopes })}>
           {busy === "permissions" ? "Saving…" : "Save permissions"}
         </button>
-        <button disabled={Boolean(busy) || !protectedStore || (status?.configured && !onConfirm)} onClick={() => status?.configured ? onConfirm?.({ title: "Rotate the MCP access token?", detail: "Every client using the current token will lose access immediately. You can re-click Auto-Add after rotation.", recovery: "Use 1-Click Auto-Add to instantly update each client with the new token.", confirmLabel: "Rotate token", run: rotate }) : void rotate()}>
+        <button disabled={Boolean(busy) || !protectedStore || (status?.configured && !onConfirm)} onClick={() => status?.configured ? onConfirm?.({ title: "Rotate the MCP access token?", detail: "Every client using the current token will lose access immediately. You can re-click Connect or Update after rotation.", recovery: "Use 1-Click Connect to instantly update each client with the new token.", confirmLabel: "Rotate token", run: rotate }) : void rotate()}>
           {busy === "token" ? "Rotating…" : status?.configured ? "Rotate token" : "Create access token"}
         </button>
         {running ? (
@@ -399,7 +396,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     </footer>
 
     {resourceState.auditError && <div className="integration-resource-notice" role="status"><span><strong>MCP audit history could not be refreshed.</strong> {resourceState.auditUpdatedAt ? `Showing entries verified ${relativeTime(resourceState.auditUpdatedAt)}.` : "No audit history is shown because its availability is unknown."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
-    {audit.length > 0 && <div className="mcp-audit"><span>AUDIT TRAIL · NO PROMPTS, TOKENS, OR TERMINAL OUTPUT</span><div className="mcp-terminal-feed">{audit.slice(0,4).map(record => <article key={record.id} className={`mcp-terminal-row ${record.outcome === "denied" || record.outcome === "error" ? "is-failed" : "is-live"}`}><i className="mcp-dot"/><span><strong>{record.kind} · {record.outcome}</strong><p style={{ margin: "2px 0 0", fontSize: "var(--mc-type-caption)", color: "var(--mc-text-dim)" }}>{record.client} · {record.capability || "gateway"}</p></span><time style={{ fontSize: "var(--mc-type-caption)", color: "var(--mc-text-muted)" }}>{relativeTime(record.at)}</time></article>)}</div></div>}
+    {audit.length > 0 && <div className="mcp-audit"><span>AUDIT TRAIL · NO PROMPTS, TOKENS, OR TERMINAL OUTPUT</span><div className="mcp-terminal-feed">{audit.slice(0, 4).map(record => <article key={record.id} className={`mcp-terminal-row ${record.outcome === "denied" || record.outcome === "error" ? "is-failed" : "is-live"}`}><i className="mcp-dot"/><span><strong>{record.kind} · {record.outcome}</strong><p style={{ margin: "2px 0 0", fontSize: "var(--mc-type-caption)", color: "var(--mc-text-dim)" }}>{record.client} · {record.capability || "gateway"}</p></span><time style={{ fontSize: "var(--mc-type-caption)", color: "var(--mc-text-muted)" }}>{relativeTime(record.at)}</time></article>)}</div></div>}
     {resourceState.auditUpdatedAt && !resourceState.auditError && audit.length === 0 && <p className="integration-resource-empty">No MCP audit events recorded.</p>}
   </section>;
 }

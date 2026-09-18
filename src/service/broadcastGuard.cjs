@@ -2,7 +2,7 @@
 
 // T023 — the safety rules for sending one command to many terminals.
 //
-// Broadcast is the only action in Mission Control that multiplies a mistake by
+// Broadcast is the only action in OUTARCH that multiplies a mistake by
 // the number of workers, so the rules are stricter than for typing into one
 // terminal, and they live here as pure functions so they can be tested exactly
 // rather than inferred from the protocol handler.
@@ -58,7 +58,7 @@ function inspectBroadcastInput(input) {
       empty: false,
       secrets,
       destructive,
-      reason: `This looks like it contains ${secrets.map(item => item.label).join(" and ")}. Broadcasting it would write the value into every target's scrollback and shell history, so Mission Control will not send it. Type it into a single terminal instead.`
+      reason: `This looks like it contains ${secrets.map(item => item.label).join(" and ")}. Broadcasting it would write the value into every target's scrollback and shell history, so OUTARCH will not send it. Type it into a single terminal instead.`
     };
   }
   return { ok: true, empty: false, secrets: [], destructive, reason: null };

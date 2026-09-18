@@ -93,7 +93,7 @@ test("T110 - agent progress stays evidence-only and an unreported action says so
   assert.match(agents, /\{mission\?\.currentAction\?\.kind \|\| "unreported"\}/);
   assert.match(agents, /No mission action has been observed\./);
   assert.match(agents, /Observed from \{String\(mission\.currentAction\.source\)/);
-  assert.match(agents, /High-level observable state only\. Mission Control never displays or infers private reasoning\./);
+  assert.match(agents, /High-level observable state only\. OUTARCH never displays or infers private reasoning\./);
 
   // Nothing in the agent view invents a percentage or an ETA.
   assert.doesNotMatch(agents, /percentComplete|estimatedCompletion|Math\.round\([^)]*\/[^)]*\* 100\)/);

@@ -27,7 +27,7 @@ test("VS Code extension owns the expected URI handler and bounded capabilities",
   assert.match(source, /vscode-owned/);
   assert.match(source, /vscode\.window\.createTerminal/);
   assert.match(source, /managed\.terminal\.sendText/);
-  assert.match(source, /This terminal is not managed by Mission Control/);
+  assert.match(source, /This terminal is not managed by OUTARCH/);
   assert.doesNotMatch(source, /node-pty|child_process|onDidWriteTerminalData/);
   assert.doesNotMatch(source, /terminal\.processId/);
 });

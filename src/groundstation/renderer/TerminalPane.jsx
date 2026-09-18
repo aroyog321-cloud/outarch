@@ -9,7 +9,8 @@ import {
   streamIdentifier
 } from "./missionApi.js";
 import { CrashLens } from "./CrashLens.jsx";
-import { WorkerMetricStrip } from "./WorkerSparkline.jsx";
+import { describeLaunch } from "./launchLabel.js";
+import { copyText } from "./clipboard.js";
 
 const TERMINAL_THEMES = {
   // ANSI has sixteen slots and a program picks whichever it likes, so the
@@ -40,6 +41,9 @@ function PaneIcon({ name, size = 14 }) {
     settings: <><path d="M4 7h9"/><path d="M18 7h2"/><path d="M4 17h4"/><path d="M13 17h7"/><circle cx="15.5" cy="7" r="2.4"/><circle cx="10.5" cy="17" r="2.4"/></>,
     copy: <><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></>,
     clear: <><path d="M4 18h16"/><path d="m9 14 7.5-7.5a2.1 2.1 0 0 1 3 3L12 17H7Z"/></>,
+    up: <><path d="m6 15 6-6 6 6"/></>,
+    down: <><path d="m6 9 6 6 6-6"/></>,
+    close: <><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></>,
     popout: <><path d="M14 4h6v6"/><path d="m20 4-8 8"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></>,
     duplicate: <><rect x="4" y="4" width="11" height="11" rx="2"/><path d="M9 19h8a2 2 0 0 0 2-2V9"/></>,
     trash: <><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2"/></>,
@@ -65,7 +69,7 @@ function uptime(session) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-// Ownership is a fact, not a guess: Mission Control owns every PTY it spawns.
+// Ownership is a fact, not a guess: OUTARCH owns every PTY it spawns.
 // The PID comes straight from the engine summary when a process is live.
 function ownership(session) {
   if (session?.isAlive && Number.isFinite(session?.pid)) return `Engine PTY · pid ${session.pid}`;
@@ -86,7 +90,7 @@ function activity(session, connection) {
   return line ? line.slice(0, 140) : "Running · no output reported yet";
 }
 
-export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, style, canEmpty = true, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI }) {
+export default function TerminalPane({ session, sessions, profile, active, expanded, minimized = false, shortcut, style, canEmpty = true, terminalFontSize = 13, terminalTheme = "orbital", terminalCursor = "bar", terminalScrollback = 5000, onFocus, onToggleExpanded, onAction, onSelectSession, onDropSession, onReconfigure, onDuplicate, onTerminalError, onTerminalRecovered, onAskAI, canPopOut = true, chrome = "pane", findSignal = 0 }) {
   const hostRef = React.useRef(null);
   const terminalRef = React.useRef(null);
   const fitRef = React.useRef(null);
@@ -121,6 +125,21 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   const [findQuery, setFindQuery] = React.useState("");
   const [findMessage, setFindMessage] = React.useState("");
   const findCursorRef = React.useRef(null);
+  // The search floats over the top of the output instead of taking a row of
+  // its own, so opening it never shrinks and refits the terminal it searches.
+  const [findTop, setFindTop] = React.useState(34);
+  // In its own window the pane is only the terminal: the window strip carries
+  // the name, state, search and the way back, so the pane header (grid-only
+  // controls: pane shortcut, drag to another pane, maximise) and the activity
+  // line are not drawn at all.
+  const windowChrome = chrome === "window";
+  React.useEffect(() => { if (findSignal) setFindOpen(true); }, [findSignal]);
+  const closeFind = React.useCallback(() => {
+    setFindOpen(false);
+    setFindMessage("");
+    terminalRef.current?.clearSelection();
+    terminalRef.current?.focus();
+  }, []);
 
   React.useLayoutEffect(() => {
     minimizedRef.current = Boolean(minimized);
@@ -160,6 +179,16 @@ export default function TerminalPane({ session, sessions, profile, active, expan
       document.removeEventListener("pointerdown", onPointerDown, true);
     };
   }, [chooserOpen]);
+
+  React.useLayoutEffect(() => {
+    if (!findOpen) return;
+    const host = hostRef.current;
+    const header = headerRef.current;
+    const top = host && host.offsetHeight > 0
+      ? host.offsetTop
+      : header ? header.offsetTop + header.offsetHeight : 28;
+    setFindTop(top + 6);
+  }, [findOpen, message]);
 
   const find = React.useCallback(direction => {
     const terminal = terminalRef.current;
@@ -209,7 +238,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(host);
-    // Every Mission Control shortcut is a `window` keydown listener, and xterm
+    // Every OUTARCH shortcut is a `window` keydown listener, and xterm
     // finishes a key it claims by calling stopPropagation on it. While a
     // terminal had focus — which on the Workspace is nearly always — not one
     // of them ever ran: the palette, the navigation chords, focus mode and the
@@ -228,6 +257,15 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         event.preventDefault();
         event.stopPropagation();
         setFindOpen(true);
+        return false;
+      }
+      // Copy is the terminal convention Ctrl Shift C, so a selection can be
+      // copied without the pane menu — which a popped-out window does not draw.
+      // Ctrl C alone stays the shell's interrupt.
+      if (accelerator && event.shiftKey && !event.altKey && key === "c") {
+        event.preventDefault();
+        const selection = terminal.getSelection();
+        if (selection) void copyText(selection).catch(() => {});
         return false;
       }
       // Alt is the workspace modifier: pane focus, layout, focus mode, the
@@ -415,6 +453,9 @@ export default function TerminalPane({ session, sessions, profile, active, expan
   // What an idle pane says about itself, from engine-reported state only: a
   // worker that never started and one that ran and exited are different
   // situations and the pane should not call both of them the same thing.
+  // Said as what starting it does, not as the shell wrapper the Add terminal
+  // form stores ("powershell.exe -NoLogo -NoProfile -NoExit -Command claude").
+  const launch = describeLaunch(session.command, session.args);
   const idleState = session.spawnError
     ? { title: "Could not start", detail: session.spawnError }
     : session.status === "exited"
@@ -424,7 +465,12 @@ export default function TerminalPane({ session, sessions, profile, active, expan
             ? `The process exited with code ${session.exitCode}.`
             : "The process is no longer running."
         }
-      : { title: "Not running", detail: "This terminal has a command configured and nothing behind it yet." };
+      : {
+          title: "Not running",
+          detail: launch.shell && !launch.runs
+            ? `Starting it opens an interactive ${launch.shell} in this project.`
+            : launch.shell ? `Starting it opens ${launch.shell} and runs:` : "Starting it runs:"
+        };
   const requestAction = (type, fields = {}) => {
     setActionMenuOpen(false);
     onAction?.(type, session.id, fields);
@@ -437,8 +483,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
       return;
     }
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable on this system.");
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setMessage("Selection copied.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The selection could not be copied.");
@@ -484,7 +529,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         <span className="terminal-minimized-state">{session.isAlive ? "Live" : session.status}</span>
         <button type="button" className="icon-button terminal-restore" title={`Maximize ${session.name}`} aria-label={`Maximize ${session.name}`} onClick={event => { event.stopPropagation(); onToggleExpanded?.(); }}><PaneIcon name="restore"/></button>
       </header> : <>
-      <header className="terminal-pane__header" ref={headerRef}>
+      {!windowChrome && <header className="terminal-pane__header" ref={headerRef}>
         <div className="terminal-pane__identity">
           <span className={`status-dot status-${session.status} role-${profile?.key || "terminal"}`} />
           <div>
@@ -544,14 +589,12 @@ Switch pane`}
         <button type="submit" disabled={!renameValue.trim()}>Rename</button>
         <button type="button" onClick={() => setRenaming(false)}>Cancel</button>
       </form>}
-      <div className={`terminal-pane__telemetry connection-${connection}`} title={profile?.detail || connection}><i/><span>{connection === "live" ? "Live" : connection}</span></div>
-        <WorkerMetricStrip session={session} compact />
         <div className="terminal-pane__actions">
           {shortcut && <kbd className="terminal-shortcut" title={`Focus pane · Alt ${shortcut}`}>Alt {shortcut}</kbd>}
           <button type="button" className="terminal-drag-handle" draggable title="Drag terminal to another pane" aria-label={`Move ${session.name} to another terminal pane`} onMouseDown={event => event.stopPropagation()} onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-mission-worker", session.id); event.dataTransfer.setData("text/plain", session.id); }}>
             <PaneIcon name="grip"/>
           </button>
-          <button type="button" className="quiet-button" onClick={() => setFindOpen(value => !value)} aria-expanded={findOpen} title="Search terminal · Ctrl F">Find</button>
+          <button type="button" className="quiet-button" onClick={() => (findOpen ? closeFind() : setFindOpen(true))} aria-expanded={findOpen} title="Search terminal · Ctrl F">Find</button>
           {/* Running or not running is the one thing about a terminal you change
               most often, and it was two levels down a menu whose own label had
               to be read to learn which of the two it would do. It is a control
@@ -575,7 +618,7 @@ Switch pane`}
               <DropdownMenu.Label className="terminal-action-label">This terminal</DropdownMenu.Label>
               <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); onFocus?.(); terminalRef.current?.focus(); }}><PaneIcon name="target"/><span>Focus terminal</span>{shortcut ? <kbd>Alt {shortcut}</kbd> : null}</DropdownMenu.Item>
               <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); setFindOpen(true); }}><PaneIcon name="search"/><span>Find in output</span><kbd>Ctrl F</kbd></DropdownMenu.Item>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => void copySelection()}><PaneIcon name="copy"/><span>Copy selection</span></DropdownMenu.Item>
+              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => void copySelection()}><PaneIcon name="copy"/><span>Copy selection</span><kbd>Ctrl Shift C</kbd></DropdownMenu.Item>
               <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={clearDisplay}><PaneIcon name="clear"/><span>Clear display</span></DropdownMenu.Item>
               {/* Drag is the pane's own gesture, so this offers the gesture
                   rather than a button pretending to be one. It closes as the
@@ -588,7 +631,6 @@ Switch pane`}
                 aria-label={`Move ${session.name} to another terminal pane`}
                 onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-mission-worker", session.id); event.dataTransfer.setData("text/plain", session.id); setActionMenuOpen(false); }}
               ><PaneIcon name="grip"/><span>Move to another pane</span><small>Drag onto the pane you want it in</small></div>
-              <DropdownMenu.Item className="terminal-action-item is-compact" onSelect={() => { setActionMenuOpen(false); void detachToWindow(); }}><PaneIcon name="popout"/><span>Pop out terminal</span><small>Its own window — the worker keeps running</small></DropdownMenu.Item>
 
               <DropdownMenu.Separator className="terminal-action-separator"/>
               <DropdownMenu.Label className="terminal-action-label">This worker</DropdownMenu.Label>
@@ -609,6 +651,17 @@ Switch pane`}
               <DropdownMenu.Item className="terminal-action-item is-danger" onSelect={() => requestAction("remove")}><PaneIcon name="trash"/><span>Delete terminal</span><small>Remove this worker definition after confirmation</small></DropdownMenu.Item>
             </DropdownMenu.Content></DropdownMenu.Portal>
           </DropdownMenu.Root>
+          {/* Pop out is a window action, so it sits with the other one — beside
+              maximise — as a control, not three levels down the menu. A pane
+              already in its own window does not offer it. */}
+          {canPopOut && <button
+            type="button"
+            className="icon-button terminal-pane__popout"
+            title="Pop out terminal · its own window, the worker keeps running"
+            aria-label={`Pop out ${session.name} into its own window`}
+            onMouseDown={event => event.stopPropagation()}
+            onClick={() => void detachToWindow()}
+          ><PaneIcon name="popout"/></button>}
           <button
             type="button"
             className="icon-button"
@@ -619,13 +672,37 @@ Switch pane`}
             <PaneIcon name={expanded ? "restore" : "expand"}/>
           </button>
         </div>
-      </header>
-      {findOpen && <form className="terminal-find" onSubmit={event => { event.preventDefault(); find(1); }} onMouseDown={event => event.stopPropagation()}><input autoFocus value={findQuery} onChange={event => { setFindQuery(event.target.value); setFindMessage(""); findCursorRef.current = null; }} placeholder="Find in terminal output" aria-label={`Find in ${session.name} output`}/><span>{findMessage}</span><button type="button" onClick={() => find(-1)} aria-label="Previous match">↑</button><button type="submit" aria-label="Next match">↓</button><button type="button" onClick={() => { setFindOpen(false); setFindMessage(""); terminalRef.current?.clearSelection(); }} aria-label="Close terminal search">×</button></form>}
+      </header>}
+      {findOpen && <form
+        className="terminal-find"
+        role="search"
+        style={{ top: findTop }}
+        onSubmit={event => { event.preventDefault(); find(1); }}
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <PaneIcon name="search" size={13}/>
+        <input
+          autoFocus
+          value={findQuery}
+          onChange={event => { setFindQuery(event.target.value); setFindMessage(""); findCursorRef.current = null; }}
+          onKeyDown={event => {
+            if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeFind(); }
+            else if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); find(-1); }
+          }}
+          placeholder="Find in output"
+          aria-label={`Find in ${session.name} output`}
+          spellCheck={false}
+        />
+        <span className={`terminal-find__status ${findMessage === "No match" ? "is-miss" : ""}`} aria-live="polite">{findMessage}</span>
+        <button type="button" className="terminal-find__button" onClick={() => find(-1)} disabled={!findQuery.trim()} aria-label="Previous match" title="Previous match · Shift Enter"><PaneIcon name="up" size={14}/></button>
+        <button type="submit" className="terminal-find__button" disabled={!findQuery.trim()} aria-label="Next match" title="Next match · Enter"><PaneIcon name="down" size={14}/></button>
+        <button type="button" className="terminal-find__button terminal-find__close" onClick={closeFind} aria-label="Close terminal search" title="Close · Esc"><PaneIcon name="close" size={13}/></button>
+      </form>}
       {message && <div className="terminal-warning">{message}</div>}
       {/* Current activity, straight from engine state — never a fake progress bar. */}
-      <div className={`terminal-pane__activity ${session.attentionRequired ? "is-attention" : ""} ${session.status === "failed" ? "is-failed" : ""}`} title={activityLabel}>
+      {!windowChrome && <div className={`terminal-pane__activity ${session.attentionRequired ? "is-attention" : ""} ${session.status === "failed" ? "is-failed" : ""}`} title={activityLabel}>
         <i aria-hidden="true"/><span>{activityLabel}</span>
-      </div>
+      </div>}
       </>}
       {/* A worker that is not running used to say so as one grey line printed
           into an otherwise empty terminal, pointing at a "Start" that was two
@@ -638,11 +715,11 @@ Switch pane`}
           <span className="terminal-idle__mark" aria-hidden="true"><PaneIcon name="power" size={20}/></span>
           <strong>{idleState.title}</strong>
           <p>{idleState.detail}</p>
-          {session.command && <code title={`${session.command} ${(session.args || []).join(" ")}`.trim()}>{`${session.command} ${(session.args || []).join(" ")}`.trim()}</code>}
+          {launch.runs && <code title={launch.full}>{launch.runs}</code>}
           <button type="button" className="terminal-idle__start" onClick={() => requestAction("start")}>
             <PaneIcon name="play"/><span>Start {session.name}</span>
           </button>
-          <small>{session.autoStart ? "Starts automatically when this project opens." : "Stays idle until you start it. Change that under ⋯ · Start with workspace."}</small>
+          <small>{session.autoStart ? "Starts automatically when this project opens." : "Stays idle until you start it. To start it with the workspace, choose Start with workspace in the ⋯ menu."}</small>
         </div>
       )}
       <div className="terminal-host" ref={hostRef} aria-hidden={minimized || undefined} inert={minimized ? "" : undefined}/>
@@ -650,7 +727,7 @@ Switch pane`}
         <CrashLens
           session={session}
           onAction={onAction}
-          onAskAI={prompt => onAskAI?.(prompt)}
+          onAskAI={onAskAI ? prompt => onAskAI(prompt) : undefined}
         />
       )}
     </article>

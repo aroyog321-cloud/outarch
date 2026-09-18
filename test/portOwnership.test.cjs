@@ -136,7 +136,7 @@ test("T026 — the inspector reports a supervised owner and names the worker", a
   const owned = result.owners.find(owner => owner.owned);
   assert.ok(owned, "the node.exe listener descends from the worker");
   assert.equal(owned.sessionName, "Web server");
-  assert.match(describePortOwner(result), /a worker Mission Control supervises/);
+  assert.match(describePortOwner(result), /a worker OUTARCH supervises/);
 });
 
 test("T026 — a foreign owner is reported and explicitly not terminated", async () => {

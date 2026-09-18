@@ -59,7 +59,7 @@ const PROBES = {
     recovery: status => status.connected
       ? null
       : status.awaitingHandshake
-        ? "A handshake is open and waiting. Run the Mission Control command inside VS Code to complete it."
+        ? "A handshake is open and waiting. Run the OUTARCH command inside VS Code to complete it."
         : "Install or open the included extension in this project, then start the handshake from this panel."
   },
   mcp: {

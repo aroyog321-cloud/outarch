@@ -10,6 +10,9 @@ const MAX_PLUGINS = 32;
 const MAX_PLUGIN_APPROVALS = 100;
 const MAX_PLUGIN_AUDIT = 200;
 const MAX_PLUGIN_CONTRIBUTIONS = 12;
+// Composite rules nest `all` / `any`; deeper than this is a mistake, not a rule.
+const MAX_RULE_DEPTH = 4;
+const MAX_RULE_TEXT = 256;
 const PLUGIN_PERMISSIONS = Object.freeze([
   "context.read",
   "memory.read",
@@ -17,18 +20,25 @@ const PLUGIN_PERMISSIONS = Object.freeze([
   "events.read",
   "health.read",
   "worker.lifecycle.request",
-  "recipe.run.request"
+  "recipe.run.request",
+  "automation.run.request"
 ]);
 const PLUGIN_SURFACES = Object.freeze([
   "settings.summary",
   "needs.request",
   "context.resource",
-  "health.status"
+  "health.status",
+  "cockpit.banner",
+  "worker.detail",
+  "mission.overview"
 ]);
 const PLUGIN_CONTRIBUTION_SURFACES = Object.freeze([
   "settings.summary",
   "context.resource",
-  "health.status"
+  "health.status",
+  "cockpit.banner",
+  "worker.detail",
+  "mission.overview"
 ]);
 const PLUGIN_CONTRIBUTION_TONES = Object.freeze(["neutral", "healthy", "warning", "critical"]);
 const FORBIDDEN_MANIFEST_FIELDS = Object.freeze([
@@ -55,46 +65,83 @@ function normalizeList(value, allowed, name, maximum) {
   return allowed.filter(item => value.includes(item)).slice(0, maximum);
 }
 
+// A pattern with a quantified group that itself repeats ("(a+)+") can take
+// exponential time. Plugins are declarative text, so such patterns are refused.
+function isSafePluginPattern(pattern) {
+  const source = String(pattern ?? "");
+  if (!source || source.length > 64) return false;
+  if (/\\[1-9]/.test(source)) return false;
+  if (/\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)\s*[+*{?]/.test(source)) return false;
+  try { new RegExp(source, "i"); } catch { return false; }
+  return true;
+}
+
 function normalizeAction(value) {
   if (!isPlainObject(value)) throw new TypeError("Plugin actions must be objects");
   const id = cleanText(value.id, "action id", 64);
   if (!/^[a-z][a-z0-9.-]*$/.test(id)) throw new TypeError("Plugin action id must use lowercase letters, numbers, dots, or hyphens");
-  const type = value.type === "worker" ? "worker" : value.type === "recipe" ? "recipe" : null;
-  if (!type) throw new TypeError("Plugin action type must be worker or recipe");
-  const allowed = type === "worker" ? ["start", "restart", "stop", "acknowledge"] : ["run", "recover", "cancel"];
+  const type = value.type === "worker" ? "worker" : value.type === "recipe" ? "recipe" : value.type === "automation" ? "automation" : null;
+  if (!type) throw new TypeError("Plugin action type must be worker, recipe, or automation");
+  const allowed = type === "worker" ? ["start", "restart", "stop", "acknowledge"] : type === "recipe" ? ["run", "recover", "cancel", "pause", "resume"] : ["run", "test"];
   const operations = normalizeList(value.operations, allowed, "action operations", allowed.length);
   if (!operations.length) throw new TypeError("Plugin action requires at least one allow-listed operation");
   return { id, label: cleanText(value.label, "action label", 80), type, operations };
 }
 
-function normalizeRule(value) {
+function normalizeRule(value, depth = 1) {
   if (!isPlainObject(value)) throw new TypeError("Plugin contribution rules must be objects");
-  const supported = ["metric", "operator", "operand", "value", "detail", "tone", "title"];
+  if (depth > MAX_RULE_DEPTH) throw new TypeError(`Plugin rules nest at most ${MAX_RULE_DEPTH} levels`);
+  const supported = ["metric", "operator", "operand", "value", "detail", "tone", "title", "actionId", "actionLabel", "target", "all", "any"];
   const unknown = Object.keys(value).find(field => !supported.includes(field));
   if (unknown) throw new TypeError(`Unsupported plugin contribution rule field: ${unknown}`);
-  const metric = cleanText(value.metric, "rule metric", 64);
-  const operator = value.operator ? cleanText(value.operator, "rule operator", 16) : "eq";
-  if (!["eq", "neq", "gt", "gte", "lt", "lte", "truthy", "falsy", "in"].includes(operator)) {
+  
+  let all, any;
+  if (value.all !== undefined) {
+    if (!Array.isArray(value.all) || !value.all.length) throw new TypeError("Plugin rule 'all' must be a non-empty array");
+    all = value.all.slice(0, 10).map(item => normalizeRule(item, depth + 1));
+  }
+  if (value.any !== undefined) {
+    if (!Array.isArray(value.any) || !value.any.length) throw new TypeError("Plugin rule 'any' must be a non-empty array");
+    any = value.any.slice(0, 10).map(item => normalizeRule(item, depth + 1));
+  }
+
+  const metric = value.metric !== undefined ? cleanText(value.metric, "rule metric", 64) : undefined;
+  const operator = value.operator ? cleanText(value.operator, "rule operator", 16) : (metric ? "eq" : undefined);
+  if (operator && !["eq", "neq", "gt", "gte", "lt", "lte", "truthy", "falsy", "in", "regex", "matches", "contains", "between"].includes(operator)) {
     throw new TypeError(`Unsupported plugin rule operator: ${operator}`);
+  }
+  if ((operator === "regex" || operator === "matches") && !isSafePluginPattern(value.operand)) {
+    throw new TypeError("Plugin rule pattern must be a simple regular expression of at most 64 characters, without nested repetition");
   }
   const tone = value.tone === undefined ? undefined : cleanText(value.tone, "rule tone", 16);
   if (tone && !PLUGIN_CONTRIBUTION_TONES.includes(tone)) {
     throw new TypeError(`Unsupported plugin rule tone: ${tone}`);
   }
+
+  const actionId = value.actionId !== undefined ? cleanText(value.actionId, "rule actionId", 64) : undefined;
+  if (actionId && !/^[a-z][a-z0-9.-]*$/.test(actionId)) {
+    throw new TypeError("Plugin rule actionId must use lowercase letters, numbers, dots, or hyphens");
+  }
+
   return {
-    metric,
-    operator,
-    operand: value.operand !== undefined ? (typeof value.operand === "number" || typeof value.operand === "boolean" ? value.operand : cleanText(value.operand, "rule operand", 64)) : undefined,
+    ...(metric ? { metric } : {}),
+    ...(operator ? { operator } : {}),
+    operand: value.operand !== undefined ? (typeof value.operand === "number" || typeof value.operand === "boolean" ? value.operand : (Array.isArray(value.operand) ? value.operand.map(item => typeof item === "number" ? item : cleanText(item, "rule operand item", 64)) : cleanText(value.operand, "rule operand", 64))) : undefined,
     value: value.value !== undefined ? cleanText(value.value, "rule value", 120) : undefined,
     detail: value.detail !== undefined ? cleanText(value.detail, "rule detail", 240) : undefined,
     tone,
-    title: value.title !== undefined ? cleanText(value.title, "rule title", 80) : undefined
+    title: value.title !== undefined ? cleanText(value.title, "rule title", 80) : undefined,
+    ...(actionId ? { actionId } : {}),
+    actionLabel: value.actionLabel !== undefined ? cleanText(value.actionLabel, "rule actionLabel", 80) : undefined,
+    target: value.target !== undefined ? cleanText(value.target, "rule target", 64) : undefined,
+    ...(all ? { all } : {}),
+    ...(any ? { any } : {})
   };
 }
 
 function normalizeContribution(value) {
   if (!isPlainObject(value)) throw new TypeError("Plugin contributions must be objects");
-  const supported = ["id", "surface", "title", "value", "detail", "tone", "rules"];
+  const supported = ["id", "surface", "title", "value", "detail", "tone", "rules", "actionId", "actionLabel", "target"];
   const unknown = Object.keys(value).find(field => !supported.includes(field));
   if (unknown) throw new TypeError(`Unsupported plugin contribution field: ${unknown}`);
   const id = cleanText(value.id, "contribution id", 64);
@@ -103,6 +150,12 @@ function normalizeContribution(value) {
   if (!PLUGIN_CONTRIBUTION_SURFACES.includes(surface)) throw new TypeError(`Unsupported plugin contribution surface: ${surface}`);
   const tone = value.tone === undefined ? "neutral" : cleanText(value.tone, "contribution tone", 16);
   if (!PLUGIN_CONTRIBUTION_TONES.includes(tone)) throw new TypeError(`Unsupported plugin contribution tone: ${tone}`);
+  
+  const actionId = value.actionId !== undefined ? cleanText(value.actionId, "contribution actionId", 64) : undefined;
+  if (actionId && !/^[a-z][a-z0-9.-]*$/.test(actionId)) {
+    throw new TypeError("Plugin contribution actionId must use lowercase letters, numbers, dots, or hyphens");
+  }
+
   let rules;
   if (value.rules !== undefined) {
     if (!Array.isArray(value.rules)) throw new TypeError("Plugin contribution rules must be an array");
@@ -115,6 +168,9 @@ function normalizeContribution(value) {
     value: cleanText(value.value, "contribution value", 120),
     detail: value.detail === undefined || String(value.detail).trim() === "" ? "" : cleanText(value.detail, "contribution detail", 240),
     tone,
+    ...(actionId ? { actionId } : {}),
+    actionLabel: value.actionLabel !== undefined ? cleanText(value.actionLabel, "contribution actionLabel", 80) : undefined,
+    target: value.target !== undefined ? cleanText(value.target, "contribution target", 64) : undefined,
     ...(rules ? { rules } : {})
   };
 }
@@ -127,23 +183,60 @@ function extractMetricValue(snapshot, metricPath) {
   if (metricPath === "workers.failed.count" || metricPath === "workers.failed") {
     return Array.isArray(snapshot.workers) ? snapshot.workers.filter(w => w.status === "failed" || w.health === "critical" || w.health === "failed").length : 0;
   }
+  if (metricPath === "workers.failed.names") {
+    if (!Array.isArray(snapshot.workers)) return "none";
+    const failed = snapshot.workers.filter(w => w.status === "failed" || w.health === "critical" || w.health === "failed");
+    return failed.length ? failed.map(w => w.name || w.id).join(", ") : "none";
+  }
+  // The first failing / running worker, so a card action can name its target.
+  if (metricPath === "workers.failed.first.id" || metricPath === "workers.failed.first.name") {
+    const first = Array.isArray(snapshot.workers) ? snapshot.workers.find(w => w.status === "failed" || w.health === "critical" || w.health === "failed") : null;
+    return first ? String(metricPath.endsWith(".id") ? first.id : first.name || first.id) : "";
+  }
+  if (metricPath === "workers.running.first.id") {
+    const first = Array.isArray(snapshot.workers) ? snapshot.workers.find(w => w.status === "running") : null;
+    return first ? String(first.id) : "";
+  }
   if (metricPath === "workers.running.count" || metricPath === "workers.running") {
     return Array.isArray(snapshot.workers) ? snapshot.workers.filter(w => w.status === "running").length : 0;
+  }
+  if (metricPath === "workers.running.names") {
+    if (!Array.isArray(snapshot.workers)) return "none";
+    const running = snapshot.workers.filter(w => w.status === "running");
+    return running.length ? running.map(w => w.name || w.id).join(", ") : "none";
   }
   if (metricPath === "workers.idle.count" || metricPath === "workers.idle") {
     return Array.isArray(snapshot.workers) ? snapshot.workers.filter(w => w.status === "idle").length : 0;
   }
+  if (metricPath === "workers.critical.count") {
+    return Array.isArray(snapshot.workers) ? snapshot.workers.filter(w => w.health === "critical" || w.status === "critical").length : 0;
+  }
   if (metricPath === "attention.count" || metricPath === "attention.pending.count") {
     return Array.isArray(snapshot.attention) ? snapshot.attention.length : 0;
+  }
+  if (metricPath === "attention.first.title" || metricPath === "attention.first.reason") {
+    return Array.isArray(snapshot.attention) && snapshot.attention[0] ? (snapshot.attention[0].title || snapshot.attention[0].reason || "Attention required") : "None";
   }
   if (metricPath === "overall.status") {
     return snapshot.overall?.status || "unknown";
   }
-  if (metricPath === "recipes.count") {
+  if (metricPath === "recipes.count" || metricPath === "recipes.total") {
     return Array.isArray(snapshot.recipes) ? snapshot.recipes.length : 0;
   }
-  if (metricPath === "missions.count") {
+  if (metricPath === "recipes.running.count") {
+    return Array.isArray(snapshot.recipes) ? snapshot.recipes.filter(r => r.run?.status === "running").length : 0;
+  }
+  if (metricPath === "recipes.failed.count") {
+    return Array.isArray(snapshot.recipes) ? snapshot.recipes.filter(r => r.run?.status === "failed").length : 0;
+  }
+  if (metricPath === "missions.count" || metricPath === "missions.total") {
     return Array.isArray(snapshot.missions) ? snapshot.missions.length : 0;
+  }
+  if (metricPath === "missions.active.count") {
+    return Array.isArray(snapshot.missions) ? snapshot.missions.filter(m => m.status === "in_progress" || m.status === "active").length : 0;
+  }
+  if (metricPath === "project.name") {
+    return snapshot.project?.name || "Project";
   }
   const parts = String(metricPath).split(".").filter(Boolean);
   let current = snapshot;
@@ -155,7 +248,7 @@ function extractMetricValue(snapshot, metricPath) {
   return current;
 }
 
-function matchRule(metricValue, operator, operand) {
+function matchCondition(metricValue, operator, operand) {
   switch (operator) {
     case "eq":
       return metricValue === operand;
@@ -175,17 +268,60 @@ function matchRule(metricValue, operator, operand) {
       return !metricValue;
     case "in":
       return Array.isArray(operand) ? operand.includes(metricValue) : false;
+    case "contains":
+      if (Array.isArray(metricValue)) return metricValue.includes(operand);
+      if (typeof metricValue === "string") return metricValue.toLowerCase().includes(String(operand).toLowerCase());
+      return false;
+    case "regex":
+    case "matches":
+      // Patterns are vetted at install (no nested quantifiers) and the text is
+      // bounded, so a manifest cannot stall the process evaluating it.
+      if (!isSafePluginPattern(operand)) return false;
+      try {
+        const re = new RegExp(String(operand), "i");
+        return re.test(String(metricValue ?? "").slice(0, MAX_RULE_TEXT));
+      } catch {
+        return false;
+      }
+    case "between":
+      if (Array.isArray(operand) && operand.length === 2 && typeof metricValue === "number") {
+        return metricValue >= Number(operand[0]) && metricValue <= Number(operand[1]);
+      }
+      return false;
     default:
       return false;
   }
 }
 
-function formatTemplate(template, metricValue) {
+function matchRuleNode(rule, snapshot) {
+  if (!rule || typeof rule !== "object") return false;
+  if (Array.isArray(rule.all) && rule.all.length > 0) {
+    return rule.all.every(sub => matchRuleNode(sub, snapshot));
+  }
+  if (Array.isArray(rule.any) && rule.any.length > 0) {
+    return rule.any.some(sub => matchRuleNode(sub, snapshot));
+  }
+  if (rule.metric !== undefined) {
+    const metricVal = extractMetricValue(snapshot, rule.metric);
+    return matchCondition(metricVal, rule.operator || "eq", rule.operand);
+  }
+  return false;
+}
+
+function formatTemplate(template, metricValue, snapshot) {
   if (typeof template !== "string") return template;
-  return template
+  let text = template
     .replace(/\{metric\}/g, String(metricValue ?? ""))
     .replace(/\{count\}/g, String(metricValue ?? ""))
     .replace(/\{value\}/g, String(metricValue ?? ""));
+  if (snapshot && text.includes("{")) {
+    text = text.replace(/\{([a-zA-Z0-9_.-]+)\}/g, (match, path) => {
+      if (path === "metric" || path === "count" || path === "value") return match;
+      const extracted = extractMetricValue(snapshot, path);
+      return extracted !== undefined ? String(extracted) : match;
+    });
+  }
+  return text;
 }
 
 function evaluateContribution(contribution, snapshot) {
@@ -197,28 +333,46 @@ function evaluateContribution(contribution, snapshot) {
     value: contribution.value,
     detail: contribution.detail || "",
     tone: contribution.tone || "neutral",
+    actionId: contribution.actionId || null,
+    actionLabel: contribution.actionLabel || null,
+    target: contribution.target || null,
     pluginId: contribution.pluginId,
     pluginName: contribution.pluginName
   };
 
   if (!Array.isArray(contribution.rules) || !contribution.rules.length || !snapshot) {
-    return base;
+    return {
+      ...base,
+      title: formatTemplate(base.title, undefined, snapshot),
+      value: formatTemplate(base.value, undefined, snapshot),
+      detail: formatTemplate(base.detail, undefined, snapshot),
+      target: formatTemplate(base.target, undefined, snapshot)
+    };
   }
 
   for (const rule of contribution.rules) {
-    const metricVal = extractMetricValue(snapshot, rule.metric);
-    if (matchRule(metricVal, rule.operator, rule.operand)) {
+    if (matchRuleNode(rule, snapshot)) {
+      const metricVal = rule.metric ? extractMetricValue(snapshot, rule.metric) : undefined;
       return {
         ...base,
-        title: rule.title !== undefined ? formatTemplate(rule.title, metricVal) : base.title,
-        value: rule.value !== undefined ? formatTemplate(rule.value, metricVal) : base.value,
-        detail: rule.detail !== undefined ? formatTemplate(rule.detail, metricVal) : base.detail,
-        tone: rule.tone || base.tone
+        title: rule.title !== undefined ? formatTemplate(rule.title, metricVal, snapshot) : formatTemplate(base.title, metricVal, snapshot),
+        value: rule.value !== undefined ? formatTemplate(rule.value, metricVal, snapshot) : formatTemplate(base.value, metricVal, snapshot),
+        detail: rule.detail !== undefined ? formatTemplate(rule.detail, metricVal, snapshot) : formatTemplate(base.detail, metricVal, snapshot),
+        tone: rule.tone || base.tone,
+        actionId: rule.actionId !== undefined ? rule.actionId : base.actionId,
+        actionLabel: rule.actionLabel !== undefined ? rule.actionLabel : base.actionLabel,
+        target: formatTemplate(rule.target !== undefined ? rule.target : base.target, metricVal, snapshot)
       };
     }
   }
 
-  return base;
+  return {
+    ...base,
+    title: formatTemplate(base.title, undefined, snapshot),
+    value: formatTemplate(base.value, undefined, snapshot),
+    detail: formatTemplate(base.detail, undefined, snapshot),
+    target: formatTemplate(base.target, undefined, snapshot)
+  };
 }
 
 function evaluateContributions(contributions, snapshot) {
@@ -249,13 +403,23 @@ function normalizeManifest(value) {
   const normalizedContributions = contributions.map(normalizeContribution);
   if (new Set(normalizedContributions.map(item => item.id)).size !== normalizedContributions.length) throw new TypeError("Plugin contribution ids must be unique");
   for (const action of normalizedActions) {
-    const permission = action.type === "worker" ? "worker.lifecycle.request" : "recipe.run.request";
+    const permission = action.type === "worker" ? "worker.lifecycle.request" : action.type === "recipe" ? "recipe.run.request" : "automation.run.request";
     if (!permissions.includes(permission)) throw new TypeError(`Plugin action ${action.id} requires ${permission}`);
   }
   for (const contribution of normalizedContributions) {
     if (!surfaces.includes(contribution.surface)) throw new TypeError(`Plugin contribution ${contribution.id} requires declared surface ${contribution.surface}`);
     const permission = contribution.surface === "context.resource" ? "context.read" : contribution.surface === "health.status" ? "health.read" : null;
     if (permission && !permissions.includes(permission)) throw new TypeError(`Plugin contribution ${contribution.id} requires ${permission}`);
+    if (contribution.actionId && !normalizedActions.some(item => item.id === contribution.actionId)) {
+      throw new TypeError(`Plugin contribution ${contribution.id} requires declared action ${contribution.actionId}`);
+    }
+    if (Array.isArray(contribution.rules)) {
+      for (const rule of contribution.rules) {
+        if (rule.actionId && !normalizedActions.some(item => item.id === rule.actionId)) {
+          throw new TypeError(`Plugin contribution rule requires declared action ${rule.actionId}`);
+        }
+      }
+    }
   }
   return {
     manifestVersion: 1,
@@ -388,7 +552,7 @@ class PluginPlatformStore {
       try {
         const manifest = normalizeManifest(item.manifest);
         plugins.push({ manifest, enabled: item.enabled === true, grantedPermissions: manifest.permissions.filter(permission => item.grantedPermissions?.includes(permission)), installedAt: Number.isInteger(item.installedAt) ? item.installedAt : null, updatedAt: Number.isInteger(item.updatedAt) ? item.updatedAt : null, source: cleanText(item.source, "source", 120, "local-manifest") });
-      } catch { /* A corrupt plugin cannot block the rest of Mission Control. */ }
+      } catch { /* A corrupt plugin cannot block the rest of OUTARCH. */ }
     }
     return { version: PLUGIN_STORE_VERSION, plugins, approvals: Array.isArray(value.approvals) ? value.approvals.filter(isPlainObject).slice(-MAX_PLUGIN_APPROVALS).map(clone) : [], audit: Array.isArray(value.audit) ? value.audit.filter(isPlainObject).slice(-MAX_PLUGIN_AUDIT).map(clone) : [], updatedAt: Number.isInteger(value.updatedAt) ? value.updatedAt : null };
   }

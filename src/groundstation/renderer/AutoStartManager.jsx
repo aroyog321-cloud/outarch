@@ -1,5 +1,6 @@
 import React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { describeLaunch } from "./launchLabel.js";
 
 // The launch policy for the open project: which terminals start when it opens.
 // Everything else stays idle until someone starts it or a recipe does.
@@ -175,7 +176,7 @@ export default function AutoStartManager({
               visible.map(session => {
                 const isAuto = Boolean(session.autoStart);
                 const busy = busyId === session.id || busyId === "all";
-                const command = commandLine(session);
+                const command = describeLaunch(session.command, session.args).label;
                 return (
                   <label
                     key={session.id}
@@ -187,7 +188,7 @@ export default function AutoStartManager({
                         <strong>{session.name}</strong>
                         <span className="autostart-kind-pill">{workerKind(session)}</span>
                       </span>
-                      <code className="autostart-worker-cmd" title={command}>{command || "No command"}</code>
+                      <code className="autostart-worker-cmd" title={commandLine(session) || undefined}>{command || "No command"}</code>
                       <span className="autostart-worker-cwd" title={session.cwd || "."}>{session.cwd || "."}</span>
                     </span>
                     <span className="autostart-row-state" aria-hidden="true">{isAuto ? "Auto-start" : "Manual"}</span>

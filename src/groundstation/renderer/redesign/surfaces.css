@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Mission Control â€” shared surface primitives
+   OUTARCH — shared surface primitives
 
    One vocabulary for panels, buttons, badges, menus and overlays so a
    failure, a statistic and a preference stop carrying the same visual weight.
@@ -483,7 +483,7 @@
   background: var(--mc-surface-3);
   border: 1px solid var(--mc-hairline);
   border-radius: var(--mc-radius-2xs);
-  font: 600 9.5px/1.6 var(--mc-font-mono);
+  font: 600 10px/1.6 var(--mc-font-mono);
   white-space: nowrap;
 }
 /* A row you are meant to drag rather than click says so, and takes the grab
@@ -496,7 +496,7 @@
 .terminal-action-menu .terminal-action-label {
   padding: 7px 8px 4px;
   color: var(--mc-text-dim);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .09em;
   text-transform: uppercase;
@@ -540,9 +540,9 @@
   background: transparent;
   border: 0;
   border-radius: 0;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
-  letter-spacing: .12em;
+  letter-spacing: .1em;
   line-height: 1.2;
 }
 .worker-dialog .worker-dialog-header-actions {
@@ -564,8 +564,8 @@
   transition: color var(--mc-motion-fast), background var(--mc-motion-fast), border-color var(--mc-motion-fast);
 }
 .worker-dialog .worker-dialog-ai > span {
-  color: var(--mc-ai);
-  font: 750 9px/1 var(--mc-font-mono);
+  color: var(--mc-ai-strong);
+  font: 750 10px/1 var(--mc-font-mono);
 }
 .worker-dialog .worker-dialog-ai:hover {
   color: var(--mc-text);
@@ -675,7 +675,7 @@
   background: var(--mc-ai-soft);
   border: 1px solid var(--mc-ai-line);
   border-radius: var(--mc-radius-pill);
-  font: 750 9px/1 var(--mc-font-mono);
+  font: 750 10px/1 var(--mc-font-mono);
 }
 
 @media (max-width: 760px) {
@@ -729,7 +729,7 @@
 
 
 /* ===========================================================================
-   Mission Control â€” Premium Enhancements & UI/UX Redesign Layer
+   OUTARCH — Premium Enhancements & UI/UX Redesign Layer
 
    Loaded as part of the redesign layer to style newly added high-performance
    primitives:
@@ -1537,7 +1537,7 @@
   top: 4px;
   right: 8px;
   font-family: var(--mc-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   color: var(--mc-text-dim);
 }
@@ -1571,7 +1571,7 @@
 
 
 
-/* Mission Control readability and shared trust/decision primitives.
+/* OUTARCH readability and shared trust/decision primitives.
    Loaded last so old feature styles cannot shrink operational copy below the
    product type scale. This is a consolidation layer, not a new visual theme. */
 
@@ -1709,6 +1709,16 @@
 .decision-item__steps code { overflow-wrap: break-word; white-space: pre-wrap; }
 .decision-item__assumptions { margin: var(--mc-space-3) 0 0; color: var(--mc-text-muted); font-size: var(--mc-type-caption); line-height: var(--mc-leading-caption); }
 
+/* Needs You completeness notice. It had no rule anywhere, so it took its
+   container's layout: loose text on Needs You, a stack with a full-width
+   Retry on Groundstation. */
+#root#root .shell .decision-source-strip { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; text-align: start; gap: 4px 10px; margin: 8px 0 10px; padding: 8px 8px 8px 12px; color: var(--mc-text-muted); background: color-mix(in srgb, var(--mc-warning) 7%, var(--mc-surface)); border: 1px solid color-mix(in srgb, var(--mc-warning) 30%, var(--mc-border)); border-radius: var(--mc-radius-sm); font-size: 12.5px; line-height: 1.45; }
+#root#root .shell .decision-source-strip.is-blocked { background: color-mix(in srgb, var(--mc-danger) 7%, var(--mc-surface)); border-color: color-mix(in srgb, var(--mc-danger) 32%, var(--mc-border)); }
+#root#root .shell .decision-source-strip__lead { color: var(--mc-text); font-weight: 600; }
+#root#root .shell .decision-source-strip__list { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; }
+#root#root .shell .decision-source-strip__down { color: var(--mc-warning); }
+#root#root .shell .decision-source-strip > button { flex: 0 0 auto; width: auto; min-height: 28px; margin-left: auto; padding: 0 12px; color: var(--mc-text); background: var(--mc-surface-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-xs); font-size: 12px; font-weight: 600; }
+#root#root .shell .decision-source-strip > button:hover { border-color: var(--mc-border-strong); }
 .plugin-contribution-slot { margin-block: var(--mc-space-4); }
 .plugin-contribution-slot > header { display: flex; align-items: center; justify-content: space-between; gap: var(--mc-space-3); margin-bottom: var(--mc-space-2); }
 .plugin-contribution-slot > header span { color: var(--mc-text-soft); font-size: var(--mc-type-control); font-weight: 650; }
@@ -1721,6 +1731,14 @@
 .plugin-contribution-slot__source { grid-column: 1 / -1; color: var(--mc-text-dim); font-size: var(--mc-type-caption); }
 .plugin-contribution-slot article strong { min-width: 0; color: var(--mc-text-soft); font-size: var(--mc-type-control); }
 .plugin-contribution-slot article b { color: var(--mc-text); font: 650 var(--mc-type-control)/1.3 var(--mc-font-mono); font-variant-numeric: tabular-nums; }
+/* A card's action is a request for approval, so it is a quiet secondary button. */
+.plugin-contribution-action-row { display: flex; flex-wrap: wrap; grid-column: 1 / -1; align-items: center; gap: var(--mc-space-2); margin-top: var(--mc-space-2); }
+.shell .plugin-contribution-action-btn { min-height: 28px; padding: 0 10px; color: var(--mc-text-soft); background: var(--mc-surface-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-xs); font-size: 12px; font-weight: 600; cursor: pointer; }
+.shell .plugin-contribution-action-btn:hover:not(:disabled) { color: var(--mc-text); border-color: var(--mc-border-strong); }
+.shell .plugin-contribution-action-btn:disabled { color: var(--mc-text-dim); cursor: progress; }
+.plugin-contribution-action-feedback { color: var(--mc-text-muted); font-size: 11.5px; }
+.plugin-contribution-action-feedback.is-ok { color: var(--mc-ok); }
+.plugin-contribution-action-feedback.is-error { color: var(--mc-danger); }
 .plugin-contribution-slot article p { grid-column: 1 / -1; margin: 2px 0 0; overflow: hidden; color: var(--mc-text-muted); font-size: var(--mc-type-caption); line-height: var(--mc-leading-caption); text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 840px) {
@@ -1856,7 +1874,7 @@
 .shell .mc-gs-onboarding p { max-width: 62ch; color: var(--mc-text-muted); text-wrap: pretty; }
 .shell .mc-gs-onboarding ol { display: grid; width: 100%; margin: var(--mc-space-2) 0; padding: 0; list-style: none; }
 .shell .mc-gs-onboarding li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: var(--mc-space-3); padding-block: var(--mc-space-3); border-top: 1px solid var(--mc-hairline); }
-.shell .mc-gs-onboarding li > b { display: grid; width: 24px; height: 24px; place-items: center; color: var(--mc-accent); background: var(--mc-accent-soft); border-radius: var(--mc-radius-xs); font: 650 var(--mc-type-caption)/1 var(--mc-font-mono); }
+.shell .mc-gs-onboarding li > b { display: grid; width: 24px; height: 24px; place-items: center; color: var(--mc-accent-strong); background: var(--mc-accent-soft); border-radius: var(--mc-radius-xs); font: 650 var(--mc-type-caption)/1 var(--mc-font-mono); }
 .shell .mc-gs-onboarding li span { display: grid; gap: 2px; }
 .shell .mc-gs-onboarding li strong { color: var(--mc-text-soft); font-size: var(--mc-type-control); }
 .shell .mc-gs-onboarding li small { color: var(--mc-text-muted); font-size: var(--mc-type-caption); }
@@ -1885,6 +1903,29 @@
    way to reach the rest. Pin the row and stop the shrink; the column scrolls. */
 #root#root .shell .experience.view-groundstation .mc-gs-body { grid-template-rows: minmax(0, 1fr); }
 #root#root .shell .experience.view-groundstation .mc-gs-main > * { flex: 0 0 auto; }
+
+/* The route frame is a flex column and the header kept the default shrink, so
+   whenever the header wrapped (every window up to 1280px wide) it was squeezed
+   back to its 78px minimum and its counts and actions painted over the
+   attention queue below. It keeps its natural height; the body is the band that
+   gives. When the header does wrap, identity and counts share the first line
+   and the actions take a full line of their own rather than a narrow cell.
+   The drawer clearance follows the height the header now really has. */
+#root#root .shell .experience.view-groundstation .mc-gs-statusbar { flex: 0 0 auto; }
+/* The work column now runs to the bottom edge and pads itself inside its
+   scroll; the inspector rail beside it keeps a margin of its own. */
+@container groundstation (min-width: 1100px) {
+  #root#root .shell .experience.view-groundstation .mc-gs-inspector { margin-bottom: var(--mc-space-4); }
+}
+@container groundstation (max-width: 1160px) {
+  #root#root .shell .experience.view-groundstation .mc-gs-body { --mc-gs-toolbar-clearance: 142px; }
+  #root#root .shell .experience.view-groundstation .mc-gs-statusbar { grid-template-columns: minmax(200px, 1fr) auto; row-gap: 10px; }
+  #root#root .shell .experience.view-groundstation .mc-gs-statusbar-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+}
+@container groundstation (max-width: 700px) {
+  #root#root .shell .experience.view-groundstation .mc-gs-body { --mc-gs-toolbar-clearance: 200px; }
+  #root#root .shell .experience.view-groundstation .mc-gs-statusbar { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 760px) {
   .integration-audit-register > div > article { grid-template-columns: 78px minmax(0, 1fr) 44px; }
@@ -2622,16 +2663,20 @@
   height: 100vh;
   min-height: 0;
   background: var(--mc-canvas);
-  border-top: 2px solid var(--slot-accent, var(--mc-accent));
 }
+/* The strip was tinted with the window's slot colour, under a slot-coloured top
+   rule, with a numbered badge. It is a plain surface in the colour the native
+   controls are drawn in, and it reserves their width so Recall is never painted
+   underneath them. */
 #root#root .popout-titlebar {
+  --popout-controls-w: max(0px, calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px)));
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   height: 32px;
-  padding: 0 8px;
-  background: color-mix(in srgb, var(--slot-accent, var(--mc-accent)) 8%, var(--mc-surface));
+  padding: 0 calc(var(--popout-controls-w) + 8px) 0 12px;
+  background: var(--mc-surface);
   border-bottom: 1px solid var(--mc-border);
   /* The strip is the window's drag handle; its controls opt back out. */
   -webkit-app-region: drag;
@@ -2642,7 +2687,7 @@
 #root#root .popout-footer button { -webkit-app-region: no-drag; }
 #root#root .popout-title {
   min-width: 0;
-  font-size: var(--mc-text-xs);
+  font-size: 12.5px;
   font-weight: 620;
   color: var(--mc-text);
   white-space: nowrap;
@@ -2656,15 +2701,23 @@
   font-size: var(--mc-text-xs);
   color: var(--mc-text-muted);
 }
-#root#root .popout-state i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--mc-text-dim);
+/* State in words and in the strip's own muted ink; only a failure is coloured. */
+#root#root .popout-state[data-status="failed"] { color: var(--mc-danger); }
+#root#root .popout-tool {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  color: var(--mc-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--mc-radius-xs);
+  cursor: pointer;
 }
-#root#root .popout-state[data-status="running"] i { background: var(--mc-ok); }
-#root#root .popout-state[data-status="failed"] i,
-#root#root .popout-state[data-status="exited"] i { background: var(--mc-danger); }
+#root#root .popout-tool:hover { color: var(--mc-text); background: var(--mc-surface-3); }
+#root#root .popout-tool:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 1px; }
 #root#root .popout-recall {
   padding: 2px 10px;
   min-height: 22px;
@@ -2693,6 +2746,68 @@
   border: none;
   border-radius: 0;
 }
+/* The pane's idle panel is styled for the Workspace grid only; a worker that
+   stops while popped out shows the same panel here, with a Start that works. */
+#root#root .popout-body .terminal-pane:has(> .terminal-idle) > .terminal-host { flex: 0 0 0; padding: 0; overflow: hidden; }
+#root#root .popout-body .terminal-idle {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: auto auto;
+  align-content: safe center;
+  justify-content: center;
+  justify-items: center;
+  row-gap: 6px;
+  min-height: 0;
+  padding: 12px 18px;
+  overflow-y: auto;
+  text-align: center;
+}
+#root#root .popout-body .terminal-idle > * { grid-column: 1 / -1; }
+#root#root .popout-body .terminal-idle > .terminal-idle__mark {
+  display: grid;
+  grid-column: 1;
+  justify-self: end;
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  place-items: center;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+  border-radius: 50%;
+}
+#root#root .popout-body .terminal-idle > strong { grid-column: 2; justify-self: start; align-self: center; color: var(--mc-text); font-size: 14px; font-weight: 600; }
+#root#root .popout-body .terminal-idle > p { max-width: 44ch; margin: 0; color: var(--mc-text-muted); font-size: 12px; line-height: 1.45; }
+#root#root .popout-body .terminal-idle > code {
+  max-width: min(100%, 56ch);
+  padding: 3px 8px;
+  overflow: hidden;
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+  border-radius: var(--mc-radius-xs);
+  font: 500 11px/1.6 var(--mc-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#root#root .popout-body .terminal-idle__start {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  padding: 7px 15px;
+  color: var(--mc-accent-ink);
+  background: var(--mc-accent);
+  border: 1px solid var(--mc-accent);
+  border-radius: var(--mc-radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#root#root .popout-body .terminal-idle__start:hover { background: var(--mc-accent-strong); border-color: var(--mc-accent-strong); }
+#root#root .popout-body .terminal-warning { color: var(--mc-warning); font-size: 11.5px; }
+/* The footnote points at the grid pane's menu, which a window does not have. */
+#root#root .popout-body .terminal-idle > small { display: none; }
 #root#root .popout-footer {
   flex: 0 0 auto;
   display: flex;
@@ -3189,7 +3304,7 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   margin: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 #root#root#root .shell .workspace-background li { flex: 0 0 auto; }
 #root#root#root .shell .workspace-background li button {
@@ -3263,6 +3378,10 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 :root[data-workspace-focus="on"] #root#root#root .shell > .app-sidebar,
 :root[data-workspace-focus="on"] #root#root#root .shell .mission-status-bar { display: none; }
+/* The base layer forces the sidebar's display, so it stayed a 20px strip under
+   the canvas with every nav button still reachable by Tab. Hidden, it leaves
+   the tab order and the accessibility tree as well. */
+:root[data-workspace-focus="on"] #root#root#root .shell > .app-sidebar { visibility: hidden; }
 /* The tape goes; the native window controls do not. The system draws them over
    the top of the window whatever the page does, so with the tape gone they sat
    on the top-right terminal's own buttons. Focus mode keeps a strip exactly as
@@ -3306,7 +3425,39 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 
 
-/* ------------------------------------------------- 9 · Mission Control browser */
+/* Renaming a pane: the field and its two buttons sit over the header row. The
+   form had no rule anywhere, so its buttons wrapped under the header and were
+   cut off, drawn with the browser's own raised face. */
+#root#root .shell .terminal-pane__header .terminal-rename { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: var(--mc-surface); }
+#root#root .shell .terminal-rename input { flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 8px; color: var(--mc-text); background: var(--mc-canvas); border: 1px solid var(--mc-accent-line); border-radius: var(--mc-radius-xs); font-size: 13px; }
+#root#root .shell .terminal-rename button { flex: 0 0 auto; min-height: 26px; height: 26px; padding: 0 10px; color: var(--mc-text-soft); background: var(--mc-surface-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-xs); font-size: 12px; font-weight: 600; cursor: pointer; }
+#root#root .shell .terminal-rename button[type="submit"] { color: var(--mc-text-ink); background: var(--mc-accent); border-color: var(--mc-accent); }
+#root#root .shell .terminal-rename button:disabled { opacity: .5; cursor: default; }
+/* The controls under the bar are out of reach while it is open, for Tab too. */
+#root#root .shell .terminal-pane__header:has(> .terminal-rename) > :not(.terminal-rename) { visibility: hidden; }
+
+/* ------------------------------------------------- OUTARCH brand marks */
+/* The icon and wordmark are images (BrandMark.jsx). The sidebar tile, the
+   About header and the first-workspace panel size them; nothing recolours
+   them. */
+.brand-icon,
+.brand-wordmark { display: block; flex: 0 0 auto; max-width: none; user-select: none; -webkit-user-drag: none; }
+#root#root .shell .top-brand { padding: 0; overflow: hidden; border-radius: 8px; transition: filter var(--mc-duration-fast, 140ms) ease; }
+#root#root .shell .top-brand .brand-icon { width: 32px; height: 32px; }
+#root#root .shell .top-brand:hover { filter: brightness(1.18); }
+/* The wordmark and the line under it share one left edge (the vector mark has
+   no stray glitch bar in front of the O), and the pair centres on the tile. */
+#root#root .shell .app-sidebar__brand > div { gap: 3px; }
+#root#root .shell .app-sidebar__brand > div strong { line-height: 0; }
+#root#root .shell .app-sidebar__brand .brand-wordmark { width: 92px; height: auto; margin: 0; }
+#root#root .shell .app-sidebar__brand > div small { margin: 0; font-size: 10.5px; line-height: 1.2; letter-spacing: .01em; }
+#root#root .shell .about-brand { display: flex; align-items: center; gap: 16px; margin: 2px 0 16px; padding-bottom: 16px; border-bottom: 1px solid var(--mc-hairline); }
+#root#root .shell .about-brand .brand-icon { width: 56px; height: 56px; }
+#root#root .shell .about-brand .brand-wordmark { width: 172px; height: auto; }
+#root#root .shell .about-brand small { display: block; margin-top: 8px; color: var(--mc-text-muted); font-size: 12.5px; }
+.shell .mc-gs-onboarding .groundstation-onboarding__brand { width: 52px; height: 52px; }
+
+/* ------------------------------------------------- 9 · OUTARCH browser */
 
 /* The browser is a tile on the canvas and wears the terminal pane's grammar so
    the canvas still reads as one surface: same frame, same chrome height, same
@@ -3491,9 +3642,9 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   #root#root#root .shell .workspace-toolbar-v2 .workspace-browser-toggle { display: none; }
 }
 
-/* A folder rail that overflows adds a scrollbar to its own height. A thin one
-   costs a few pixels rather than a third of the row. */
-#root#root#root .shell .worker-folder-list { scrollbar-width: thin; }
+/* A folder rail that overflows scrolls without a scrollbar: the clipped end
+   fades and pages from a chevron instead (EdgeScroll.jsx, section 15). */
+#root#root#root .shell .worker-folder-list { scrollbar-width: none; }
 
 /* ==========================================================================
    11 · Narrow-pane controls, and a focus deck that costs no terminal
@@ -3519,16 +3670,37 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   min-height: 0;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 14px 18px;
-  overflow: hidden;
+  justify-content: safe center;
+  gap: 6px;
+  padding: 12px 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
   text-align: center;
 }
+/* Every line keeps its height; a pane too short for all of them scrolls from
+   the top instead of stacking them on each other. */
+.shell .view-workspace .terminal-idle > * { flex-shrink: 0; }
+/* The power mark sits beside the state instead of on a row of its own, which
+   gives a short 2x2 pane back the height its explanation needs. The panel is a
+   centred two-column grid: mark and title share the first row, every other
+   line spans both columns. */
+.shell .view-workspace .terminal-idle {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: safe center;
+  justify-content: center;
+  justify-items: center;
+  column-gap: 0;
+  row-gap: 6px;
+}
+.shell .view-workspace .terminal-idle > * { grid-column: 1 / -1; }
+.shell .view-workspace .terminal-idle > .terminal-idle__mark { grid-column: 1; justify-self: end; margin-right: 8px; }
+.shell .view-workspace .terminal-idle > strong { grid-column: 2; justify-self: start; align-self: center; }
 .shell .view-workspace .terminal-idle__mark {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   color: var(--mc-text-dim);
   background: var(--mc-surface-2);
@@ -3541,14 +3713,14 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   font-weight: 600;
 }
 .shell .view-workspace .terminal-idle > p {
-  max-width: 34ch;
+  max-width: 44ch;
   margin: 0;
   color: var(--mc-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
 .shell .view-workspace .terminal-idle > code {
-  max-width: 100%;
+  max-width: min(100%, 56ch);
   padding: 3px 8px;
   overflow: hidden;
   color: var(--mc-text-soft);
@@ -3576,7 +3748,7 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 .shell .view-workspace .terminal-idle__start:hover { background: var(--mc-accent-strong); border-color: var(--mc-accent-strong); }
 .shell .view-workspace .terminal-idle__start:focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
 .shell .view-workspace .terminal-idle > small {
-  max-width: 38ch;
+  max-width: 46ch;
   color: var(--mc-text-dim);
   font-size: 10.5px;
   line-height: 1.45;
@@ -3593,6 +3765,100 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 @container terminal-pane (max-width: 220px) {
   .shell .view-workspace .terminal-idle > p,
   .shell .view-workspace .terminal-idle__mark { display: none; }
+}
+
+/* 11.0 — Find in output.
+
+   The search form had no rule in any stylesheet, so it rendered as a bare
+   input beside three browser-default buttons with thick white borders, and it
+   took a row of its own above the output, which shrank and refitted the very
+   terminal being searched. It is a small floating field over the top-right of
+   the output now: one frame, one focus state, stepping controls that are quiet
+   until pointed at, and a status that only appears when there is something to
+   say. The pane is its positioning context; the top offset is measured in the
+   component so it clears the header, any warning and the activity line. */
+#root#root .terminal-pane { position: relative; }
+#root#root .terminal-pane .terminal-find {
+  position: absolute;
+  right: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  width: min(360px, calc(100% - 20px));
+  height: 34px;
+  margin: 0;
+  padding: 0 4px 0 10px;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius-sm);
+  box-shadow: var(--mc-shadow-float);
+  transition: border-color var(--mc-motion-fast);
+}
+#root#root .terminal-pane .terminal-find:focus-within { border-color: var(--mc-accent-line); }
+#root#root .terminal-pane .terminal-find > .pane-icon { flex: 0 0 auto; margin-right: 4px; color: var(--mc-text-dim); }
+#root#root .terminal-pane .terminal-find:focus-within > .pane-icon { color: var(--mc-accent); }
+#root#root .terminal-pane .terminal-find input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 4px 0 0;
+  color: var(--mc-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+#root#root .terminal-pane .terminal-find input::placeholder { color: var(--mc-text-dim); }
+#root#root .terminal-pane .terminal-find input:focus-visible { outline: none; box-shadow: none; }
+#root#root .terminal-pane .terminal-find__status {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  color: var(--mc-text-dim);
+  font: 500 11px/1 var(--mc-font-mono);
+  white-space: nowrap;
+}
+#root#root .terminal-pane .terminal-find__status:empty { display: none; }
+#root#root .terminal-pane .terminal-find__status.is-miss { color: var(--mc-warning); }
+#root#root .terminal-pane .terminal-find__button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--mc-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--mc-radius-xs);
+  cursor: pointer;
+}
+#root#root .terminal-pane .terminal-find__button:hover:not(:disabled) { color: var(--mc-text); background: var(--mc-surface-3); }
+#root#root .terminal-pane .terminal-find__button:disabled { opacity: .4; cursor: default; }
+#root#root .terminal-pane .terminal-find__button:focus-visible { outline: none; box-shadow: var(--mc-focus-ring); }
+/* A hairline sets closing apart from stepping through matches. */
+#root#root .terminal-pane .terminal-find__close { position: relative; margin-left: 5px; }
+#root#root .terminal-pane .terminal-find__close::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: -4px;
+  width: 1px;
+  background: var(--mc-hairline);
+}
+@container terminal-pane (max-width: 330px) {
+  #root#root .terminal-pane .terminal-find { right: 8px; width: calc(100% - 16px); }
+  #root#root .terminal-pane .terminal-find__status { display: none; }
 }
 
 /* 11.1 — The pane control tray was retired on 2026-09-12.
@@ -3683,7 +3949,7 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 #root#root .decision-item__meta em {
   padding: 1px 5px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .06em;
 }
@@ -3705,9 +3971,9 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 #root#root .decision-item__facts dt {
   color: var(--mc-text-dim);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .1em;
+  letter-spacing: .09em;
   text-transform: uppercase;
 }
 #root#root .decision-item__facts dd {
@@ -3771,7 +4037,7 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   display: inline;
   min-height: 0;
   padding: 0;
-  color: var(--mc-accent);
+  color: var(--mc-accent-strong);
   font: inherit;
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--mc-accent) 45%, transparent);
@@ -4302,6 +4568,62 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 
+/* A command the assistant ran in its own terminal. The workspace never shows
+   that terminal, so its output is read here: a quiet fold under the step,
+   open while the command runs and when it fails. */
+.shell .ai-run {
+  box-sizing: border-box;
+  min-width: 0;
+  flex-basis: 100%;
+  padding-left: 19px;
+}
+.shell .ai-run > summary {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 5px;
+  color: var(--mc-text-dim);
+  border: 1px solid var(--mc-hairline);
+  border-radius: var(--mc-radius-xs);
+  font-size: 11px;
+  font-weight: 560;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--mc-duration-fast, 140ms) ease, border-color var(--mc-duration-fast, 140ms) ease;
+}
+.shell .ai-run > summary::-webkit-details-marker { display: none; }
+.shell .ai-run > summary:hover { color: var(--mc-text-soft); border-color: var(--mc-border); }
+.shell .ai-run > summary:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 1px; }
+.shell .ai-run__chevron { flex: 0 0 auto; transition: transform var(--mc-duration-fast, 140ms) ease; }
+.shell .ai-run[open] .ai-run__chevron { transform: rotate(90deg); }
+.shell .ai-run__status {
+  color: var(--mc-text-muted);
+  font: 500 11px/1 var(--mc-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.shell .ai-run.is-done .ai-run__status { color: var(--mc-ok); }
+.shell .ai-run.is-failed .ai-run__status { color: var(--mc-danger); }
+.shell .ai-run__output {
+  max-height: 220px;
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--mc-text-muted);
+  background: var(--mc-void);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-xs);
+  font: 400 12px/1.55 var(--mc-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+.shell .ai-run__output:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 1px; }
+.shell .ai-run__prompt { color: var(--mc-text-soft); font-weight: 560; }
+.shell .ai-thread.is-compact .ai-run__output { max-height: 160px; }
+
 /* The approval card. It is the one place the assistant hands control back, so
    it is the one card in the thread with a frame, and it spells out exactly
    what will happen — an approval for text you cannot read is not an approval. */
@@ -4416,12 +4738,15 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   font: inherit;
   font-size: 13.5px;
   line-height: 1.45;
+  border-radius: 0;
   resize: none;
   overflow-y: auto;
 }
 .shell .ai-composer.is-compact textarea { font-size: 12.5px; padding: 3px 0; }
 .shell .ai-composer textarea::placeholder { color: var(--mc-text-dim); }
-.shell .ai-composer textarea:focus-visible { outline: none; }
+/* The shared focus ring would draw a second box inside the composer; the
+   composer's own frame shows focus instead. */
+.shell .ai-composer textarea:focus-visible { outline: none; box-shadow: none; border-radius: 0; }
 .shell .ai-composer textarea:disabled { cursor: not-allowed; }
 .shell .ai-composer__send,
 .shell .ai-composer__stop {
@@ -4444,7 +4769,8 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 .shell .ai-composer__hint {
   margin: 0;
   color: var(--mc-text-dim);
-  font-size: 11px;
+  font-size: 11.5px;
+  line-height: 1.6;
   text-align: center;
 }
 .shell .ai-composer__hint kbd {
@@ -4613,7 +4939,173 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 }
 .ai-model-menu__search input:focus { border-color: var(--mc-accent-line); }
 .ai-model-menu__list { min-height: 0; flex: 1 1 auto; padding: 4px 6px 6px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.ai-model-menu [cmdk-group-heading] { padding: 9px 6px 4px; }
+.ai-model-menu [cmdk-group-heading] { padding: 0; }
+.ai-model-menu__category {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-model-menu__category + .ai-model-menu__category {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mc-border);
+}
+.ai-model-menu__category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 4px;
+}
+.ai-model-menu__category-title {
+  color: var(--mc-text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.ai-model-menu__byok-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-model-menu__section {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--mc-radius-sm);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-border);
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.ai-model-menu__section--builtin {
+  background: color-mix(in srgb, var(--mc-surface-3) 40%, var(--mc-surface-2));
+  border-color: var(--mc-border);
+}
+.ai-model-menu__section--byok-key {
+  background: var(--mc-surface-2);
+  border-color: var(--mc-border-strong);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.ai-model-menu__section--byok-key:hover {
+  border-color: var(--mc-border-active, var(--mc-accent-line));
+}
+.ai-model-menu__key-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--mc-text-muted);
+  background: var(--mc-surface-3);
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s ease, color .12s ease;
+}
+.ai-model-menu__key-banner:hover {
+  color: var(--mc-text);
+  background: var(--mc-surface-4, var(--mc-surface-3));
+}
+.ai-model-menu__key-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.ai-model-menu__key-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--mc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-model-menu__key-banner-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.ai-model-menu__key-hint {
+  font-family: var(--mc-font-mono, monospace);
+  font-size: 10px;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--mc-hairline);
+  letter-spacing: 0;
+}
+.ai-model-menu__section-badge {
+  padding: 1px 6px;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-hairline);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ai-model-menu__section-badge.is-free {
+  color: var(--mc-accent-strong);
+  background: color-mix(in srgb, var(--mc-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--mc-accent) 28%, transparent);
+}
+.ai-model-menu__section-badge.is-muted { background: transparent; }
+.ai-model-menu__count-badge {
+  padding: 0 5px;
+  color: var(--mc-text-dim);
+  background: color-mix(in srgb, var(--mc-surface-2) 90%, transparent);
+  border: 1px solid var(--mc-hairline);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.ai-model-menu__group-chevron {
+  flex-shrink: 0;
+  color: var(--mc-text-dim);
+  transition: transform .18s ease;
+}
+.ai-model-menu__group-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+.ai-model-menu__group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--mc-surface) 60%, transparent);
+}
+.ai-model-menu__byok-empty {
+  padding: 8px 8px 6px;
+  color: var(--mc-text-dim);
+  font-size: 11.5px;
+}
+.ai-model-menu__byok-empty p {
+  margin: 0 0 6px 0;
+}
+.ai-model-menu__byok-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  color: var(--mc-accent-strong);
+  background: color-mix(in srgb, var(--mc-accent) 10%, transparent);
+  border: 1px solid var(--mc-accent-line);
+  border-radius: var(--mc-radius-xs);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.ai-model-menu__byok-add-btn:hover {
+  background: color-mix(in srgb, var(--mc-accent) 20%, transparent);
+}
 .ai-model-menu__heading {
   display: flex;
   align-items: center;
@@ -5335,8 +5827,28 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 #root#root#root .shell .mcp-clients__copy { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 #root#root#root .shell .mcp-clients__copy strong { color: var(--mc-text); font-size: 13px; font-weight: 600; }
 #root#root#root .shell .mcp-clients__copy code { color: var(--mc-text-dim); font-size: 11.5px; }
+#root#root#root .shell .mcp-clients__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--mc-radius-pill, 10px);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+#root#root#root .shell .mcp-clients__badge.is-connected {
+  color: var(--mc-ok);
+  background: color-mix(in srgb, var(--mc-ok) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mc-ok) 28%, transparent);
+}
+#root#root#root .shell .mcp-clients__badge.is-idle {
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+}
 #root#root#root .shell .mcp-clients__done { flex-basis: 100%; color: var(--mc-ok); font-size: 12px; }
 #root#root#root .shell .mcp-clients li.is-failed .mcp-clients__done { color: var(--mc-danger); }
+#root#root#root .shell .mcp-clients li.is-removed .mcp-clients__done { color: var(--mc-text-dim); }
 #root#root#root .shell .mcp-clients__actions { display: flex; flex: 0 0 auto; gap: 6px; }
 #root#root#root .shell .mcp-clients__actions button {
   min-height: 30px;
@@ -5352,6 +5864,9 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 #root#root#root .shell .mcp-clients__install { color: var(--mc-accent-ink); background: var(--mc-accent); border: 1px solid var(--mc-accent); }
 #root#root#root .shell .mcp-clients__install:hover:not(:disabled) { background: var(--mc-accent-strong); border-color: var(--mc-accent-strong); }
 #root#root#root .shell .mcp-clients__install:disabled { color: var(--mc-text-dim); background: var(--mc-surface-3); border-color: var(--mc-border); cursor: default; }
+#root#root#root .shell .mcp-clients__remove { color: var(--mc-danger); background: var(--mc-surface-2); border: 1px solid color-mix(in srgb, var(--mc-danger) 30%, var(--mc-border)); }
+#root#root#root .shell .mcp-clients__remove:hover:not(:disabled) { color: var(--mc-canvas); background: color-mix(in srgb, var(--mc-danger) 85%, transparent); border-color: var(--mc-danger); }
+#root#root#root .shell .mcp-clients__remove:disabled { color: var(--mc-text-dim); background: var(--mc-surface-3); border-color: var(--mc-border); cursor: default; }
 #root#root#root .shell .mcp-clients__hint { margin: 0; padding: 10px 14px; color: var(--mc-text-dim); border-top: 1px solid var(--mc-hairline); }
 
 /* --------------------------------------- 14.3 · the notification policy */
@@ -5514,6 +6029,140 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 #root#root#root .shell .hub__panel > .settings-footer .settings-reset-scope { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 #root#root#root .shell .hub__panel > .settings-footer .settings-reset-scope > :is(span, small) { color: var(--mc-text-dim); font-size: 12px; line-height: 1.45; }
 #root#root#root .shell .hub__panel > .settings-footer .settings-reset-scope > span { color: var(--mc-text-muted); }
+/* "Restore defaults" broke onto two lines beside the long scope note. */
+#root#root#root .shell .hub__panel > .settings-footer > button { flex: 0 0 auto; white-space: nowrap; }
+
+/* History kept the prototype's 7-9px type on its summary cards, timeline and
+   evidence panel: worker names at 9px, run states and "Open worker" at 7px.
+   Measured, not guessed; this is the floor - names 12px, facts and times 11px,
+   uppercase state labels 10px. */
+#root#root .shell .history-view .memory-since > div span { font-size: 11px; }
+#root#root .shell .history-view .memory-why > button strong { font-size: 11px; }
+#root#root .shell .history-view .memory-why > button span { font-size: 12px; }
+#root#root .shell .history-view :is(.recovery-chains button, .memory-state-split article) strong { font-size: 12px; }
+#root#root .shell .history-view :is(.recovery-chains button, .memory-state-split article) small { font-size: 11px; }
+#root#root .shell .history-view :is(.recovery-chains button, .memory-state-split article) b { font-size: 10px; letter-spacing: .04em; }
+#root#root .shell .history-view .history-chapters {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  margin-top: 14px;
+  overflow: hidden;
+  background: var(--mc-surface);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-md);
+  box-shadow: none;
+}
+#root#root .shell .history-view .history-chapters > header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 18px;
+  min-height: 72px;
+  border-right: 1px solid var(--mc-border);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--mc-surface-2) 60%, var(--mc-surface));
+}
+#root#root .shell .history-view .history-chapters > header > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+}
+#root#root .shell .history-view .history-chapters > header .section-kicker {
+  line-height: 1.35;
+  padding-right: 0;
+  border-right: 0;
+}
+#root#root .shell .history-view .history-chapters > header strong {
+  color: var(--mc-text);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: normal;
+}
+#root#root .shell .history-view .history-chapters > header > small {
+  color: var(--mc-text-dim);
+  font-size: 12px;
+  line-height: 1.4;
+}
+#root#root .shell .history-view .history-chapters > div {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+/* The state badge sits under the name, so a chapter keeps its whole name
+   instead of three letters beside a pill. */
+#root#root .shell .history-view .history-chapters > div > button {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  min-width: 200px;
+  flex: 1 0 200px;
+  align-items: center;
+  align-content: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  color: var(--mc-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--mc-border);
+  box-shadow: none;
+  cursor: pointer;
+}
+#root#root .shell .history-view .history-chapters > div > button:hover {
+  background: color-mix(in srgb, var(--mc-surface-3) 70%, transparent);
+}
+#root#root .shell .history-view .history-chapters button > i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  background: var(--mc-ok);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-ok) 18%, transparent);
+}
+#root#root .shell .history-view .history-chapters button.is-active > i {
+  background: var(--mc-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-accent) 22%, transparent);
+}
+#root#root .shell .history-view .history-chapters button.has-risk > i,
+#root#root .shell .history-view .history-chapters button.is-unresolved > i {
+  background: var(--mc-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-danger) 22%, transparent);
+}
+#root#root .shell .history-view .history-chapters button.has-risk,
+#root#root .shell .history-view .history-chapters button.is-unresolved {
+  background: color-mix(in srgb, var(--mc-danger) 7%, transparent);
+  border-left-color: color-mix(in srgb, var(--mc-danger) 40%, var(--mc-border));
+}
+#root#root .shell .history-view .history-chapters button.is-active {
+  background: color-mix(in srgb, var(--mc-accent) 6%, transparent);
+  border-left-color: color-mix(in srgb, var(--mc-accent) 40%, var(--mc-border));
+}
+#root#root .shell .history-view .history-chapters button strong {
+  color: var(--mc-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+#root#root .shell .history-view .history-chapters button small {
+  color: var(--mc-text-dim);
+  font-size: 12px;
+}
+#root#root .shell .history-view .history-chapters button > b { grid-column: 2; justify-self: start; font-size: 10px; }
+#root#root .shell .history-view .history-snapshot small { font-size: 10px; }
+#root#root .shell .history-view .history-evidence-strip > div > button span { font-size: 10px; }
+#root#root .shell .history-view .history-actors > span { font-size: 10px; }
+#root#root .shell .history-view .timeline-time strong { font-size: 11px; }
+#root#root .shell .history-view .timeline-kind { font-size: 10px; }
+#root#root .shell .history-view .history-evidence dt { font-size: 10px; }
+#root#root .shell .history-view .history-evidence dd { font-size: 12px; }
+/* About's reference link sat flush under the facts table as unstyled body
+   text. It is a quiet labelled row with its own spacing. */
+#root#root .shell .settings-resources-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mc-space-2) var(--mc-space-3); margin-top: var(--mc-space-4); }
+#root#root .shell .settings-resources-inline__label { color: var(--mc-text-muted); font-size: 12.5px; }
 
 /* The VS Code facts wore the accent on every label, and cells of different
    heights centred their text at different lines. */
@@ -5631,34 +6280,88 @@ body:has(.popout-window) { background: var(--mc-canvas); }
    the composer beside the text they apply to, with Send at the end of that
    row. The page header keeps only the page's own actions, and has room for
    its subtitle again at laptop widths. */
+/* The box is one surface. The text field inside it has no frame of its own,
+   the box shows hover and focus, and the controls in its bottom row stay quiet
+   until pointed at, so what is being written reads first. */
+.shell .ai-composer.has-toolbar { gap: 8px; padding-bottom: 6px; }
 .shell .ai-composer.has-toolbar .ai-composer__field {
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
-  padding: 10px 8px 8px 14px;
-  border-radius: 16px;
+  gap: 6px;
+  padding: 12px 10px 10px 16px;
+  background: var(--mc-surface-2);
+  border-color: var(--mc-border);
+  border-radius: 18px;
   cursor: text;
+  transition: border-color var(--mc-duration-fast, 140ms) ease, box-shadow var(--mc-duration-fast, 140ms) ease;
 }
-.shell .ai-composer.has-toolbar textarea { min-height: 34px; padding: 2px 6px 2px 0; font-size: 14px; }
-.shell .ai-composer__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: default; }
-.shell .ai-composer__tools { display: flex; min-width: 0; align-items: center; gap: 4px; margin-left: -6px; }
+.shell .ai-composer.has-toolbar .ai-composer__field:hover { border-color: var(--mc-border-strong); }
+.shell .ai-composer.has-toolbar .ai-composer__field:focus-within {
+  border-color: var(--mc-accent-line);
+  box-shadow: 0 0 0 3px var(--mc-accent-soft);
+}
+.shell .ai-composer.has-toolbar textarea { min-height: 44px; padding: 2px 8px 0 0; font-size: 14px; line-height: 1.55; }
+.shell .ai-composer__bar { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 8px; cursor: default; }
+.shell .ai-composer__tools { display: flex; min-width: 0; align-items: center; gap: 2px; margin-left: -8px; }
 .shell .ai-composer__tools .ai-switcher {
   min-height: 30px;
-  max-width: 300px;
+  max-width: 320px;
+  padding: 0 9px;
   background: transparent;
   border-color: transparent;
+  border-radius: 10px;
 }
 .shell .ai-composer__tools :is(.ai-switcher:hover:not(:disabled), .ai-switcher[data-state="open"]) { background: var(--mc-surface-3); border-color: var(--mc-border); }
+/* A hairline between the model and the approval switch: two settings, not one. */
 .shell .ai-composer__tools .ai-screen__toggle {
+  position: relative;
   min-height: 30px;
-  padding: 0 10px;
+  margin-left: 9px;
+  padding: 0 10px 0 8px;
+  gap: 8px;
   color: var(--mc-text-muted);
   background: transparent;
   border-color: transparent;
+  border-radius: 10px;
   font-weight: 520;
 }
+.shell .ai-composer__tools .ai-screen__toggle::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -6px;
+  width: 1px;
+  content: "";
+  background: var(--mc-border);
+  pointer-events: none;
+}
 .shell .ai-composer__tools .ai-screen__toggle:hover { color: var(--mc-text); background: var(--mc-surface-3); border-color: var(--mc-border); }
-.shell .ai-composer__tools .ai-screen__toggle.is-on { color: var(--mc-warning); background: var(--mc-warning-soft); border-color: color-mix(in srgb, var(--mc-warning) 35%, transparent); }
+/* On is said by the switch itself, a filled amber track, rather than by
+   painting the whole control, which made it the loudest thing on the page. */
+.shell .ai-composer__tools .ai-screen__toggle.is-on { color: var(--mc-text-soft); background: transparent; border-color: transparent; }
+.shell .ai-composer__tools .ai-screen__toggle.is-on:hover { background: var(--mc-surface-3); border-color: var(--mc-border); }
+.shell .ai-composer__tools .ai-screen__toggle.is-on > i { background: var(--mc-warning); border-color: var(--mc-warning); }
+.shell .ai-composer__tools .ai-screen__toggle.is-on > i::after { background: var(--mc-void); }
+.shell .ai-composer.has-toolbar :is(.ai-composer__send, .ai-composer__stop) { width: 34px; height: 34px; min-height: 34px; border-radius: 11px; }
+/* While an answer is being written, Stop is the one thing to press. */
+.shell .ai-composer.has-toolbar .ai-composer__stop { color: var(--mc-void); background: var(--mc-text); border-color: var(--mc-text); }
+.shell .ai-composer.has-toolbar .ai-composer__stop:hover { color: var(--mc-void); background: var(--mc-text-muted); border-color: var(--mc-text-muted); }
+.shell .ai-composer.has-toolbar .ai-composer__hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 10px;
+  text-align: left;
+}
+.shell .ai-composer__keys { min-width: 0; white-space: nowrap; }
+.shell .ai-composer__mode { display: inline-flex; min-width: 0; align-items: center; gap: 6px; white-space: nowrap; }
+.shell .ai-composer__mode.is-auto { color: var(--mc-warning); }
+.shell .ai-composer__mode.is-auto::before { width: 6px; height: 6px; flex: 0 0 auto; content: ""; background: var(--mc-warning); border-radius: 50%; }
+@media (max-width: 760px) {
+  .shell .ai-composer.has-toolbar .ai-composer__keys { display: none; }
+  .shell .ai-composer.has-toolbar .ai-composer__hint { justify-content: center; }
+}
 .shell .ai-screen__button svg { flex: 0 0 auto; color: var(--mc-text-dim); }
 .shell .ai-screen__button:hover:not(:disabled) svg { color: var(--mc-text-soft); }
 
@@ -5725,7 +6428,7 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   background: var(--mc-accent);
   border: 2px solid var(--mc-void);
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -5861,4 +6564,155 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   border: 0;
   border-radius: 0;
   cursor: pointer;
+}
+
+/* ==========================================================================
+   15 · Sidebar and toolbar polish — AI entry points, Focus, edge scrolling
+   ========================================================================== */
+
+/* 15.1 — AI entry points wear one mark: the sparkle glyph (AiGlyph.jsx) and a
+   blue-to-violet edge. The one-blue palette made Mission AI and the Assistant
+   look like every other blue button, and the Assistant's old glyph read as a
+   padlock. The face is drawn by ::before, so the forced face the older layers
+   put on these buttons never has to be out-weighted. */
+#root#root .shell .app-sidebar__footer .top-ai,
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle {
+  position: relative;
+  isolation: isolate;
+}
+#root#root .shell .app-sidebar__footer .top-ai::before,
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle::before {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--mc-ai-strong) 8%, var(--mc-surface)), color-mix(in srgb, var(--mc-ai-violet) 12%, var(--mc-surface))) padding-box,
+    linear-gradient(110deg, color-mix(in srgb, var(--mc-ai-strong) 50%, transparent), color-mix(in srgb, var(--mc-ai-violet) 58%, transparent)) border-box;
+  content: "";
+  pointer-events: none;
+  transition: box-shadow var(--mc-duration-fast, 140ms) ease, filter var(--mc-duration-fast, 140ms) ease;
+}
+#root#root .shell .app-sidebar__footer .top-ai:hover::before,
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle:hover::before {
+  filter: brightness(1.25) saturate(1.1);
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--mc-ai-violet) 70%, transparent);
+}
+#root#root .shell .app-sidebar__footer .top-ai.is-current::before,
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle.is-current::before {
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--mc-ai-strong) 16%, var(--mc-surface)), color-mix(in srgb, var(--mc-ai-violet) 22%, var(--mc-surface))) padding-box,
+    var(--mc-ai-iris) border-box;
+}
+#root#root .shell .app-sidebar__footer .top-ai > span {
+  width: 24px;
+  height: 24px;
+  background: color-mix(in srgb, var(--mc-ai-violet) 16%, transparent);
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mc-ai-violet) 26%, transparent);
+}
+#root#root .shell .app-sidebar__footer .top-ai > strong { color: var(--mc-text); font-weight: 620; }
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle { color: var(--mc-ai-strong); }
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-assistant-toggle:hover { color: var(--mc-text); }
+.shell .ai-glyph { display: block; flex: 0 0 auto; }
+
+/* 15.2 — Focus mode is the canvas's best view and the least found one, so its
+   button carries a light that runs around its edge and a periodic nudge of its
+   own icon. Both stop once focus mode is on (the button is then the way out),
+   and under either reduced-motion setting, where the edge stays lit. */
+@property --mc-focus-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes mc-focus-sweep { to { --mc-focus-sweep: 360deg; } }
+@keyframes mc-focus-glow { 0%, 100% { opacity: .2; } 50% { opacity: .75; } }
+@keyframes mc-focus-nudge { 0%, 72%, 100% { transform: scale(1); } 80% { transform: scale(1.22); } 88% { transform: scale(.96); } }
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode {
+  position: relative;
+  isolation: isolate;
+  color: var(--mc-text);
+}
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current)::before {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  background:
+    linear-gradient(var(--mc-surface-2), var(--mc-surface-2)) padding-box,
+    conic-gradient(from var(--mc-focus-sweep), color-mix(in srgb, var(--mc-accent) 30%, var(--mc-border)) 0deg 190deg, var(--mc-accent) 250deg, var(--mc-text) 292deg, var(--mc-accent-strong) 318deg, color-mix(in srgb, var(--mc-accent) 30%, var(--mc-border)) 360deg) border-box;
+  animation: mc-focus-sweep 3.8s linear infinite;
+  content: "";
+  pointer-events: none;
+}
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current)::after {
+  position: absolute;
+  inset: -1px;
+  z-index: -2;
+  border-radius: inherit;
+  box-shadow: 0 0 14px -1px color-mix(in srgb, var(--mc-accent) 55%, transparent);
+  animation: mc-focus-glow 3.8s ease-in-out infinite;
+  content: "";
+  pointer-events: none;
+}
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current) svg {
+  animation: mc-focus-nudge 3.8s ease-in-out infinite;
+}
+#root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current):hover::before {
+  background:
+    linear-gradient(color-mix(in srgb, var(--mc-accent) 14%, var(--mc-surface-2)), color-mix(in srgb, var(--mc-accent) 14%, var(--mc-surface-2))) padding-box,
+    conic-gradient(from var(--mc-focus-sweep), var(--mc-accent-strong) 0deg 190deg, var(--mc-text) 292deg, var(--mc-accent-strong) 360deg) border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current)::before,
+  #root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current)::after,
+  #root#root#root .shell .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode:not(.is-current) svg { animation: none; }
+}
+.shell.motion-reduced .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode::before,
+.shell.motion-reduced .workspace-toolbar-v2 .workspace-actions .workspace-focus-mode::after { animation: none; }
+
+/* 15.3 — Rows that scroll sideways (EdgeScroll.jsx): no scrollbar, a fade at
+   the clipped end, and a chevron there that pages the row. */
+.shell .edge-scroll { position: relative; min-width: 0; }
+.shell .edge-scroll > [data-edge-scroller] { scrollbar-width: none; }
+.shell .edge-scroll > [data-edge-scroller]::-webkit-scrollbar { display: none; }
+.shell .edge-scroll.has-end > [data-edge-scroller] { mask-image: linear-gradient(to right, black calc(100% - 72px), transparent calc(100% - 6px)); }
+.shell .edge-scroll.has-start > [data-edge-scroller] { mask-image: linear-gradient(to right, transparent 6px, black 72px); }
+.shell .edge-scroll.has-start.has-end > [data-edge-scroller] { mask-image: linear-gradient(to right, transparent 6px, black 72px, black calc(100% - 72px), transparent calc(100% - 6px)); }
+.shell .edge-scroll > .edge-scroll__nudge {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: 999px;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--mc-void) 70%, transparent);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+.shell .edge-scroll > .edge-scroll__nudge.is-start { left: 0; }
+.shell .edge-scroll > .edge-scroll__nudge.is-end { right: 0; }
+.shell .edge-scroll.has-start > .edge-scroll__nudge.is-start,
+.shell .edge-scroll.has-end > .edge-scroll__nudge.is-end { display: grid; }
+.shell .edge-scroll > .edge-scroll__nudge:hover { color: var(--mc-text); background: var(--mc-surface-4); }
+
+/* The off-canvas count is a count: a pill beside its heading, not a sentence. */
+#root#root#root .shell .workspace-background > header small {
+  padding: 0 7px;
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-hairline);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
 }

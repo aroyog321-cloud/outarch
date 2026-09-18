@@ -1,6 +1,6 @@
 "use strict";
 
-// Normalized Token & Cost Usage Ledger for Mission Control.
+// Normalized Token & Cost Usage Ledger for OUTARCH.
 // Stores structured UsageRecords without logging raw prompts, responses, or credentials.
 // Provides fast aggregation across project, worker, mission, and model scopes.
 

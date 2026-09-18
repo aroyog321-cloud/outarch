@@ -62,6 +62,11 @@ function setWindowChrome(mode) {
   return ipcRenderer.invoke("mission-control:set-window-chrome", mode);
 }
 
+// Copying happens in the main process, which does not need the window to be focused.
+function copyText(text) {
+  return ipcRenderer.invoke("mission-control:copy-text", String(text ?? ""));
+}
+
 function setPendingBadge(count) {
   return ipcRenderer.invoke("mission-control:set-pending-badge", count);
 }
@@ -89,6 +94,7 @@ ipcRenderer.on(EVENT_CHANNEL, (_event, message) => {
 contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: PROTOCOL_VERSION,
   request,
+  copyText,
   openExternal,
   setPendingBadge,
   setWindowChrome,

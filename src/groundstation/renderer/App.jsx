@@ -11,6 +11,7 @@ import AutoStartManager from "./AutoStartManager.jsx";
 import RecoveryReview from "./RecoveryReview.jsx";
 import ProjectsView from "./ProjectsView.jsx";
 import { confirmedRequest, missionApi } from "./missionApi.js";
+import { describeLaunch } from "./launchLabel.js";
 import { formatCost, formatTokens, relativeTime } from "./formatUsage.js";
 import useMissionState from "./useMissionState.js";
 import useTerminalLayout, { TERMINAL_LAYOUTS } from "./useTerminalLayout.js";
@@ -43,6 +44,10 @@ import NotificationTray from "./NotificationTray.jsx";
 import { playNotificationSound } from "./notificationSound.js";
 import { BroadcastBar } from "./BroadcastBar.jsx";
 import { RegisterSkeleton } from "./LoadingSkeleton.jsx";
+import { BrandIcon, BrandWordmark, PRODUCT_NAME, PRODUCT_VERSION } from "./BrandMark.jsx";
+import { AiGlyph } from "./AiGlyph.jsx";
+import { EdgeScroll } from "./EdgeScroll.jsx";
+import { copyText } from "./clipboard.js";
 import ContextSnapshotButton from "./ContextSnapshotButton.jsx";
 import StatusChip from "./StatusChip.jsx";
 import { FilterGroup, SegmentedChoice } from "./Segmented.jsx";
@@ -101,7 +106,7 @@ const ICON_PATHS = {
   globe: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></>,
   attention: <><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></>,
-  agents: <><path d="M8 9V7a4 4 0 0 1 8 0v2M5 11h14v9H5z"/><path d="M9 15h.01M15 15h.01M9 18h6"/></>,
+  agents: <><path d="M12 4.5V8"/><circle cx="12" cy="3.5" r="1"/><rect x="4.5" y="8" width="15" height="11.5" rx="3.5"/><path d="M9.5 12.5v2M14.5 12.5v2M2 13v3M22 13v3"/></>,
   history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></>,
   projects: <><path d="M3 6h7l2 2h9v11H3z"/></>,
   settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></>,
@@ -118,7 +123,8 @@ const ICON_PATHS = {
   info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></>,
   star: <><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></>,
   stop: <><rect x="6" y="6" width="12" height="12" rx="2"/></>,
-  shield: <><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/></>
+  shield: <><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/></>,
+  selector: <><path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/></>
 };
 
 /* T152 - one icon scale, and one optical weight.
@@ -298,8 +304,10 @@ function sessionSummary(session, activity) {
   const related = [...activity].reverse().find(event => event.id === session.id || event.sessionId === session.id || event.name === session.name);
   if (session.attentionRequired) return session.attentionReason || "This worker is waiting for your decision.";
   if (session.status === "failed") return `The worker failed${session.exitCode !== undefined ? ` with exit code ${session.exitCode}` : ""}. Open its terminal to inspect the last output.`;
-  if (session.isAlive) return related ? `${eventTitle(related)} · the process is running and output is flowing.` : "The process is running normally and Mission Control is supervising it.";
-  return `${session.name} is ready. Starting it will run ${session.command} inside its engine-owned PTY.`;
+  if (session.isAlive) return related ? `${eventTitle(related)} · the process is running and output is flowing.` : "The process is running normally and OUTARCH is supervising it.";
+  const launch = describeLaunch(session.command, session.args);
+  if (launch.shell && !launch.runs) return `${session.name} is ready. Starting it opens an interactive ${launch.shell} in an engine-owned PTY.`;
+  return `${session.name} is ready. Starting it runs ${launch.label || session.command} in an engine-owned PTY.`;
 }
 
 function decisionFor(session) {
@@ -327,7 +335,7 @@ function decisionFor(session) {
 class ViewErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error("Mission Control view failed to render", error, info?.componentStack); }
+  componentDidCatch(error, info) { console.error("OUTARCH view failed to render", error, info?.componentStack); }
   render() {
     if (!this.state.error) return this.props.children;
     return <section className="view-error" role="alert">
@@ -351,16 +359,16 @@ function SinceLastCheck({ events, onReview, onDismiss }) {
 
 function GroundstationOnboarding({ onAddWorker, onRecipes }) {
   return <section className="groundstation-onboarding mc-gs-onboarding">
-    <div className="empty-orbit">MC</div>
+    <BrandIcon large className="groundstation-onboarding__brand"/>
     <span className="section-kicker">FIRST WORKSPACE</span>
     <h2>Build your supervised project</h2>
-    <p>Add the commands you already use. Mission Control will own their PTYs, track evidence, and surface decisions.</p>
+    <p>Add the commands you already use. OUTARCH will own their PTYs, track evidence, and surface decisions.</p>
     <ol>
       <li><b>1</b><span><strong>Add a worker</strong><small>Frontend, backend, tests, shell, database, or agent.</small></span></li>
       <li><b>2</b><span><strong>Arrange the workspace</strong><small>Choose a terminal layout or save a Recipe.</small></span></li>
       <li><b>3</b><span><strong>Supervise by exception</strong><small>Needs You interrupts only when judgment is required.</small></span></li>
     </ol>
-    <div><button className="btn-primary" onClick={onAddWorker}>Add your first worker</button><button onClick={onRecipes}>Create a recipe</button></div>
+    <div><button className="btn-primary" onClick={onAddWorker}>Add your first worker</button><button type="button" className="btn-secondary" onClick={onRecipes}>Create a recipe</button></div>
   </section>;
 }
 
@@ -368,7 +376,7 @@ function WorkerFocusDialog({ session, activity, onClose, onOpenTerminal }) {
   const history = sessionEvents(session, activity);
   if (!session) return null;
   return <Dialog.Root open onOpenChange={value => !value && onClose()}><Dialog.Portal><Dialog.Overlay className="palette-backdrop worker-focus-backdrop"/><Dialog.Content className="worker-focus-dialog" aria-describedby={undefined}>
-      <header><div><span className="section-kicker">WORKER FOCUS</span><h2>{session.name}</h2><p><code>{session.command}</code> · {runtime(session)} · {session.status}</p></div><button onClick={onClose} aria-label="Close worker focus">×</button></header>
+      <header><div><span className="section-kicker">WORKER FOCUS</span><h2>{session.name}</h2><p><code title={describeLaunch(session.command, session.args).full || undefined}>{describeLaunch(session.command, session.args).label || session.command}</code> · {runtime(session)} · {session.status}</p></div><button onClick={onClose} aria-label="Close worker focus">×</button></header>
       <div className="worker-focus-summary"><span className={`status-orbit status-${session.status}`}><i/></span><div><strong>What is happening</strong><p>{sessionSummary(session, activity)}</p></div></div>
       <div className="worker-focus-history"><div className="worker-focus-label"><span>Terminal history</span><small>{history.length ? `${history.length} recent events` : "No recent state changes"}</small></div>{history.length ? history.map((event, index) => <article key={event.sequence || `${event.type}-${index}`}><i/><div><strong>{eventTitle(event)}</strong><span>{timeAgo(event.timestamp)} ago{event.reason ? ` · ${event.reason}` : ""}</span></div></article>) : <div className="worker-focus-empty">This terminal is healthy and has no recent lifecycle events to review.</div>}</div>
       <footer><button className="secondary-action" onClick={onClose}>Back to Groundstation</button><button className="primary-button" onClick={() => onOpenTerminal(session.id)}>Open this terminal <Icon name="arrow" size={14}/></button></footer>
@@ -428,7 +436,7 @@ function recipeStatus(recipe, knownIds) {
     reason: "This run is already in progress."
   };
   if (phase === "paused") return { tone: "warn", label: "Paused", action: "Paused", canRun: false, reason: "Resume this run from Manage." };
-  if (phase === "cancelling") return { tone: "warn", label: "Stopping…", action: "Stopping", canRun: false, reason: "Mission Control is stopping this run." };
+  if (phase === "cancelling") return { tone: "warn", label: "Stopping…", action: "Stopping", canRun: false, reason: "OUTARCH is stopping this run." };
   if (phase === "failed") {
     const failures = run.failures || [];
     return {
@@ -488,7 +496,7 @@ function ReferenceRecipePanel({ sessions, onLaunch, onManage }) {
       : recipes.length === 0 ? <div className="mc-gs-recipe-note">
         <strong>No recipes yet</strong>
         <span>Save the terminals you open together so one launch starts them in dependency order.</span>
-        <button onClick={onManage}>Create a recipe</button>
+        <button type="button" className="btn-secondary" onClick={onManage}>Create a recipe</button>
       </div> : <div className="mc-ref-recipe-list">
         {recipes.slice(0, 3).map(recipe => {
           const status = recipeStatus(recipe, knownIds);
@@ -583,7 +591,8 @@ function ReferenceManifestRow({ session, agent, selected, favorite, rowIndex, on
     : session.attentionRequired ? "Review"
     : agentState && session.isAlive ? agentState.label
     : session.isAlive ? (session.id.startsWith("agent-") ? "Working" : "Running") : "Idle";
-  const commandText = `${session.command || ""} ${(session.args || []).join(" ")}`.trim() || "Ready to configure";
+  const launch = describeLaunch(session.command, session.args);
+  const commandText = launch.label || "Ready to configure";
   // An agent waiting on a decision is the one case where the row's verb is not
   // about the process: it opens the decision, not the terminal.
   const reviewAgent = Boolean(agent && agent.state === "awaiting_approval" && onOpenDecision);
@@ -613,7 +622,7 @@ function ReferenceManifestRow({ session, agent, selected, favorite, rowIndex, on
     ><Icon name="star" size={13}/></button>
     <div className="mc-ref-worker-name" role="gridcell">
       <span className="mc-gs-name-line"><strong>{session.name}</strong>{badges.map(badge => <b key={badge.key} className={`mc-gs-evidence tone-${badge.tone}`} title={badge.title}>{badge.label}</b>)}</span>
-      <code>{commandText}</code>
+      <code title={launch.full || undefined}>{commandText}</code>
     </div>
     <span className={`mc-ref-role ${agent ? "" : "is-inferred"}`} role="gridcell" title={agent ? `Observed running ${agent.agentType || "an agent CLI"} — reported by the engine from this worker's output, not guessed from its command` : "Role inferred from the command — not an engine-reported fact"}>{agent?.agentType ? `AI agent · ${agent.agentType}` : workerKind(session)}</span>
     <StatusChip role="gridcell" className="mc-ref-status" tone={chipTone} label={statusText} title={agentState?.full}/>
@@ -786,7 +795,7 @@ function ManifestToolbar({ filter, counts, query, onFilter, onQuery, searchRef }
     <label className="mc-gs-search">
       <Icon name="search" size={13}/>
       <input ref={searchRef} type="search" value={query} placeholder="Search name or command…" aria-label="Search workers by name or command" onChange={event => onQuery(event.target.value)}/>
-      {query && <button type="button" aria-label="Clear search" onClick={() => onQuery("")}>×</button>}
+      {query ? <button type="button" aria-label="Clear search" onClick={() => onQuery("")}>×</button> : <kbd aria-hidden="true">Ctrl F</kbd>}
     </label>
   </div>;
 }
@@ -802,7 +811,7 @@ function WorkerInspector({ session, activity, favorite, onClose, onFocus, onActi
       <div>
         <span className="mc-gs-kicker is-inferred" title="Role inferred from the command — not an engine-reported fact">{workerKind(session)} · inferred</span>
         <h2>{session.name}</h2>
-        <code>{session.command} {(session.args || []).join(" ")}</code>
+        <code title={describeLaunch(session.command, session.args).full || undefined}>{describeLaunch(session.command, session.args).label}</code>
       </div>
       <button type="button" className="mc-gs-inspector-close" aria-label="Close worker details" onClick={onClose}>×</button>
     </header>
@@ -839,6 +848,7 @@ function WorkerInspector({ session, activity, favorite, onClose, onFocus, onActi
       {events.length ? events.map((event, index) => <article key={`${event.sequence || index}-${event.type}`}><time>{timeAgo(event.timestamp)}</time><span>{eventTitle(event)}</span></article>) : <p>No recent lifecycle evidence for this worker.</p>}
     </div>
     <PluginContributionSlot surface="context.resource" className="mc-gs-plugin-context"/>
+    <PluginContributionSlot surface="worker.detail" className="mc-gs-plugin-worker-detail"/>
     <footer>
       <button type="button" className="mc-gs-inspector-btn--action" onClick={() => onAction(session.isAlive ? "restart" : "start", session.id)}>{session.isAlive ? "Restart" : "Start"}</button>
       <button type="button" className="primary" onClick={() => onFocus(session.id)}><Icon name="terminal" size={13}/> {session.id.startsWith("agent-") ? "Open agent" : "Open terminal"}</button>
@@ -929,10 +939,34 @@ function agentStateLine(activity) {
   return "";
 }
 
-function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, selectedId, onSelect, onFocus, onAction, onNavigate, onDismissActivity, onRecipes, onCreateRecipe, onLaunchRecipe, onAddWorker, onAskAI, onMissionGraph, onOpenDecisionSource, decisionCount, decisions }) {
+// True while an element's content box is narrower than `threshold` — the same
+// measurement an inline-size container query makes.
+function useNarrowContainer(ref, threshold) {
+  const [narrow, setNarrow] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver !== "function") return undefined;
+    const measure = () => {
+      const style = getComputedStyle(node);
+      const inline = node.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+      setNarrow(inline < threshold);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ref, threshold]);
+  return narrow;
+}
+
+// The canvas width below which the worker inspector is a drawer laid over the
+// register rather than a column beside it (screens.css, @container groundstation).
+const GS_INSPECTOR_RAIL_MIN = 1100;
+
+function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, selectedId: sharedSelectedId, onSelect: selectShared, onFocus, onAction, onNavigate, onDismissActivity, onRecipes, onCreateRecipe, onLaunchRecipe, onAddWorker, onAskAI, onMissionGraph, onOpenDecisionSource, decisionCount, decisions }) {
   const ops = useWorkspaceOps();
   const health = healthFor(sessions, workspace, decisions);
-  // The crew is every agent the project has, however Mission Control came to
+  // The crew is every agent the project has, however OUTARCH came to
   // know about it. `ops.agents` is the engine's live classification, so this
   // recomputes as terminals are observed starting and stopping an agent CLI.
   const agentActivity = React.useMemo(() => {
@@ -952,6 +986,15 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
   const [favorites, toggleFavorite] = useFavoriteWorkers(workspace?.path);
   const searchRef = React.useRef(null);
   const focusSelectedRowRef = React.useRef(false);
+  const arrivedSelectionRef = React.useRef(false);
+  // As a drawer, the inspector covers the attention queue. The worker the app
+  // seeds on arrival therefore does not open it; one the operator picks (a
+  // click, the arrow keys, the waterline) does.
+  const groundstationRef = React.useRef(null);
+  const drawerInspector = useNarrowContainer(groundstationRef, GS_INSPECTOR_RAIL_MIN);
+  const [inspectorChosen, setInspectorChosen] = React.useState(false);
+  const onSelect = React.useCallback(id => { setInspectorChosen(Boolean(id)); selectShared(id); }, [selectShared]);
+  const selectedId = drawerInspector && !inspectorChosen ? null : sharedSelectedId;
   const term = query.trim().toLowerCase();
   const matches = session => matchesFilter(session, filter)
     && `${session.name} ${session.command || ""} ${(session.args || []).join(" ")}`.toLowerCase().includes(term);
@@ -1031,6 +1074,13 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
      selection — move DOM focus onto it so assistive tech announces the row. */
   React.useEffect(() => {
     if (!selectedId || !navigable.includes(selectedId)) return;
+    // The selection the route arrives with is not one the operator just made
+    // (the app seeds the first worker). Scrolling to it opened Groundstation
+    // part-way down its column, past the attention queue at the top.
+    if (!arrivedSelectionRef.current) {
+      arrivedSelectionRef.current = true;
+      if (!focusSelectedRowRef.current) return;
+    }
     const row = document.querySelector(`.mc-ref-manifest-row[data-worker-id="${CSS.escape(selectedId)}"]`);
     row?.scrollIntoView({ block: "nearest" });
     if (focusSelectedRowRef.current) {
@@ -1041,7 +1091,7 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
 
   const manifestProps = { favorites, selectedId, onSelect, onFocus, onAction, onFavorite: toggleFavorite };
 
-  return <div className={`mc-ref-groundstation ${selected ? "has-inspector" : ""}`}>
+  return <div ref={groundstationRef} className={`mc-ref-groundstation ${selected ? "has-inspector" : ""}`}>
     <h1 className="sr-only">Groundstation</h1>
     <GroundstationStatusBar workspace={workspace} sessions={sessions} agents={agents} health={health} attentionCount={needsCount} filter={filter} onFilter={setFilter} onNavigate={onNavigate} onRecipes={onRecipes} onAskAI={onAskAI}/>
 
@@ -1059,6 +1109,8 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
           onOpenSource={onOpenDecisionSource}
           onRefresh={decisions?.refresh}
         />
+
+        <PluginContributionSlot surface="cockpit.banner" className="mc-gs-plugin-cockpit-banner"/>
 
         <section className="mc-ref-section mc-gs-register mc-gs-register--operations" role="region" aria-label="Supervised workers">
           <header className="mc-ref-section-head">
@@ -1301,7 +1353,7 @@ function ServicesPanel({ services, status, error, onAction, onConfirm }) {
       const owned = result.owners.filter(entry => entry.ownedByWorker);
       const foreign = result.owners.filter(entry => !entry.ownedByWorker);
       if (foreign.length) {
-        toast.warning(`Port ${service.port} is held by ${foreign.map(entry => `${entry.processName || "an unknown process"} (PID ${entry.pid})`).join(", ")} — not a Mission Control worker.`);
+        toast.warning(`Port ${service.port} is held by ${foreign.map(entry => `${entry.processName || "an unknown process"} (PID ${entry.pid})`).join(", ")} — not an OUTARCH worker.`);
       } else {
         toast.success(`Port ${service.port} is held by this project's ${owned[0]?.workerName || "worker"}.`);
       }
@@ -1323,14 +1375,14 @@ function ServicesPanel({ services, status, error, onAction, onConfirm }) {
         ...(external ? { external: true } : {})
       });
       if (method === "services.copy" && result?.url) {
-        await navigator.clipboard?.writeText(result.url);
+        await copyText(result.url);
         toast.success(`Copied ${result.url}`);
       } else if (result?.opened) {
         // Which surface it opened in is the fact worth reporting: the two are
         // different places to have to go looking for the page.
         toast.success(result.target === "system"
           ? `Opened ${result.url} in your system browser`
-          : `Opened ${result.url} in the Mission Control browser`);
+          : `Opened ${result.url} in the OUTARCH browser`);
       }
     } catch (requestError) {
       toast.danger(requestError.message || String(requestError));
@@ -1388,7 +1440,7 @@ function ServicesPanel({ services, status, error, onAction, onConfirm }) {
                 disabled={stale || busy}
                 onClick={() => void act("services.open", service)}
                 title={stale ? `${label} is no longer reporting this address` : undefined}
-              >Open<span className="sr-only"> {service.url} in the Mission Control browser</span></button>
+              >Open<span className="sr-only"> {service.url} in the OUTARCH browser</span></button>
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button type="button" className="btn-ghost ops-service-more" disabled={busy} aria-label={`More actions for ${label}`}>⋯</button>
@@ -1408,7 +1460,7 @@ function ServicesPanel({ services, status, error, onAction, onConfirm }) {
                     <DropdownMenu.Separator className="terminal-action-separator"/>
                     <DropdownMenu.Item className="terminal-action-item" onSelect={() => void act("services.open", service, { external: true })}>
                       <span>Open in system browser</span>
-                      <small>Leave Mission Control and hand this address to the operating system</small>
+                      <small>Leave OUTARCH and hand this address to the operating system</small>
                     </DropdownMenu.Item>
                     <DropdownMenu.Item className="terminal-action-item" onSelect={() => void inspectPort(service)}>
                       <span>Inspect port {service.port}</span>
@@ -1643,7 +1695,7 @@ function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatu
   const [members, setMembers] = React.useState([]);
   React.useEffect(() => { try { const value = JSON.parse(localStorage.getItem(storageKey) || "[]"); setCustom(Array.isArray(value) ? value.filter(group => group?.id && group?.name && Array.isArray(group.workerIds)).slice(0, 12) : []); } catch { setCustom([]); } }, [storageKey]);
   const persist = next => { setCustom(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Folder organization remains available for this session. */ } };
-  const automatic = Object.entries(sessions.reduce((groups, session) => { const role = workerProfile(session).key; (groups[role] ||= []).push(session.id); return groups; }, {})).map(([role, workerIds]) => ({ id: `auto:${role}`, name: role === "agent" ? "AI agents" : `${role[0].toUpperCase()}${role.slice(1)} terminals`, workerIds, automatic: true }));
+  const automatic = Object.entries(sessions.reduce((groups, session) => { const role = workerProfile(session).key; (groups[role] ||= []).push(session.id); return groups; }, {})).map(([role, workerIds]) => ({ id: `auto:${role}`, name: role === "agent" ? "AI agents" : role === "terminal" ? "Shell terminals" : `${role[0].toUpperCase()}${role.slice(1)} terminals`, workerIds, automatic: true }));
   const save = event => { event.preventDefault(); const label = name.trim(); if (!label || !members.length) return; const group = { id: globalThis.crypto?.randomUUID?.() || `folder-${Date.now()}`, name: label.slice(0, 40), workerIds: members }; persist([...custom, group].slice(0, 12)); setName(""); setMembers([]); setAdding(false); onSelect(group); };
   const removeGroup = group => { persist(custom.filter(item => item.id !== group.id)); if (activeId === group.id) onSelect(null); };
 
@@ -1659,7 +1711,7 @@ function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatu
   } : null;
 
   return <nav className="worker-folders" aria-label="Worker folders">
-    <div className="worker-folder-list">
+    <EdgeScroll className="worker-folders__rail"><div className="worker-folder-list" data-edge-scroller>
       <button className={!activeId ? "is-current" : ""} onClick={() => onSelect(null)}><Icon name="grid" size={12}/><span>All terminals</span><b>{sessions.length}</b></button>
       {vscodeFolder && <div className={`worker-folder-item ${activeId === vscodeFolder.id ? "is-current" : ""}`} key={vscodeFolder.id}>
         <button className="worker-folder-select is-vscode-folder" onClick={() => onSelect(vscodeFolder)} title="Active VS Code terminals">
@@ -1671,7 +1723,7 @@ function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatu
         {!group.automatic && <button type="button" className="worker-folder-delete" onClick={() => removeGroup(group)} aria-label={`Delete ${group.name}`}>×</button>}
       </div>)}
       <button className="worker-folder-add" onClick={() => { setAdding(value => !value); setMembers([]); }}><Icon name="plus" size={12}/><span>New folder</span></button>
-    </div>
+    </div></EdgeScroll>
     {adding && <form className="worker-folder-builder" onSubmit={save}><header><div><span className="section-kicker">CUSTOM TERMINAL FOLDER</span><strong>Group the terminals you use together</strong></div><button type="button" aria-label="Close folder builder" onClick={() => setAdding(false)}>×</button></header><input autoFocus maxLength="40" value={name} onChange={event => setName(event.target.value)} placeholder="Frontend stack"/><div>{sessions.map(session => <label key={session.id}><input type="checkbox" checked={members.includes(session.id)} onChange={() => setMembers(current => current.includes(session.id) ? current.filter(id => id !== session.id) : [...current, session.id])}/><span><strong>{session.name}</strong><small>{workerKind(session)}</small></span></label>)}</div><footer><span>{members.length} selected</span><button disabled={!name.trim() || !members.length}>Create folder</button></footer></form>}
   </nav>;
 }
@@ -1855,7 +1907,7 @@ function VSCodeTerminalTile({ terminal, isManaged, onSendInput, onFocus, onClose
 
 function VSCodeWorkspaceDeck({ status, onRefresh, onConfirm }) {
   const [sendingId, setSendingId] = React.useState("");
-  const [newTermName, setNewTermName] = React.useState("Mission Control");
+  const [newTermName, setNewTermName] = React.useState("OUTARCH");
   const [newTermCwd, setNewTermCwd] = React.useState(".");
   const [creating, setCreating] = React.useState(false);
   const [actionNotice, setActionNotice] = React.useState("");
@@ -1902,12 +1954,12 @@ function VSCodeWorkspaceDeck({ status, onRefresh, onConfirm }) {
 
   const handleCreateTerminal = async e => {
     e.preventDefault();
-    const name = newTermName.trim() || "Mission Control";
+    const name = newTermName.trim() || "OUTARCH";
     const cwd = newTermCwd.trim() || ".";
     setCreating(true);
     try {
       await confirmedRequest("vscode.terminal.create", { name, cwd });
-      setNewTermName("Mission Control");
+      setNewTermName("OUTARCH");
       showNotice(`Created terminal "${name}" in VS Code.`);
       onRefresh?.();
     } catch (err) {
@@ -2572,8 +2624,8 @@ function WorkspaceView({ needsCount = 0, onReviewNeeds, sessions, workspaceKey, 
             <b>{liveCount}</b> live · <b>{sessions.length - liveCount}</b> idle{attentionCount ? <> · <b className="is-attention">{attentionCount}</b> need you</> : null}
           </span>
           <button className="workspace-add-worker" onClick={onAddWorker} title="Add a terminal worker · Ctrl N"><Icon name="plus" size={12}/> <span className="workspace-action-label">Add terminal worker</span></button>
-          <button className={`workspace-browser-toggle ${browserOpen ? "is-current" : ""}`} aria-pressed={browserOpen} aria-label="Browser" onClick={() => setBrowserOpen(value => !value)} title="Mission Control browser · preview a local service beside the terminals · Alt B"><Icon name="globe" size={12}/> <span className="workspace-action-label">Browser</span></button>
-          <button className={`workspace-assistant-toggle ${assistantOpen ? "is-current" : ""}`} aria-pressed={assistantOpen} aria-label="Assistant" onClick={() => setAssistantOpen(value => !value)} title="Assistant · ask about or act on your terminals, in a pane beside them · Alt C"><Icon name="agents" size={12}/> <span className="workspace-action-label">Assistant</span></button>
+          <button className={`workspace-browser-toggle ${browserOpen ? "is-current" : ""}`} aria-pressed={browserOpen} aria-label="Browser" onClick={() => setBrowserOpen(value => !value)} title="OUTARCH browser · preview a local service beside the terminals · Alt B"><Icon name="globe" size={12}/> <span className="workspace-action-label">Browser</span></button>
+          <button className={`workspace-assistant-toggle ${assistantOpen ? "is-current" : ""}`} aria-pressed={assistantOpen} aria-label="Assistant" onClick={() => setAssistantOpen(value => !value)} title="Assistant · ask about or act on your terminals, in a pane beside them · Alt C"><AiGlyph size={14}/> <span className="workspace-action-label">Assistant</span></button>
           <button className="workspace-recipes" onClick={onRecipes} title="Workspace recipes"><Icon name="grid" size={12}/> Recipes</button>
           {focusMode && <NotificationTray needsCount={needsCount} onReviewNeeds={onReviewNeeds}/>}
           {sessions.some(item => !item.isAlive) && <button className="workspace-launch" onClick={onStartWorkspace}><Icon name="play" size={12}/> Start idle</button>}
@@ -2591,7 +2643,7 @@ function WorkspaceView({ needsCount = 0, onReviewNeeds, sessions, workspaceKey, 
             {backgroundWorkers.length} not mounted
           </small>
         </header>
-        <ul>
+        <EdgeScroll className="workspace-background__roster"><ul data-edge-scroller>
           {backgroundWorkers.map(session => (
             <li key={session.id} className={`state-${session.status}${session.attentionRequired ? " needs-you" : ""}`}>
               <button type="button" onClick={() => showInPane(session.id)} title={`Show ${session.name} in the focused pane`}>
@@ -2603,7 +2655,7 @@ function WorkspaceView({ needsCount = 0, onReviewNeeds, sessions, workspaceKey, 
               </button>
             </li>
           ))}
-        </ul>
+        </ul></EdgeScroll>
       </section>}
 
       {!focusMode && <section className={`workspace-intelligence ${profile ? `role-${profile.key}` : "is-empty"}`} aria-label="Workspace operational context">
@@ -2757,9 +2809,9 @@ function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decision
 
   return <div className="needs-view needs-decision-room">
     <h1 className="sr-only">Needs You</h1>
-    <header className="needs-hero"><div><span className="section-kicker">NEEDS YOU</span><h2>{totalWaiting ? `${decisionsComplete ? "" : "At least "}${totalWaiting} decision${totalWaiting === 1 ? "" : "s"} waiting` : decisionsComplete ? "Your workspace is clear" : "No decisions from the sources that responded"}</h2><p>{totalWaiting ? "Evidence and consequence come before every action." : decisionsComplete ? "Mission Control will interrupt only when your judgment is required." : "One or more decision sources did not report. The queue below may be incomplete."}</p></div></header>
+    <header className="needs-hero"><div><span className="section-kicker">NEEDS YOU</span><h2>{totalWaiting ? `${decisionsComplete ? "" : "At least "}${totalWaiting} decision${totalWaiting === 1 ? "" : "s"} waiting` : decisionsComplete ? "Your workspace is clear" : "No decisions from the sources that responded"}</h2><p>{totalWaiting ? "Evidence and consequence come before every action." : decisionsComplete ? "OUTARCH will interrupt only when your judgment is required." : "One or more decision sources did not report. The queue below may be incomplete."}</p></div></header>
     <DecisionSourceStrip status={decisionsStatus} sources={decisionSources} onRetry={onDecisionsRefresh}/>
-    <div className="decision-room-heading"><div><span className="section-kicker">PRIORITIZED QUEUE</span><strong>{totalWaiting ? "Review impact before acting" : "Nothing requires intervention"}</strong></div><span>Evidence → action → engine verification</span></div>
+    <div className="decision-room-heading"><div><span className="section-kicker">PRIORITIZED QUEUE</span><strong>{totalWaiting ? "Review impact before acting" : decisionsComplete ? "Nothing requires intervention" : "Waiting for every source to answer"}</strong></div><span>Evidence → action → engine verification</span></div>
     <div className="decision-queue-controls"><FilterGroup label="Filter decisions" value={filter} onChange={setFilter} options={[{ value: "all", label: "All", count: totalWaiting }, { value: "critical", label: "Critical", count: critical }, { value: "agents", label: "Agents", count: agentWaiting }, { value: "resolved", label: "Resolved", count: resolvedRecords.length }]}/><div>{snoozedRecords.length > 0 && <button className={showSnoozed ? "is-current" : ""} onClick={() => setShowSnoozed(value => !value)}>{showSnoozed ? "Hide snoozed" : `Snoozed ${snoozedRecords.length}`}</button>}<button disabled={!totalWaiting} onClick={markAllSeen}>Mark all seen</button></div></div>
     <details className="attention-lifecycle-bar"><summary title="How attention moves through the engine"><Icon name="info" size={13}/><span>Queue lifecycle</span></summary><div><strong>New → Seen → Acting → Verifying → Recovered</strong><small>Notification policy is managed in Settings</small></div></details>
     <div className="needs-list">{visible.length
@@ -2770,6 +2822,8 @@ function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decision
         ? <EmptyState title={filter === "critical" ? "No critical decisions" : "No agent decisions"} detail={filter === "critical" ? "Failed workers requiring intervention will appear here." : "Agent, Gemini, Mission and MCP approvals will appear here when they need you."}/>
         : snoozedRecords.length && !showSnoozed
           ? <EmptyState title={`${snoozedRecords.length} decision${snoozedRecords.length === 1 ? " is" : "s are"} snoozed`} detail="Nothing else is waiting in the active queue. Reveal snoozed decisions above to review them before the timer expires."/>
+          : !decisionsComplete
+            ? <EmptyState title="The queue could not be confirmed" detail="Nothing is shown as clear until every decision source answers. Use Retry above; worker alerts are still listed on Groundstation."/>
           : <div className="needs-clear-state"><span className="needs-clear-mark">✓</span><span className="section-kicker">ALL CLEAR</span><h3>No failures, prompts, or approvals</h3><p>The queue will update automatically when a worker or agent needs your judgment.</p></div>}</div>
   </div>;
 }
@@ -2840,7 +2894,7 @@ function HistoryExport({ project, filter, query, actorFilter }) {
       // it), and an operator told only "export failed" would have lost a file
       // that was in fact built correctly. The content is shown either way.
       try {
-        await navigator.clipboard.writeText(payload.content);
+        await copyText(payload.content);
         setCopied(true);
         toast.success(`${payload.rowCount} records copied as ${format === "markdown" ? "Markdown" : "JSON"}${payload.redactions ? ` · ${payload.redactions} redacted` : ""}`);
       } catch {
@@ -2927,7 +2981,7 @@ function HistoryView({ events, onFocus, onAskAI, projectKey = "default" }) {
     {chapters.length > 0 && <section className="history-chapters"><header><div><span className="section-kicker">RUN CHAPTERS · RESUMABLE MEMORY</span><strong>Compact context for every recorded run</strong></div><small>Correlation-backed · bounded evidence · explicit relationships</small></header><div>{chapters.slice(0, 5).map(chapter => <button key={chapter.correlationId} className={`is-${chapter.state} ${!["active", "completed", "ended"].includes(chapter.state) ? "has-risk" : ""}`} onClick={() => setSelectedSequence(chapter.resumePoint?.sequence || chapter.latestSequence)}><i/><span><strong>{chapter.actor || "Worker run"}</strong><small>{chapter.summary}</small></span><b>{chapter.state}</b></button>)}</div></section>}
     <div className="history-controls"><FilterGroup label="Filter history" value={filter} onChange={setFilter} options={[{ value: "all", label: "All changes" }, { value: "workers", label: "Workers" }, { value: "decisions", label: "Decisions" }, { value: "recipes", label: "Recipe runs" }, { value: "risk", label: "Risks & attention" }]}/><label className="history-search"><Icon name="search" size={13}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search event, actor, reason…"/><kbd>{visible.length}</kbd></label><HistoryExport project={projectKey} filter={filter} query={query} actorFilter={actorFilter}/></div>
     {actors.length > 1 && <div className="history-actors"><span>ACTOR</span><button className={actorFilter === "all" ? "is-current" : ""} onClick={() => setActorFilter("all")}>Everyone</button>{actors.map(actor => <button className={actorFilter === actor ? "is-current" : ""} key={actor} onClick={() => setActorFilter(actor)}>{actor}</button>)}{allActors.length > 8 && <button className="history-actors__more" onClick={() => setShowAllActors(value => !value)}>{showAllActors ? "Show fewer" : `+${allActors.length - 8} more`}</button>}</div>}
-    <div className={`history-investigation ${selected ? "has-selection" : ""}`}><div className="timeline">{visible.length ? visible.map(event => { const dangerous = /failed|error|attention/i.test(String(event.type)); const actor = actorFor(event); const eventKind = dangerous ? "risk" : event.historyKind === "decision" ? "decision" : event.historyKind === "recipe-run" ? "recipe" : /evidence/i.test(String(event.type)) ? "evidence" : /session|worker/i.test(String(event.type)) ? "worker" : "system"; return <article tabIndex="0" role="button" aria-pressed={selected?.sequence === event.sequence} onClick={() => setSelectedSequence(event.sequence)} onKeyDown={keyEvent => { if (keyEvent.key === "Enter" || keyEvent.key === " ") { keyEvent.preventDefault(); setSelectedSequence(event.sequence); } }} className={`timeline-event event-${eventKind} ${dangerous ? "is-danger" : ""} ${selected?.sequence === event.sequence ? "is-selected" : ""}`} key={`${event.sequence}-${event.type}`}><div className="timeline-time"><strong>{timeAgo(event.timestamp)}</strong><span>#{event.sequence}</span></div><div className={`timeline-node event-${eventKind} ${dangerous ? "is-danger" : ""}`}><i/></div><div className="timeline-copy"><span>{actor}</span><strong>{eventTitle(event)}</strong><p>{event.reason || (dangerous ? "Engine evidence marks this moment for review." : String(event.type).includes("session") ? `${actor} changed state through the supervised engine contract.` : "Mission Control recorded this workspace transition.")}</p>{event.operation && <code>operation · {event.operation}</code>}</div><span className="timeline-kind">{eventKind === "risk" ? "Risk" : eventKind === "decision" ? "Decision" : eventKind === "recipe" ? "Recipe" : eventKind === "evidence" ? "Evidence" : eventKind === "worker" ? "Worker" : "System"}</span></article>; }) : <EmptyState title="No matching history" detail={query || actorFilter !== "all" ? "Try a broader search or another filter." : "Keep working to create new project memory."}/>}</div>
+    <div className={`history-investigation ${selected ? "has-selection" : ""}`}><div className="timeline">{visible.length ? visible.map(event => { const dangerous = /failed|error|attention/i.test(String(event.type)); const actor = actorFor(event); const eventKind = dangerous ? "risk" : event.historyKind === "decision" ? "decision" : event.historyKind === "recipe-run" ? "recipe" : /evidence/i.test(String(event.type)) ? "evidence" : /session|worker/i.test(String(event.type)) ? "worker" : "system"; return <article tabIndex="0" role="button" aria-pressed={selected?.sequence === event.sequence} onClick={() => setSelectedSequence(event.sequence)} onKeyDown={keyEvent => { if (keyEvent.key === "Enter" || keyEvent.key === " ") { keyEvent.preventDefault(); setSelectedSequence(event.sequence); } }} className={`timeline-event event-${eventKind} ${dangerous ? "is-danger" : ""} ${selected?.sequence === event.sequence ? "is-selected" : ""}`} key={`${event.sequence}-${event.type}`}><div className="timeline-time"><strong>{timeAgo(event.timestamp)}</strong><span>#{event.sequence}</span></div><div className={`timeline-node event-${eventKind} ${dangerous ? "is-danger" : ""}`}><i/></div><div className="timeline-copy"><span>{actor}</span><strong>{eventTitle(event)}</strong><p>{event.reason || (dangerous ? "Engine evidence marks this moment for review." : String(event.type).includes("session") ? `${actor} changed state through the supervised engine contract.` : "OUTARCH recorded this workspace transition.")}</p>{event.operation && <code>operation · {event.operation}</code>}</div><span className="timeline-kind">{eventKind === "risk" ? "Risk" : eventKind === "decision" ? "Decision" : eventKind === "recipe" ? "Recipe" : eventKind === "evidence" ? "Evidence" : eventKind === "worker" ? "Worker" : "System"}</span></article>; }) : <EmptyState title="No matching history" detail={query || actorFilter !== "all" ? "Try a broader search or another filter." : "Keep working to create new project memory."}/>}</div>
       {selected && <aside className="history-evidence"><header><span className="section-kicker">RECORDED EVIDENCE</span><strong>Event #{selected.sequence}</strong><small>{new Date(selected.timestamp).toLocaleString()}</small></header><div className={`history-evidence__status ${/failed|error|attention/i.test(String(selected.type)) ? "is-risk" : ""}`}><i/><span><small>EVENT TYPE</small><strong>{eventTitle(selected)}</strong></span></div>{selectedChapter && <section className={`history-chapter-context is-${selectedChapter.state}`}><span>RUN CHAPTER · {selectedChapter.state}</span><strong>{selectedChapter.summary}</strong><small>{selectedChapter.relationships?.[0]?.basis || "Events share an engine-issued run correlation."}</small></section>}<dl><div><dt>Actor</dt><dd>{actorFor(selected)}</dd></div>{selected.operation && <div><dt>Operation</dt><dd>{selected.operation}</dd></div>}{selected.reason && <div><dt>Recorded reason</dt><dd>{selected.reason}</dd></div>}{selected.status && <div><dt>State</dt><dd>{selected.status}</dd></div>}{Number.isInteger(selected.exitCode) && <div><dt>Exit code</dt><dd>{selected.exitCode}</dd></div>}<div><dt>Correlation</dt><dd>{selected.correlationId || "Not provided by engine"}</dd></div></dl><p>This panel displays recorded event fields. Cross-run relationships require the same worker and later recorded evidence.</p>{onAskAI && <button type="button" className="history-evidence__ai" onClick={() => onAskAI(`On ${new Date(selected.timestamp).toLocaleString()}, ${actorFor(selected)} — ${eventTitle(selected)}.${selected.reason ? ` Recorded reason: ${selected.reason}.` : ""} What does this mean and what should I check?`)}><span>AI</span> Ask Mission AI about this event</button>}</aside>}
     </div>
   </div>;
@@ -2998,7 +3052,7 @@ function NotificationSettings() {
   // The chime is played by the app itself, so it works — and can be set —
   // even on a device that cannot show Windows notifications.
   const soundDisabled = delivery.loading;
-  return <section className="settings-panel settings-panel-wide notification-settings pm-card"><div className="settings-panel__head"><Icon name="attention"/><div><h3>Notifications</h3><p>Failures, services coming up and decisions waiting for you. While you use Mission Control they appear at the top right; when you are in another app, Windows shows them.</p></div></div>{delivery.loading && <p className="notification-availability" role="status">Checking whether this device can show desktop notifications…</p>}{!delivery.loading && !delivery.available && <p className="notification-availability" role="status">This device cannot show desktop notifications{delivery.lastError ? ` — ${delivery.lastError}` : ""}. Notifications still appear inside Mission Control, with their sound. The policy below is saved and will apply if delivery becomes available.</p>}<div className={`attention-policy${disabled ? " is-unavailable" : ""}`}><div className="severity-choice"><span id="notify-from-label">Notify from</span><div role="radiogroup" aria-labelledby="notify-from-label" aria-disabled={disabled || undefined}>{[["info","All"],["warning","Warnings"],["critical","Failures only"]].map(([value,label]) => <button key={value} type="button" role="radio" aria-checked={policy.minimumSeverity === value} disabled={disabled} className={policy.minimumSeverity === value ? "is-current" : ""} onClick={() => void save({ ...policy, minimumSeverity: value })}>{label}</button>)}</div></div><div className="terminal-toggle-card notification-sound"><span><strong>Sound</strong><small>A short chime for each new notification. A failure sounds different from a server coming up, and a burst rings once.</small></span><span className="notification-sound__controls"><button type="button" className="btn-secondary" disabled={soundDisabled} onClick={() => playNotificationSound("alert", { force: true })}>Play</button><label className="pm-toggle"><input type="checkbox" aria-label="Play a sound for notifications" disabled={soundDisabled} checked={policy.sound !== false} onChange={event => void persist({ ...policy, sound: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></label></span></div><label className="terminal-toggle-card"><span><strong>Windows notifications</strong><small>{disabled ? "Unavailable on this device — notifications still appear inside the app." : "Shown only while you are in another app. When Mission Control is the window you are using, it tells you itself, so nothing arrives twice."}</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.desktopNotifications} onChange={event => void save({ ...policy, desktopNotifications: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><label className="terminal-toggle-card"><span><strong>Quiet hours</strong><small>No sound and no Windows notifications during this window. Everything still collects in the notification list.</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.quietHours.enabled} onChange={event => void save({ ...policy, quietHours: { ...policy.quietHours, enabled: event.target.checked } })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><div className="quiet-hours" role="group" aria-label="Quiet hours window"><label><span>Start</span><input type="time" disabled={disabled} aria-label="Quiet hours start time" value={policy.quietHours.start} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, start: event.target.value } }))} onBlur={() => void save(policy)}/></label><span aria-hidden="true">to</span><label><span>End</span><input type="time" disabled={disabled} aria-label="Quiet hours end time" value={policy.quietHours.end} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, end: event.target.value } }))} onBlur={() => void save(policy)}/></label></div>{error && <p className="settings-save-error" role="alert">{error}</p>}<div className="notification-diagnostic"><div><strong>Send a test notification</strong><small>Shows one in the app and in Windows, with its sound, ignoring the settings above — so it answers one question: can this computer show and play a notification.</small></div><button type="button" className="btn-secondary" disabled={disabled || testing} onClick={() => void sendTest()}>{testing ? "Sending…" : "Send test"}</button></div>{testResult && <p className={`notification-test-result${testResult.ok ? " is-ok" : " is-failed"}`} role="status">{testResult.message}</p>}</div></section>;
+  return <section className="settings-panel settings-panel-wide notification-settings pm-card"><div className="settings-panel__head"><Icon name="attention"/><div><h3>Notifications</h3><p>Failures, services coming up and decisions waiting for you. While you use OUTARCH they appear at the top right; when you are in another app, Windows shows them.</p></div></div>{delivery.loading && <p className="notification-availability" role="status">Checking whether this device can show desktop notifications…</p>}{!delivery.loading && !delivery.available && <p className="notification-availability" role="status">This device cannot show desktop notifications{delivery.lastError ? ` — ${delivery.lastError}` : ""}. Notifications still appear inside OUTARCH, with their sound. The policy below is saved and will apply if delivery becomes available.</p>}<div className={`attention-policy${disabled ? " is-unavailable" : ""}`}><div className="severity-choice"><span id="notify-from-label">Notify from</span><div role="radiogroup" aria-labelledby="notify-from-label" aria-disabled={disabled || undefined}>{[["info","All"],["warning","Warnings"],["critical","Failures only"]].map(([value,label]) => <button key={value} type="button" role="radio" aria-checked={policy.minimumSeverity === value} disabled={disabled} className={policy.minimumSeverity === value ? "is-current" : ""} onClick={() => void save({ ...policy, minimumSeverity: value })}>{label}</button>)}</div></div><div className="terminal-toggle-card notification-sound"><span><strong>Sound</strong><small>A short chime for each new notification. A failure sounds different from a server coming up, and a burst rings once.</small></span><span className="notification-sound__controls"><button type="button" className="btn-secondary" disabled={soundDisabled} onClick={() => playNotificationSound("alert", { force: true })}>Play</button><label className="pm-toggle"><input type="checkbox" aria-label="Play a sound for notifications" disabled={soundDisabled} checked={policy.sound !== false} onChange={event => void persist({ ...policy, sound: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></label></span></div><label className="terminal-toggle-card"><span><strong>Windows notifications</strong><small>{disabled ? "Unavailable on this device — notifications still appear inside the app." : "Shown only while you are in another app. When OUTARCH is the window you are using, it tells you itself, so nothing arrives twice."}</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.desktopNotifications} onChange={event => void save({ ...policy, desktopNotifications: event.target.checked })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><label className="terminal-toggle-card"><span><strong>Quiet hours</strong><small>No sound and no Windows notifications during this window. Everything still collects in the notification list.</small></span><span className="pm-toggle"><input type="checkbox" disabled={disabled} checked={policy.quietHours.enabled} onChange={event => void save({ ...policy, quietHours: { ...policy.quietHours, enabled: event.target.checked } })}/><i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i></span></label><div className="quiet-hours" role="group" aria-label="Quiet hours window"><label><span>Start</span><input type="time" disabled={disabled} aria-label="Quiet hours start time" value={policy.quietHours.start} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, start: event.target.value } }))} onBlur={() => void save(policy)}/></label><span aria-hidden="true">to</span><label><span>End</span><input type="time" disabled={disabled} aria-label="Quiet hours end time" value={policy.quietHours.end} onChange={event => setPolicy(current => ({ ...current, quietHours: { ...current.quietHours, end: event.target.value } }))} onBlur={() => void save(policy)}/></label></div>{error && <p className="settings-save-error" role="alert">{error}</p>}<div className="notification-diagnostic"><div><strong>Send a test notification</strong><small>Shows one in the app and in Windows, with its sound, ignoring the settings above — so it answers one question: can this computer show and play a notification.</small></div><button type="button" className="btn-secondary" disabled={disabled || testing} onClick={() => void sendTest()}>{testing ? "Sending…" : "Send test"}</button></div>{testResult && <p className={`notification-test-result${testResult.ok ? " is-ok" : " is-failed"}`} role="status">{testResult.message}</p>}</div></section>;
 }
 
 function VSCodeBridgeSettings({ workspace, onConfirm }) {
@@ -3006,7 +3060,7 @@ function VSCodeBridgeSettings({ workspace, onConfirm }) {
   const [busy, setBusy] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [resourceState, setResourceState] = React.useState({ loading: true, error: "", updatedAt: null });
-  const [terminalName, setTerminalName] = React.useState("Mission Control");
+  const [terminalName, setTerminalName] = React.useState("OUTARCH");
   const [terminalCwd, setTerminalCwd] = React.useState(".");
   const [terminalInputs, setTerminalInputs] = React.useState({});
   const refresh = React.useCallback(() => {
@@ -3061,11 +3115,11 @@ function VSCodeBridgeSettings({ workspace, onConfirm }) {
   const unknownValue = resourceState.loading ? "Loading…" : "—";
   const stateLabel = !statusKnown && resourceState.loading ? "Checking status" : !statusKnown && resourceState.error ? "Status unavailable" : resourceState.error ? "Stale status" : connected ? "Connected" : status?.awaitingHandshake ? "Waiting for VS Code" : status?.lastError ? "Needs review" : "Ready to connect";
   return <section className={`settings-panel settings-panel-wide vscode-bridge-settings pm-card pm-card--feat-vscode ${connected ? "is-connected" : ""}`}>
-    <header><div className="settings-panel__head"><span className="vscode-mark">⌁</span><div><h3>VS Code Bridge</h3><p>Observe VS Code-owned terminals and explicitly control only Mission Control-managed terminals.</p></div></div><div className={`vscode-connection ${connected ? "is-live" : status?.awaitingHandshake ? "is-waiting" : ""}`}><i/><span><small>EDITOR CONNECTION</small><strong>{stateLabel}</strong></span></div></header>
-    {resourceState.error && <div className="integration-resource-notice" role="status"><span><strong>VS Code Bridge status could not be refreshed.</strong> {statusKnown ? "Showing the last verified editor snapshot; controls are unavailable until it is current." : "Connection state is unknown, so Mission Control will not claim the bridge is ready or disconnected."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
+    <header><div className="settings-panel__head"><span className="vscode-mark">⌁</span><div><h3>VS Code Bridge</h3><p>Observe VS Code-owned terminals and explicitly control only OUTARCH-managed terminals.</p></div></div><div className={`vscode-connection ${connected ? "is-live" : status?.awaitingHandshake ? "is-waiting" : ""}`}><i/><span><small>EDITOR CONNECTION</small><strong>{stateLabel}</strong></span></div></header>
+    {resourceState.error && <div className="integration-resource-notice" role="status"><span><strong>VS Code Bridge status could not be refreshed.</strong> {statusKnown ? "Showing the last verified editor snapshot; controls are unavailable until it is current." : "Connection state is unknown, so OUTARCH will not claim the bridge is ready or disconnected."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
     {statusKnown && !connected && <ol className="vscode-setup-steps" aria-label="VS Code Bridge setup"><li className="is-ready"><b>1</b><span><strong>Open a persistent project</strong><small>{workspace?.persistent ? "Ready" : "Choose a project folder first"}</small></span></li><li><b>2</b><span><strong>Install the included extension</strong><small>Use integrations/vscode from this release</small></span></li><li className={status?.awaitingHandshake ? "is-active" : ""}><b>3</b><span><strong>Send a one-time invitation</strong><small>VS Code verifies the same project before connecting</small></span></li></ol>}
-    <div className="vscode-bridge-body"><div className="vscode-sync-summary"><div><span>ACTIVE FILE</span><strong title={editor?.relativePath || ""}>{editor?.relativePath || (statusKnown ? "No editor context yet" : unknownValue)}</strong><small>{editor ? `Line ${editor.line}:${editor.column}${editor.dirty ? " · unsaved" : " · saved"}` : statusKnown ? "Project-relative paths only" : "Editor context not verified"}</small></div><div className={diagnostics.errors ? "has-risk" : ""}><span>PROBLEMS</span><strong>{statusKnown ? `${diagnostics.errors || 0} errors · ${diagnostics.warnings || 0} warnings` : unknownValue}</strong><small>{statusKnown ? `${diagnostics.items?.length || 0} bounded records synchronized` : "Diagnostics not verified"}</small></div><div><span>SOURCE CONTROL</span><strong>{git?.branch || (statusKnown ? "Waiting for Git state" : unknownValue)}</strong><small>{git ? `${git.changedPaths} changed · ${git.ahead} ahead · ${git.behind} behind` : statusKnown ? "Aggregate state only" : "Source-control state not verified"}</small></div><div><span>EDITOR TERMINALS</span><strong>{statusKnown ? `${managedTerminals.length} managed · ${observedTerminals.length} observed` : unknownValue}</strong><small>Activity metadata only · raw output never crosses the bridge</small></div></div><TrustBoundary compact title="Editor ownership stays explicit" summary="Observed terminals remain read-only; managed terminal changes require approval." facts={[{ label: "Observe", value: "VS Code-owned terminal metadata" }, { label: "Control", value: "Mission Control-managed terminals only" }, { label: "Blocked", value: "Secrets, multiline input, and arbitrary paths" }]}/></div>
-    {connected && <div className="vscode-terminal-control"><div className="vscode-terminal-create"><div><span>NEW MANAGED TERMINAL</span><small>Created inside this project and labeled as Mission Control-managed.</small></div><input aria-label="Managed terminal name" value={terminalName} maxLength={80} disabled={!controlsAvailable} onChange={event => setTerminalName(event.target.value)} placeholder="Terminal name"/><input aria-label="Managed terminal working directory" value={terminalCwd} maxLength={240} disabled={!controlsAvailable} onChange={event => setTerminalCwd(event.target.value)} placeholder="Project-relative cwd"/><button className="vscode-connect" disabled={!controlsAvailable || Boolean(busy) || !terminalName.trim() || !onConfirm} onClick={() => onConfirm?.({ title: `Create managed terminal "${terminalName.trim()}"?`, detail: `VS Code will create a controllable terminal in ${terminalCwd.trim() || "."}.`, recovery: "The managed terminal can be closed from this panel.", confirmLabel: "Create terminal", run: () => run("create-terminal", "vscode.terminal.create", { name: terminalName, cwd: terminalCwd }, "Managed terminal created in VS Code.") })}>{busy === "create-terminal" ? "Creating…" : "Approve & create"}</button></div>
+    <div className="vscode-bridge-body"><div className="vscode-sync-summary"><div><span>ACTIVE FILE</span><strong title={editor?.relativePath || ""}>{editor?.relativePath || (statusKnown ? "No editor context yet" : unknownValue)}</strong><small>{editor ? `Line ${editor.line}:${editor.column}${editor.dirty ? " · unsaved" : " · saved"}` : statusKnown ? "Project-relative paths only" : "Editor context not verified"}</small></div><div className={diagnostics.errors ? "has-risk" : ""}><span>PROBLEMS</span><strong>{statusKnown ? `${diagnostics.errors || 0} errors · ${diagnostics.warnings || 0} warnings` : unknownValue}</strong><small>{statusKnown ? `${diagnostics.items?.length || 0} bounded records synchronized` : "Diagnostics not verified"}</small></div><div><span>SOURCE CONTROL</span><strong>{git?.branch || (statusKnown ? "Waiting for Git state" : unknownValue)}</strong><small>{git ? `${git.changedPaths} changed · ${git.ahead} ahead · ${git.behind} behind` : statusKnown ? "Aggregate state only" : "Source-control state not verified"}</small></div><div><span>EDITOR TERMINALS</span><strong>{statusKnown ? `${managedTerminals.length} managed · ${observedTerminals.length} observed` : unknownValue}</strong><small>Activity metadata only · raw output never crosses the bridge</small></div></div><TrustBoundary compact title="Editor ownership stays explicit" summary="Observed terminals remain read-only; managed terminal changes require approval." facts={[{ label: "Observe", value: "VS Code-owned terminal metadata" }, { label: "Control", value: "OUTARCH-managed terminals only" }, { label: "Blocked", value: "Secrets, multiline input, and arbitrary paths" }]}/></div>
+    {connected && <div className="vscode-terminal-control"><div className="vscode-terminal-create"><div><span>NEW MANAGED TERMINAL</span><small>Created inside this project and labeled as OUTARCH-managed.</small></div><input aria-label="Managed terminal name" value={terminalName} maxLength={80} disabled={!controlsAvailable} onChange={event => setTerminalName(event.target.value)} placeholder="Terminal name"/><input aria-label="Managed terminal working directory" value={terminalCwd} maxLength={240} disabled={!controlsAvailable} onChange={event => setTerminalCwd(event.target.value)} placeholder="Project-relative cwd"/><button className="vscode-connect" disabled={!controlsAvailable || Boolean(busy) || !terminalName.trim() || !onConfirm} onClick={() => onConfirm?.({ title: `Create managed terminal "${terminalName.trim()}"?`, detail: `VS Code will create a controllable terminal in ${terminalCwd.trim() || "."}.`, recovery: "The managed terminal can be closed from this panel.", confirmLabel: "Create terminal", run: () => run("create-terminal", "vscode.terminal.create", { name: terminalName, cwd: terminalCwd }, "Managed terminal created in VS Code.") })}>{busy === "create-terminal" ? "Creating…" : "Approve & create"}</button></div>
       <div className="vscode-terminal-list">{terminals.length === 0 ? <div className="vscode-terminal-empty"><strong>No editor terminals reported</strong><small>Open one in VS Code or create a managed terminal above.</small></div> : terminals.map(terminal => <article key={terminal.id} className={terminal.controllable ? "is-managed" : "is-observed"}><div className="vscode-terminal-main"><span className="vscode-terminal-owner">{terminal.controllable ? "MANAGED" : "VS CODE-OWNED"}</span><strong>{terminal.name}</strong><small>{terminal.currentCommand || (terminal.shellIntegration ? "Shell ready; no active command" : "Shell activity unavailable")}{terminal.cwd ? ` · ${terminal.cwd}` : ""}</small></div><span className={`vscode-terminal-state is-${terminal.commandState || "idle"}`}>{terminal.active ? "ACTIVE · " : ""}{terminal.commandState || "idle"}</span>{terminal.controllable && <div className="vscode-terminal-actions"><button disabled={!controlsAvailable || Boolean(busy)} onClick={() => run(`focus:${terminal.id}`, "vscode.terminal.focus", { terminalId: terminal.id }, "Managed terminal focused in VS Code.")}>Focus</button><input aria-label={`Command for ${terminal.name}`} value={terminalInputs[terminal.id] || ""} maxLength={4096} disabled={!controlsAvailable} onChange={event => setTerminalInputs(current => ({ ...current, [terminal.id]: event.target.value }))} placeholder="One command; secrets blocked"/><button disabled={!controlsAvailable || Boolean(busy) || !(terminalInputs[terminal.id] || "").trim() || !onConfirm} onClick={() => { const input = terminalInputs[terminal.id] || ""; onConfirm?.({ title: `Send command to "${terminal.name}"?`, detail: input, recovery: "Review terminal output immediately; stop the managed terminal if the command behaves unexpectedly.", confirmLabel: "Send command", run: async () => { const sent = await run(`write:${terminal.id}`, "vscode.terminal.write", { terminalId: terminal.id, input }, "Approved command sent to the managed terminal."); if (sent) setTerminalInputs(current => ({ ...current, [terminal.id]: "" })); } }); }}>Approve & send</button><button className="vscode-disconnect" disabled={!controlsAvailable || Boolean(busy) || !onConfirm} onClick={() => onConfirm?.({ title: `Close managed terminal "${terminal.name}"?`, detail: "VS Code will terminate this managed terminal session.", recovery: "Create a new managed terminal from this panel if it is needed again.", confirmLabel: "Close terminal", run: () => run(`close:${terminal.id}`, "vscode.terminal.close", { terminalId: terminal.id }, "Managed terminal closed.") })}>Approve & close</button></div>}</article>)}</div>
     </div>}
     {message && <p className={status?.lastError ? "is-error" : ""} role="status">{message}</p>}
@@ -3164,8 +3218,9 @@ function ProjectDefaultSettings({ workspace, sessions = [], onNavigate, onConfig
 function AboutSettings({ state }) {
   return <div className="settings-view"><div className="settings-grid"><section className="settings-panel settings-panel-wide pm-card">
     <div className="settings-panel__head"><Icon name="command"/><div><h3>About</h3><p>What this build is.</p></div></div>
+    <div className="about-brand"><BrandIcon large/><div><BrandWordmark/><small>Developer cockpit{PRODUCT_VERSION ? ` · version ${PRODUCT_VERSION}` : ""}</small></div></div>
     <div className="settings-rows">
-      <div><span>Application</span><strong>Mission Control Groundstation</strong></div>
+      <div><span>Application</span><strong>{PRODUCT_NAME}{PRODUCT_VERSION ? ` ${PRODUCT_VERSION}` : ""}</strong></div>
       <div><span>Engine contract</span><strong>Protocol v{state?.contractVersion || "—"}</strong></div>
       <div><span>Runtime</span><strong>Local-first · engine-owned PTYs</strong></div>
       <div><span>Updates</span><strong>Manual · Ed25519-verified signed releases (auto-update deferred)</strong></div>
@@ -3270,18 +3325,20 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
 }
 
 function AppSidebar({ view, workspace, pendingCount, onNavigate, onProject, onPalette, onMissionAI }) {
-  const projectMark = String(workspace?.name || "P").trim().slice(0, 2).toUpperCase();
+  // One letter: two capitals squeezed into the tile read as a code ("FI"), not
+  // as the project. Array.from keeps a leading emoji or accent whole.
+  const projectMark = (Array.from(String(workspace?.name || "").trim())[0] || "P").toUpperCase();
   const renderNavButton = ([id, label, icon]) => <button key={id} data-nav-id={id} data-tooltip={`${label} · ${NAV_SHORTCUTS[id] || "Open"}`} aria-label={label} aria-current={view === id ? "page" : undefined} className={view === id ? "is-current" : ""} onClick={() => onNavigate(id)} title={`${label} · ${NAV_SHORTCUTS[id]}`}><Icon name={icon} size={17}/><span>{label}</span>{id === "needs" && pendingCount > 0 && <b aria-label={`${pendingCount} items need attention`}>{pendingCount}</b>}</button>;
   return <aside className="app-sidebar" aria-label="Application sidebar">
-    <div className="app-sidebar__brand"><button className="top-brand" onClick={() => onNavigate("groundstation")} aria-label="Open Groundstation"><span>MC</span></button><div><strong>Mission Control</strong><small>Developer cockpit</small></div></div>
-    <button className="top-project" data-tooltip={`Switch project · ${workspace?.name || "none"}`} onClick={onProject} aria-label={`Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true">⌄</i></button>
-    <nav className="top-navigation" aria-label="Mission Control navigation">
+    <div className="app-sidebar__brand"><button className="top-brand" onClick={() => onNavigate("groundstation")} aria-label="Open Groundstation"><BrandIcon/></button><div><strong><BrandWordmark/></strong><small>Developer cockpit</small></div></div>
+    <button className="top-project" data-tooltip={`Switch project · ${workspace?.name || "none"}`} onClick={onProject} aria-label={`Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true"><Icon name="selector" size={14}/></i></button>
+    <nav className="top-navigation" aria-label="OUTARCH navigation">
       {NAVIGATION.slice(0, PRIMARY_NAV_COUNT).map(destination => renderNavButton(destination))}
       <div className="top-navigation__contextual" role="group" aria-label="Configuration">
         {NAVIGATION.slice(PRIMARY_NAV_COUNT).map(destination => renderNavButton(destination))}
       </div>
     </nav>
-    <div className="app-sidebar__footer"><button className="top-search" data-tooltip="Mission Command · Ctrl K" onClick={onPalette} aria-label="Search or run a command"><Icon name="search" size={16}/><span>Search commands</span><kbd>Ctrl+K</kbd></button><button className={`top-ai ${view === "mission-ai" ? "is-current" : ""}`} data-tooltip="Mission AI" onClick={onMissionAI} aria-label="Open Mission AI"><span>AI</span><strong>Mission AI</strong></button><span className="app-sidebar__rail-label" aria-hidden="true">MISSION CONTROL</span></div>
+    <div className="app-sidebar__footer"><button className="top-search" data-tooltip="Mission Command · Ctrl K" onClick={onPalette} aria-label="Search or run a command"><Icon name="search" size={16}/><span>Search commands</span><kbd>Ctrl+K</kbd></button><button className={`top-ai ${view === "mission-ai" ? "is-current" : ""}`} data-tooltip="Mission AI" onClick={onMissionAI} aria-label="Open Mission AI"><span><AiGlyph size={14}/></span><strong>Mission AI</strong></button><span className="app-sidebar__rail-label" aria-hidden="true">OUTARCH</span></div>
   </aside>;
 }
 
@@ -3298,7 +3355,7 @@ function CommandPalette({ open, query, onQuery, items, onChoose, onClose }) {
     return [...map.entries()];
   }, [ordered]);
   const choose = item => { const next = [item.id, ...recentIds.filter(id => id !== item.id)].slice(0,8); setRecentIds(next); try { localStorage.setItem(COMMAND_RECENTS_KEY, JSON.stringify(next)); } catch { /* Command recents are local best effort. */ } onChoose(item); };
-  return <Dialog.Root open={open} onOpenChange={value => !value && onClose()}><Dialog.Portal><Dialog.Overlay className="palette-backdrop"/><Dialog.Content className="command-palette" aria-label="Mission Command" aria-describedby={undefined}><Command value={query} onValueChange={onQuery} loop><div className="palette-search"><Icon name="search" size={19}/><Command.Input autoFocus value={query} onValueChange={onQuery} placeholder="Search commands, workers, history, projects…"/><kbd>esc</kbd></div><div className="palette-label">{query ? "BEST MATCHES" : recentIds.length ? "RECENT & AVAILABLE" : "MISSION COMMAND"}</div><Command.List className="palette-results"><Command.Empty className="palette-empty"><strong>No matching command</strong><span>Try a worker name, action, project, or history term.</span></Command.Empty>{grouped.map(([groupName, groupItems]) => <Command.Group key={groupName} heading={groupName} className="palette-group">{groupItems.map(item => <Command.Item key={item.id} value={`${item.label} ${(item.aliases || []).join(" ")} ${item.group}`} onSelect={() => choose(item)}><span className="palette-icon"><Icon name={item.icon || "command"} size={16}/></span><span><strong>{item.label}</strong><small>{item.group}{recentIds.includes(item.id) ? " · Recent" : ""}</small></span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</Command.Item>)}</Command.Group>)}</Command.List><footer><span><b>↑↓</b> navigate</span><span><b>↵</b> open</span><span>Fuzzy search · Engine-safe actions only</span></footer></Command></Dialog.Content></Dialog.Portal></Dialog.Root>;
+  return <Dialog.Root open={open} onOpenChange={value => !value && onClose()}><Dialog.Portal><Dialog.Overlay className="palette-backdrop"/><Dialog.Content className="command-palette" aria-label="Mission Command" aria-describedby={undefined}><Command value={query} onValueChange={onQuery} loop><div className="palette-search"><Icon name="search" size={19}/><Command.Input autoFocus value={query} onValueChange={onQuery} placeholder="Search commands, workers, history, projects…"/><kbd>esc</kbd></div><div className="palette-label">{query ? "BEST MATCHES" : recentIds.length ? "RECENT & AVAILABLE" : "MISSION COMMAND"}</div><Command.List className="palette-results"><Command.Empty className="palette-empty"><strong>No matching command</strong><span>Try a worker name, action, project, or history term.</span></Command.Empty>{grouped.map(([groupName, groupItems]) => <Command.Group key={groupName} heading={groupName} className="palette-group">{groupItems.map(item => <Command.Item key={item.id} value={`${item.label} ${(item.aliases || []).join(" ")} ${item.group}`} onSelect={() => choose(item)}><span className="palette-icon"><Icon name={item.icon || "command"} size={16}/></span><span><strong>{item.label}</strong>{recentIds.includes(item.id) && <small>Recent</small>}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</Command.Item>)}</Command.Group>)}</Command.List><footer><span><b>↑↓</b> navigate</span><span><b>↵</b> open</span><span>Fuzzy search · Engine-safe actions only</span></footer></Command></Dialog.Content></Dialog.Portal></Dialog.Root>;
 }
 
 function ConfirmationDialog({ request, onCancel, onConfirm }) {
@@ -3443,7 +3500,12 @@ function GroundstationApp() {
     setView(missionAiReturnView.current === "mission-ai" ? "groundstation" : missionAiReturnView.current);
   }, []);
 
-  React.useEffect(() => { if (!selectedWorker && sessions[0]) setSelectedWorker(sessions[0].id); }, [selectedWorker, sessions]);
+  // A selection the operator cleared on purpose (closing the Groundstation
+  // inspector, Escape on the manifest) stays cleared; the seed only fills a
+  // selection nobody chose yet, so the inspector does not reopen by itself.
+  const selectionClearedRef = React.useRef(false);
+  const selectWorker = React.useCallback(id => { selectionClearedRef.current = !id; setSelectedWorker(id); }, []);
+  React.useEffect(() => { if (!selectedWorker && sessions[0] && !selectionClearedRef.current) setSelectedWorker(sessions[0].id); }, [selectedWorker, sessions]);
   React.useEffect(() => {
     if (previousViewRef.current === view) return undefined;
     previousViewRef.current = view;
@@ -3584,7 +3646,7 @@ function GroundstationApp() {
     setNotice(failures.length ? `${updates.length - failures.length} of ${updates.length} saved · ${failures[0]}` : "Launch policy saved");
   }, [refresh]);
   const startWorkspace = React.useCallback(() => executeBulk("start", sessions.filter(session => !session.isAlive)), [executeBulk, sessions]);
-  const stopWorkspace = React.useCallback(() => { const running = sessions.filter(session => session.isAlive); if (!running.length) return; setConfirmation({ title: `Stop ${running.length} running workers?`, detail: "Mission Control will request a clean stop for every active engine-owned PTY in this workspace.", recovery: "Workers remain configured and can be started together again.", confirmLabel: "Stop workspace", run: () => executeBulk("kill", running) }); }, [executeBulk, sessions]);
+  const stopWorkspace = React.useCallback(() => { const running = sessions.filter(session => session.isAlive); if (!running.length) return; setConfirmation({ title: `Stop ${running.length} running workers?`, detail: "OUTARCH will request a clean stop for every active engine-owned PTY in this workspace.", recovery: "Workers remain configured and can be started together again.", confirmLabel: "Stop workspace", run: () => executeBulk("kill", running) }); }, [executeBulk, sessions]);
   // T084 — one mental model: Recipes is a place, and the builder is an action
   // taken there. Previously "Recipes" meant the page from the sidebar and the
   // command palette, but a bare create dialog from Workspace, the mission graph
@@ -3688,7 +3750,7 @@ function GroundstationApp() {
     const copyService = async (serviceId, generation) => {
       try {
         const result = await missionApi().request("services.copy", { serviceId, expectedGeneration: generation });
-        await navigator.clipboard.writeText(result.url);
+        await copyText(result.url);
         toast.success(`Copied ${result.url}`, { compact: true, duration: 2200 });
       } catch (error) {
         toast.danger(error?.message || "Could not copy that address");
@@ -3797,9 +3859,9 @@ function GroundstationApp() {
     setNotice(editing ? "Worker updated" : startError ? `${value.name} added to the terminal workspace, but ${startError}` : `${value.name} added to the terminal workspace`);
   }, [refresh, workerDialog]);
   const instantiateSavedCommand = React.useCallback(async commandId => { await missionApi().request("action.dispatch", { sessionId: null, action: { type: "instantiateSavedCommand", commandId } }); await refresh(); }, [refresh]);
-  const createAgent = React.useCallback(async adapterId => { let createdSessionId = null; setAgentsLoading(true); setNotice(`Checking ${adapterId} CLI…`); try { const result = await missionApi().request("agent.create", { adapterId }); if (!result?.sessionId) throw new Error("Agent worker was created without a session ID"); createdSessionId = result.sessionId; setSelectedWorker(createdSessionId); setNotice(`Starting ${adapterId}…`); const started = await missionApi().request("action.dispatch", { sessionId: createdSessionId, action: { type: "start" } }); if (started?.ok === false) throw new Error(started.error || "Agent CLI could not be started"); await refresh(); setNotice(`${adapterId} is running under Mission Control supervision`); } catch (value) { await refresh(); if (createdSessionId) setSelectedWorker(createdSessionId); setNotice(createdSessionId ? `${adapterId} was added but could not start: ${value.message || String(value)}` : value.message || String(value)); } finally { setAgentsLoading(false); } }, [refresh]);
+  const createAgent = React.useCallback(async adapterId => { let createdSessionId = null; setAgentsLoading(true); setNotice(`Checking ${adapterId} CLI…`); try { const result = await missionApi().request("agent.create", { adapterId }); if (!result?.sessionId) throw new Error("Agent worker was created without a session ID"); createdSessionId = result.sessionId; setSelectedWorker(createdSessionId); setNotice(`Starting ${adapterId}…`); const started = await missionApi().request("action.dispatch", { sessionId: createdSessionId, action: { type: "start" } }); if (started?.ok === false) throw new Error(started.error || "Agent CLI could not be started"); await refresh(); setNotice(`${adapterId} is running under OUTARCH supervision`); } catch (value) { await refresh(); if (createdSessionId) setSelectedWorker(createdSessionId); setNotice(createdSessionId ? `${adapterId} was added but could not start: ${value.message || String(value)}` : value.message || String(value)); } finally { setAgentsLoading(false); } }, [refresh]);
   const executeProjectOpen = React.useCallback(async project => { setProjectsLoading(true); try { await confirmedRequest("project.open", { projectId: project.id }); await refresh(); setView("groundstation"); } catch (value) { setNotice(value.message || String(value)); } finally { setProjectsLoading(false); } }, [refresh]);
-  const openProject = React.useCallback(async project => { setConfirmation({ title: `Switch to ${project.name}?`, detail: "Mission Control will safely stop running workers before changing projects.", recovery: "If the new project cannot open, the project coordinator will attempt recovery.", confirmLabel: "Switch project", run: () => executeProjectOpen(project) }); }, [executeProjectOpen]);
+  const openProject = React.useCallback(async project => { setConfirmation({ title: `Switch to ${project.name}?`, detail: "OUTARCH will safely stop running workers before changing projects.", recovery: "If the new project cannot open, the project coordinator will attempt recovery.", confirmLabel: "Switch project", run: () => executeProjectOpen(project) }); }, [executeProjectOpen]);
   const chooseProject = React.useCallback(async () => {
     setProjectsLoading(true);
     try {
@@ -3816,6 +3878,7 @@ function GroundstationApp() {
         throw new Error(project.error || "The selected folder cannot be opened as a project");
       }
       await refresh();
+      selectionClearedRef.current = false;
       setSelectedWorker(null);
       setFocusedTerminal(null);
       setView("groundstation");
@@ -3851,14 +3914,14 @@ function GroundstationApp() {
     const frame = window.requestAnimationFrame(() => syncWindowChrome());
     return () => window.cancelAnimationFrame(frame);
   }, [shellReady, preferences.theme]);
-  if (loading && !state) return <div className="boot-screen"><div className="boot-orbit"><span>MC</span></div><p>Bringing your workspace online</p></div>;
-  if (error && !state) return <div className="boot-screen boot-error"><div className="boot-orbit"><span>!</span></div><h1>Groundstation unavailable</h1><p>{error}</p><button className="primary-button" onClick={refresh}>Reconnect</button></div>;
+  if (loading && !state) return <div className="boot-screen" role="status"><BrandWordmark large className="boot-wordmark"/><span className="boot-progress" aria-hidden="true"><i/></span><p>Bringing your workspace online</p></div>;
+  if (error && !state) return <div className="boot-screen boot-error" role="alert"><BrandWordmark large className="boot-wordmark"/><h1>The workspace engine is not responding</h1><p>{error}</p><button className="primary-button" onClick={refresh}>Reconnect</button></div>;
 
   const renderView = () => {
-    if (view === "groundstation") return <LiveGroundstationView sessions={supervisedSessions} workspace={workspace} activity={activity} unseenActivity={unseenActivity} selectedId={selectedWorker} onSelect={setSelectedWorker} onFocus={inspectWorker} onAction={dispatch} onNavigate={setView} onDismissActivity={markHistoryReviewed} onRecipes={goToRecipes} onCreateRecipe={() => openRecipeBuilder()} onLaunchRecipe={launchRecipe} onAddWorker={() => setWorkerDialog({ mode: "create" })} onAskAI={prompt => openMissionAI(prompt)} onMissionGraph={() => setMissionGraphOpen(true)} onOpenDecisionSource={openDecisionSource} decisionCount={decisions.status === "ready" ? decisions.counts.pending : undefined} decisions={decisions}/>;
+    if (view === "groundstation") return <LiveGroundstationView sessions={supervisedSessions} workspace={workspace} activity={activity} unseenActivity={unseenActivity} selectedId={selectedWorker} onSelect={selectWorker} onFocus={inspectWorker} onAction={dispatch} onNavigate={setView} onDismissActivity={markHistoryReviewed} onRecipes={goToRecipes} onCreateRecipe={() => openRecipeBuilder()} onLaunchRecipe={launchRecipe} onAddWorker={() => setWorkerDialog({ mode: "create" })} onAskAI={prompt => openMissionAI(prompt)} onMissionGraph={() => setMissionGraphOpen(true)} onOpenDecisionSource={openDecisionSource} decisionCount={decisions.status === "ready" ? decisions.counts.pending : undefined} decisions={decisions}/>;
     if (view === "mission-ai") return <MissionAIScreen initialPrompt={missionAiPrompt} onConfirm={setConfirmation}/>;
     if (view === "workspace") return <WorkspaceView needsCount={pendingCount} onReviewNeeds={() => setView("needs")} sessions={sessions} workspaceKey={recipeProjectKey} terminalLayout={terminalLayout} focusedId={focusedTerminal} expandedId={expandedTerminal} inspectorOpen={inspectorOpen} terminalPreferences={preferences} onInspector={() => setInspectorOpen(value => !value)} onFocus={setFocusedTerminal} onExpand={setExpandedTerminal} onAction={dispatch} onStartWorkspace={startWorkspace} onStopWorkspace={stopWorkspace} onRecipes={goToRecipes} onMissionGraph={() => setMissionGraphOpen(true)} onAddWorker={() => setWorkerDialog({ mode: "create" })} onReconfigure={session => setWorkerDialog({ mode: "edit", configuration: session })} onDuplicate={session => setWorkerDialog({ mode: "create", seed: { ...session, id: `${session.id}-copy`, name: `${session.name} copy` } })} onTerminalError={reportTerminalAlert} onTerminalRecovered={dismissTerminalAlert} onAskAI={prompt => openMissionAI(prompt)} onConfirm={setConfirmation}/>;
-    if (view === "recipes") return <RecipesView sessions={sessions} onManage={openRecipeBuilder} onLaunch={launchRecipe} onDelete={deleteRecipe} onRunAction={runRecipeAction} onAskAI={() => openMissionAI("Design a practical Mission Control recipe (a repeatable workspace launch) for this project. Propose the backend, frontend, tests, Git, database, container, and agent terminals that are useful; define safe startup dependencies and readiness checks; explain the plan before requesting any action.")}/>;
+    if (view === "recipes") return <RecipesView sessions={sessions} onManage={openRecipeBuilder} onLaunch={launchRecipe} onDelete={deleteRecipe} onRunAction={runRecipeAction} onAskAI={() => openMissionAI("Design a practical OUTARCH recipe (a repeatable workspace launch) for this project. Propose the backend, frontend, tests, Git, database, container, and agent terminals that are useful; define safe startup dependencies and readiness checks. Present the complete recipe design in Markdown and ask for my approval ('Does this recipe design look good?'). Do NOT build, start, or run any recipe or workers yet until I explicitly approve the design.")}/>;
     if (view === "needs") return <NeedsView decisionRecords={decisions.records} decisionsStatus={decisions.status} decisionSources={decisions.sources} decisionsComplete={decisions.complete} onDecisionsRefresh={decisions.refresh} onResolveDecision={resolveDecision} onAcknowledgeDecision={decisions.acknowledge} onAction={dispatch} onFocus={inspectWorker} onOpenTerminal={focusWorker} onDismissTerminalAlert={dismissTerminalAlert} onConfirm={setConfirmation} onOpenSource={openDecisionSource}/>;
     if (view === "agents") return <AgentWorkspace sessions={sessions} activity={activity} adapters={agentAdapters} loading={agentsLoading} selectedId={selectedWorker} onSelect={setSelectedWorker} onCreate={createAgent} onAction={dispatch} onOpenTerminal={focusWorker} onConfirm={setConfirmation} decisionRecords={decisions.records} onOpenDecision={openDecisionSource} onNavigate={setView} onAskAI={prompt => openMissionAI(prompt)}/>;
     if (view === "history") return <HistoryView events={activity} onFocus={inspectWorker} onAskAI={prompt => openMissionAI(prompt)} projectKey={historyProjectKey}/>;

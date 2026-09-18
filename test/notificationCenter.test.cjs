@@ -85,7 +85,7 @@ test("in the background, a notice becomes a Windows toast that carries the sound
   const xml = c.shown[0].options.toastXml;
   assert.match(xml, /<text hint-maxLines="1">Billing couldn&apos;t start<\/text>/);
   assert.match(xml, /Port 4000 is already in use/);
-  assert.match(xml, /<text placement="attribution">Mission Control · acme<\/text>/);
+  assert.match(xml, /<text placement="attribution">OUTARCH · acme<\/text>/);
   // Windows ignores a file on a toast from an unpackaged app; its own sound events play.
   assert.match(xml, /<audio src="ms-winsoundevent:Notification\.Reminder"\/>/);
   // One button, and only an action that makes sense from a single click.

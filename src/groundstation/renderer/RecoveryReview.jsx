@@ -7,13 +7,13 @@ import { missionApi } from "./missionApi.js";
 const RECOVERY_STATES = {
   "running-reconnectable": {
     label: "Still running",
-    detail: "Reconnected to the process Mission Control was already supervising.",
+    detail: "Reconnected to the process OUTARCH was already supervising.",
     tone: "ok",
     restartable: false
   },
   interrupted: {
     label: "Interrupted",
-    detail: "Was running when Mission Control stopped. Whether the process survived is unknown.",
+    detail: "Was running when OUTARCH stopped. Whether the process survived is unknown.",
     tone: "warning",
     restartable: true
   },
@@ -25,7 +25,7 @@ const RECOVERY_STATES = {
   },
   exited: {
     label: "Exited",
-    detail: "Finished on its own before Mission Control stopped.",
+    detail: "Finished on its own before OUTARCH stopped.",
     tone: "idle",
     restartable: false
   }
@@ -67,7 +67,7 @@ export default function RecoveryReview({ report, onDismiss, onResumed }) {
       <div className="recovery-review__head">
         <span className="recovery-review__mark" aria-hidden="true">!</span>
         <div className="recovery-review__lead">
-          <strong id={headingId}>Mission Control stopped unexpectedly</strong>
+          <strong id={headingId}>OUTARCH stopped unexpectedly</strong>
           <p>
             {interrupted.length
               ? `${interrupted.length} worker${interrupted.length === 1 ? " was" : "s were"} running. Nothing has been restarted — your layout is restored, the processes are not.`
@@ -123,7 +123,7 @@ export default function RecoveryReview({ report, onDismiss, onResumed }) {
       )}
 
       <p className="recovery-review__note">
-        Starting a worker runs its saved command again. Mission Control never re-runs a
+        Starting a worker runs its saved command again. OUTARCH never re-runs a
         migration, deployment or one-off script on your behalf — check anything destructive first.
       </p>
     </section>

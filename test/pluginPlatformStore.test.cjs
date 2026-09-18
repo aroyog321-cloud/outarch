@@ -78,3 +78,108 @@ test("safe declarative rules evaluate dynamically against bounded context snapsh
   assert.equal(evaluatedEmpty.value, "Observed");
   assert.equal(evaluatedEmpty.tone, "healthy");
 });
+
+test("composite all/any rules, regex, contains, and template variable placeholders", () => {
+  const compositeContribution = {
+    id: "guardian",
+    surface: "cockpit.banner",
+    title: "Project {project.name} Guardian",
+    value: "All Good",
+    detail: "Running: {workers.running.names}",
+    tone: "healthy",
+    rules: [
+      {
+        all: [
+          { metric: "workers.failed.count", operator: "gt", operand: 0 },
+          { metric: "overall.status", operator: "eq", operand: "critical" }
+        ],
+        title: "Critical Failure Alert",
+        value: "Failing: {workers.failed.names}",
+        detail: "Workers failed: {workers.failed.count}",
+        tone: "critical",
+        actionId: "restart-tests",
+        actionLabel: "Emergency Restart"
+      },
+      {
+        any: [
+          { metric: "workers.failed.names", operator: "contains", operand: "api" },
+          { metric: "project.name", operator: "regex", operand: "^test.*" }
+        ],
+        title: "Matched Rule",
+        value: "Matched",
+        tone: "warning"
+      }
+    ]
+  };
+
+  const snapshot1 = {
+    project: { name: "test-app" },
+    overall: { status: "critical" },
+    workers: [
+      { id: "api-server", name: "api-server", status: "failed", health: "critical" },
+      { id: "web-client", name: "web-client", status: "running", health: "nominal" }
+    ]
+  };
+
+  const res1 = evaluateContribution(compositeContribution, snapshot1);
+  assert.equal(res1.title, "Critical Failure Alert");
+  assert.equal(res1.value, "Failing: api-server");
+  assert.equal(res1.detail, "Workers failed: 1");
+  assert.equal(res1.tone, "critical");
+  assert.equal(res1.actionId, "restart-tests");
+  assert.equal(res1.actionLabel, "Emergency Restart");
+
+  const snapshot2 = {
+    project: { name: "production" },
+    overall: { status: "nominal" },
+    workers: [
+      { id: "api-server", name: "api-server", status: "failed", health: "critical" }
+    ]
+  };
+
+  const res2 = evaluateContribution(compositeContribution, snapshot2);
+  assert.equal(res2.value, "Matched");
+  assert.equal(res2.tone, "warning");
+
+  const snapshot3 = {
+    project: { name: "production" },
+    overall: { status: "nominal" },
+    workers: [
+      { id: "db-node", name: "db-node", status: "running", health: "nominal" }
+    ]
+  };
+
+  const res3 = evaluateContribution(compositeContribution, snapshot3);
+  assert.equal(res3.title, "Project production Guardian");
+  assert.equal(res3.value, "All Good");
+  assert.equal(res3.detail, "Running: db-node");
+  assert.equal(res3.tone, "healthy");
+});
+
+test("supports automation actions and new surfaces in manifest normalization", () => {
+  const autoManifest = {
+    manifestVersion: 1,
+    id: "dev.mission-control.auto",
+    name: "Automation Plugin",
+    version: "1.0.0",
+    permissions: ["automation.run.request", "health.read"],
+    surfaces: ["cockpit.banner", "health.status"],
+    actions: [{ id: "run-e2e", label: "Run E2E Tests", type: "automation", operations: ["run", "test"] }],
+    contributions: [
+      {
+        id: "auto-banner",
+        surface: "cockpit.banner",
+        title: "E2E Automation",
+        value: "Ready",
+        actionId: "run-e2e",
+        actionLabel: "Trigger E2E"
+      }
+    ]
+  };
+
+  const normalized = normalizeManifest(autoManifest);
+  assert.equal(normalized.actions[0].type, "automation");
+  assert.deepEqual(normalized.actions[0].operations, ["run", "test"]);
+  assert.equal(normalized.contributions[0].actionId, "run-e2e");
+  assert.equal(normalized.contributions[0].surface, "cockpit.banner");
+});

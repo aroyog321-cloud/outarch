@@ -419,6 +419,8 @@ test("Secure MCP Gateway configuration, audit, and approvals stay behind Protoco
     rotateToken: () => { calls.push(["rotate"]); return { token: "one-time", status: { running: true } }; },
     getToken: () => ({ token: "active-token", configured: true, endpoint: "http://127.0.0.1:37421/mcp" }),
     installClient: ({ target, workspacePath }) => { calls.push(["installClient", target, workspacePath]); return { ok: true, target }; },
+    removeClient: ({ target, workspacePath }) => { calls.push(["removeClient", target, workspacePath]); return { ok: true, target, removed: true }; },
+    clientStatus: ({ workspacePath }) => { calls.push(["clientStatus", workspacePath]); return { "claude-code": { installed: true } }; },
     listApprovals: () => [{ id: "approval-1", state: "pending" }],
     resolveApproval: async (id, decision) => { calls.push(["resolve", id, decision]); return { id, state: decision === "approve" ? "approved" : "denied" }; },
     listAudit: limit => [{ id: "audit-1", limit }],
@@ -431,6 +433,8 @@ test("Secure MCP Gateway configuration, audit, and approvals stay behind Protoco
   assert.equal((await connection.handle(request("status", "mcp.status"))).result.running, true);
   assert.equal((await connection.handle(request("token", "mcp.getToken"))).result.token, "active-token");
   assert.equal((await connection.handle(request("install", "mcp.installClient", { target: "claude-code" }))).result.ok, true);
+  assert.equal((await connection.handle(request("remove", "mcp.removeClient", { target: "claude-code" }))).result.removed, true);
+  assert.equal((await connection.handle(request("cstatus", "mcp.clientStatus"))).result["claude-code"].installed, true);
   assert.equal((await connection.handle(request("configure", "mcp.configure", { configuration: { enabled: true, scopes: ["context.read"] } }))).ok, true);
   assert.equal((await connection.handle(request("rotate-no", "mcp.rotateToken"))).error.code, "CONFIRMATION_REQUIRED");
   assert.equal((await confirmed(connection, "rotate", "mcp.rotateToken")).result.token, "one-time");
@@ -443,6 +447,8 @@ test("Secure MCP Gateway configuration, audit, and approvals stay behind Protoco
   assert.deepEqual(sent.at(-1), { version: 1, type: "integration:event", integration: "mcp", status: { running: false, pendingApprovalCount: 0 } });
   assert.deepEqual(calls, [
     ["installClient", "claude-code", ""],
+    ["removeClient", "claude-code", ""],
+    ["clientStatus", ""],
     ["configure", { enabled: true, scopes: ["context.read"] }],
     ["rotate"],
     ["resolve", "approval-1", "approve"]

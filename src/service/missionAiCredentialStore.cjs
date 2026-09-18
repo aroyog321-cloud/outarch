@@ -7,10 +7,20 @@ const MISSION_AI_CREDENTIAL_VERSION = 2;
 const MAX_CREDENTIAL_FILE_BYTES = 64 * 1024;
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_MODELS = Object.freeze([
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-3.1-pro-preview",
   "gemini-2.5-flash",
   "gemini-2.5-pro",
   "gemini-2.5-flash-lite",
-  "gemini-2.0-flash"
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-1.5-flash-8b"
 ]);
 
 function isPlainObject(value) {
@@ -98,7 +108,7 @@ class MissionAiCredentialStore {
   configure(value = {}) {
     if (!isPlainObject(value)) throw new TypeError("Mission AI configuration must be an object");
     const protection = this.protectionStatus();
-    if (!protection.available) throw new Error("OS credential encryption is unavailable; Mission Control will not store a plaintext API key");
+    if (!protection.available) throw new Error("OS credential encryption is unavailable; OUTARCH will not store a plaintext API key");
     if (Object.hasOwn(value, "model") && !GEMINI_MODELS.includes(value.model)) {
       throw new TypeError("Unsupported Gemini model");
     }

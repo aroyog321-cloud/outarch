@@ -1,6 +1,6 @@
 "use strict";
 
-// Mission Control's own browser surface.
+// OUTARCH's own browser surface.
 //
 // A worker that starts a dev server advertises an address, and until now the
 // only thing the app could do with that address was hand it to the operating
@@ -208,7 +208,7 @@ class WorkspaceBrowser {
     if (!view) return this.state();
     if (url) {
       if (!isLoopbackUrl(url)) {
-        this.#error = "Only local addresses can be previewed in Mission Control.";
+        this.#error = "Only local addresses can be previewed in OUTARCH.";
         this.#emit();
         return this.state();
       }

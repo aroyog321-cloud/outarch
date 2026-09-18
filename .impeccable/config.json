@@ -29,6 +29,39 @@
         ],
         "createdAt": "2026-09-03T13:13:14.648Z",
         "reason": "false positive: L47 is .mission-ai-message { border-left: 2px solid rgba(183,227,192,.45) } — a 2px left rule on a small inline status/error callout (alert-bar convention), not a thick side-tab on a card. Pre-existing code; only touched MissionAI.jsx prompt text this session."
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "var(--ease-spring)",
+        "createdAt": "2026-09-17T08:19:57.289Z",
+        "reason": "Claude checked 2026-09-17: --ease-spring is cubic-bezier(.22, 1, .36, 1), an ease-out with no overshoot (both y control points are 1)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/premiumDesign.css"
+        ],
+        "createdAt": "2026-09-17T08:19:57.741Z",
+        "reason": "Claude checked 2026-09-17: legacy layer; .need-item, .toast and .groundstation-worker-card are rendered by no component, and .confirmation-dialog's 4px left border is overridden (computed border is a uniform hairline)"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/premiumDesign.css"
+        ],
+        "createdAt": "2026-09-17T08:19:58.163Z",
+        "reason": "Claude checked 2026-09-17: the only hit, .terminal-pane__header border-top, is overridden by later layers (computed border-top is 0px none)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/redesign/cockpit.css"
+        ],
+        "createdAt": "2026-09-18T13:00:40.874Z",
+        "reason": "Claude checked 2026-09-18: L1641 is .recipe-run-history > ol > li { border-left: 2px solid var(--mc-border-strong) }, recoloured per run outcome (phase-completed ok, phase-failed danger, phase-cancelled warning). A 2px status rule on list rows whose outcome is also written as text (runPhaseLabel in RecipesView.jsx), not a decorative card side-tab. Pre-existing in HEAD; this session only added flex-direction: row to the command-deck rule in this file."
       }
     ]
   }

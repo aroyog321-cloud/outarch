@@ -5,15 +5,16 @@ import useMissionState from "./useMissionState.js";
 import { ToastProvider } from "./ToastSystem.jsx";
 import { formatCost, formatTokens } from "./formatUsage.js";
 
-// Slot identity mirrors the main process allocation. Colour is never the only
-// signal: the number and the worker name carry the same information.
+// Slot numbers mirror the main process allocation. They route the window back
+// to its pane; the strip itself names the worker, which is what a person reads.
 const SLOT_IDENTITY = {
-  1: { color: "#60A5FA", name: "Window 1" },
-  2: { color: "#A78BFA", name: "Window 2" },
-  3: { color: "#2DD4BF", name: "Window 3" }
+  1: { name: "Window 1" },
+  2: { name: "Window 2" },
+  3: { name: "Window 3" }
 };
 
 const STATUS_LABELS = {
+  idle: "Idle",
   running: "Running",
   starting: "Starting",
   stopped: "Stopped",
@@ -43,7 +44,7 @@ function DetachedTerminalWindow({ route }) {
   const { state, loading, error } = useMissionState();
   const [usage, setUsage] = React.useState(null);
   const [notice, setNotice] = React.useState("");
-  const identity = SLOT_IDENTITY[route.slot];
+  const [findSignal, setFindSignal] = React.useState(0);
 
   const session = React.useMemo(
     () => (state?.sessions || []).find(item => item.id === route.workerId) || null,
@@ -51,7 +52,7 @@ function DetachedTerminalWindow({ route }) {
   );
 
   React.useEffect(() => {
-    document.title = `${session?.name || route.workerName} — Mission Control`;
+    document.title = `${session?.name || route.workerName} — OUTARCH`;
   }, [session, route.workerName]);
 
   React.useEffect(() => {
@@ -83,19 +84,39 @@ function DetachedTerminalWindow({ route }) {
     }
   };
 
+  // The window has no confirmation dialog, so it performs only what needs
+  // none: starting and restarting. Stopping or removing a worker stays in the
+  // main window, and saying so beats a control that silently does nothing.
+  const act = React.useCallback(async (type, workerId) => {
+    if (type === "start" || type === "restart") {
+      setNotice("");
+      await missionApi().request("action.dispatch", { sessionId: workerId, action: { type } });
+      return;
+    }
+    const message = "Stop or remove this worker from the main OUTARCH window, where it is confirmed.";
+    setNotice(message);
+    throw new Error(message);
+  }, []);
+
   const status = session?.status || (loading ? "starting" : "exited");
   const statusLabel = STATUS_LABELS[status] || status;
 
   return (
-    <div className="popout-window" style={{ "--slot-accent": identity.color }}>
+    <div className="popout-window">
+      {/* One neutral strip: the worker, its state in words, search, and the way
+          back. It is also the window's drag handle, and it keeps clear of the
+          native window controls painted over its right end. */}
       <header className="popout-titlebar">
-        <span className="detached-badge">{route.slot}</span>
         <span className="popout-title">{session?.name || route.workerName}</span>
-        <span className="popout-state" data-status={status}>
-          <i aria-hidden="true"/>
-          <span>{statusLabel}</span>
-        </span>
+        <span className="popout-state" data-status={status}>{statusLabel}</span>
         <span className="popout-spacer"/>
+        {session && <button
+          type="button"
+          className="popout-tool"
+          onClick={() => setFindSignal(value => value + 1)}
+          aria-label="Find in output"
+          title="Find in output · Ctrl F"
+        ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></button>}
         <button
           type="button"
           className="popout-recall"
@@ -113,11 +134,15 @@ function DetachedTerminalWindow({ route }) {
             active
             expanded={false}
             shortcut={route.slot}
+            canPopOut={false}
+            chrome="window"
+            findSignal={findSignal}
+            onAction={act}
           />
         ) : (
           <p className="ops-empty">
             {error || (loading ? "Connecting to this terminal…" : "This terminal is no longer in the open project.")}
-            <span>{loading ? "" : "Close this window to return to Mission Control."}</span>
+            <span>{loading ? "" : "Close this window to return to OUTARCH."}</span>
           </p>
         )}
       </div>

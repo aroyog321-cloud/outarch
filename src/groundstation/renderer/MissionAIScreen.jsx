@@ -33,7 +33,7 @@ function Welcome({ status, onSuggest, onManageKeys }) {
     return <section className="ai-welcome is-setup">
       <span className="ai-welcome__mark"><ModelMark family="gemini" size={30}/></span>
       <h2 className="ai-welcome__title">Mission AI needs a model</h2>
-      <p>This build has no built-in Mission AI keys yet. Add a key of your own — Gemini, OpenAI, Anthropic, NVIDIA, OpenRouter, Groq and other OpenAI-compatible providers all work. Mission Control recognises the key, finds its models and checks one answers.</p>
+      <p>This build has no built-in Mission AI keys yet. Add a key of your own — Gemini, OpenAI, Anthropic, NVIDIA, OpenRouter, Groq and other OpenAI-compatible providers all work. OUTARCH recognises the key, finds its models and checks one answers.</p>
       <button type="button" className="ai-welcome__primary" onClick={onManageKeys}>Add a key</button>
     </section>;
   }

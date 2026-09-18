@@ -14,14 +14,35 @@ function buildEngine() {
   const factory = makeFakePtyFactory();
   const api = new EngineAPI({ ptyFactory: factory });
   api.loadProject({
-    sessions: [
+    // MC_FIXTURE_EMPTY=1 is a project with nothing in it yet (the first run).
+    sessions: process.env.MC_FIXTURE_EMPTY === "1" ? [] : [
       { id: "web", name: "Web dev server", command: "npm", args: ["run", "dev"], cwd: "D:/work/acme-console" },
       { id: "api", name: "API gateway", command: "npm", args: ["run", "start:api"], cwd: "D:/work/acme-console/services/api" },
       { id: "tests", name: "Unit tests (watch)", command: "npm", args: ["run", "test:watch"], cwd: "D:/work/acme-console" },
       { id: "worker", name: "Queue worker", command: "node", args: ["worker.js"], cwd: "D:/work/acme-console/services/jobs" },
       { id: "agent-claude", name: "Claude - refactor auth", command: "claude", args: ["--continue"], cwd: "D:/work/acme-console" },
       { id: "agent-codex", name: "Codex - migration review", command: "codex", args: [], cwd: "D:/work/acme-console" },
-      { id: "db", name: "Postgres tunnel", command: "ssh", args: ["-L", "5432:localhost:5432", "bastion"], cwd: "D:/work/acme-console", autoStart: false }
+      { id: "db", name: "Postgres tunnel", command: "ssh", args: ["-L", "5432:localhost:5432", "bastion"], cwd: "D:/work/acme-console", autoStart: false },
+      // MC_FIXTURE_SHELLS=1 adds workers exactly as the two-field Add terminal
+      // form creates them on Windows (workerForm.buildShellLaunch): a plain
+      // PowerShell, and PowerShell wrapping a typed start command.
+      ...(process.env.MC_FIXTURE_SHELLS === "1" ? [
+        { id: "shell-idle", name: "sample", command: "powershell.exe", args: ["-NoLogo", "-NoProfile", "-NoExit"], cwd: "D:/first", autoStart: false },
+        { id: "shell-claude", name: "wsgsgv", command: "powershell.exe", args: ["-NoLogo", "-NoProfile", "-NoExit", "-Command", "claude"], cwd: "D:/first", autoStart: false },
+        { id: "shell-live", name: "zcvdc", command: "powershell.exe", args: ["-NoLogo", "-NoProfile", "-NoExit"], cwd: "D:/first" },
+        { id: "shell-dev", name: "server", command: "powershell.exe", args: ["-NoLogo", "-NoProfile", "-NoExit", "-Command", "npm run dev -- --port 5173"], cwd: "D:/first" }
+      ] : []),
+      // MC_FIXTURE_CROWD=1 is a busy project: twenty workers across every
+      // folder kind, so the off-canvas strip and the folder row overflow.
+      ...(process.env.MC_FIXTURE_CROWD === "1" ? [
+        ["frontend", "frontend", "npm", ["run", "dev"]], ["backend", "backend", "npm", ["run", "start"]],
+        ["svc-cvnv", "svc cvnv", "node", ["svc.js"]], ["compose", "compose stack", "docker", ["compose", "up"]],
+        ["redis", "redis cache", "docker", ["run", "redis"]], ["db-migrate", "db-migrate", "npx", ["prisma", "migrate", "dev"]],
+        ["db-seed", "db seed", "psql", ["-f", "seed.sql"]], ["git-watch", "git", "git", ["status"]],
+        ["e2e", "tests e2e", "npx", ["playwright", "test"]], ["build", "build", "npm", ["run", "build"]],
+        ["shell-a", "scratch", "powershell.exe", ["-NoLogo"]], ["shell-b", "logs", "powershell.exe", ["-NoLogo"]],
+        ["shell-c", "ops", "powershell.exe", ["-NoLogo"]]
+      ].map(([id, name, command, args]) => ({ id, name, command, args, cwd: "D:/work/acme-console", autoStart: false })) : [])
     ]
   });
 
@@ -222,7 +243,7 @@ const FIXTURES = {
     tasks: [],
     terminals: [
       { id: "t-1", name: "dev server", controllable: false, active: true, currentCommand: "npm run dev", commandState: "running", cwd: "apps/web", shellIntegration: true },
-      { id: "t-2", name: "Mission Control · migrations", controllable: true, active: false, currentCommand: "", commandState: "idle", cwd: "services/api", shellIntegration: true }
+      { id: "t-2", name: "OUTARCH · migrations", controllable: true, active: false, currentCommand: "", commandState: "idle", cwd: "services/api", shellIntegration: true }
     ],
     lastSyncAt: now - 40 * 1000,
     lastError: null
@@ -265,9 +286,22 @@ function handle(method, params) {
       }
     };
   }
+  // MC_FIXTURE_FAIL=<regex> makes the matching requests fail the way a
+  // stopped service does, to exercise every error state.
+  if (process.env.MC_FIXTURE_FAIL && new RegExp(process.env.MC_FIXTURE_FAIL).test(method)) {
+    throw new Error("The service did not answer (harness failure)");
+  }
   const fixture = FIXTURES[method];
-  if (fixture) return fixture(params);
-  return { ok: true };
+  const value = fixture ? fixture(params) : { ok: true };
+  return process.env.MC_FIXTURE_EMPTY === "1" ? emptied(value) : value;
+}
+
+// Every list in a payload is emptied; the shapes stay what consumers expect.
+function emptied(value) {
+  if (value && typeof value.then === "function") return value.then(emptied);
+  if (Array.isArray(value)) return [];
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, Array.isArray(item) ? [] : item]));
 }
 
 module.exports = { handle, engine };

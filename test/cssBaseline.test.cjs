@@ -19,8 +19,8 @@ const MAIN = path.join(RENDERER, "main.jsx");
 
 const CEIL = {
   files: 22,
-  important: 1420, // Per-terminal resizing: the boundary splitter styles were removed (was 1428)
-  rawColors: 1208, // Per-terminal resizing: the splitter fallbacks went with them (was 1220)
+  important: 1417, // OUTARCH readiness passes: forced History chapters unwound, dead badge rule removed (was 1420)
+  rawColors: 1198, // sidebar/toolbar polish: the two gradient tokens alias their stops, one AI violet added (was 1201)
 };
 
 function allCssFiles(dir) {

@@ -1,3 +1,35 @@
+# OUTARCH 2.19.0 — the app is now OUTARCH
+
+- Renames Mission Control to OUTARCH everywhere a person reads the name: the
+  window and taskbar, dialogs, notifications, the sidebar, Settings > About,
+  the phone companion, the MCP gateway page, the VS Code bridge, the Android
+  client, the TUI and the CLI. Feature names (Groundstation, Mission AI,
+  Mission Command) are unchanged.
+- Adds the OUTARCH logo: the glitch O app icon on the window, taskbar, Windows
+  notifications, Android launcher, phone home screen and VS Code; the wordmark
+  on the startup screen, the sidebar and About. Brand sources live in
+  `assets/brand/source/`; `scripts/brand/build-brand-assets.py` rebuilds every
+  derived image.
+- Gives the desktop app its own data folder (`%APPDATA%\OUTARCH`). Until now
+  it shared Electron's generic folder with every other unpackaged Electron
+  program. The first launch copies projects, sealed keys, credentials and
+  window layouts across, never moves or deletes the originals, and keeps
+  using the old folder if the copy cannot finish. `OUTARCH_USER_DATA_DIR`
+  points the app at any other folder.
+- Opens one OUTARCH at a time: launching it again brings the open window to
+  the front instead of failing on the project that window already holds. A
+  launch with `--config` still opens a separate workspace.
+- Windows toasts are headed "OUTARCH" with the app icon.
+- The launcher no longer reinstalls dependencies on every start (it looked
+  for a node-pty file that prebuilt releases do not have) and rebuilds the
+  renderer only when it changed. `OPEN_OUTARCH_WINDOWS.cmd` is the new
+  launcher; the old name still works.
+- History's run chapters read at the app's type floor again (names and
+  summaries were 9-11px) and keep the whole name beside the state badge.
+- Identifiers other tools and saved data depend on are unchanged: storage
+  keys, IPC channels, the MCP server key, the VS Code extension id and the
+  Android package.
+
 # Mission Control 2.19.0 — full-app concept UI
 
 - Maps the supplied full-app HTML concept onto the actual Electron/React

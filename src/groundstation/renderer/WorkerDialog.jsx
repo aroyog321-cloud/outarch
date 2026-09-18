@@ -8,7 +8,7 @@ import {
 } from "./workerForm.js";
 import TabSet, { tabPanelProps } from "./TabSet.jsx";
 
-const WORKER_DIALOG_AI_PROMPT = "Explain Mission Control's Add terminal dialog. It asks for a name and an optional start command, and creates one engine-owned PTY in the open project folder; the command runs through the configured shell, which stays open afterwards so a failed command still leaves a usable prompt. Cover what happens on Start, that Full Attach never duplicates the PTY, that nothing is created until Start is pressed, and where the advanced settings (arguments, working directory, environment, PowerShell compatibility) live afterwards. Then help me choose a command for my current project.";
+const WORKER_DIALOG_AI_PROMPT = "Explain OUTARCH's Add terminal dialog. It asks for a name and an optional start command, and creates one engine-owned PTY in the open project folder; the command runs through the configured shell, which stays open afterwards so a failed command still leaves a usable prompt. Cover what happens on Start, that Full Attach never duplicates the PTY, that nothing is created until Start is pressed, and where the advanced settings (arguments, working directory, environment, PowerShell compatibility) live afterwards. Then help me choose a command for my current project.";
 
 function Field({ label, detail, children, wide = false }) {
   return (
@@ -193,7 +193,7 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
               <Field label="Display name">
                 <input value={draft.name} disabled={busy} onChange={event => update("name", event.target.value)} placeholder="Backend server" autoFocus />
               </Field>
-              <Field label="Command" detail="The executable Mission Control supervises." wide>
+              <Field label="Command" detail="The executable OUTARCH supervises." wide>
                 <input value={draft.command} disabled={busy} onChange={event => update("command", event.target.value)} placeholder="powershell.exe" />
               </Field>
               <Field label="Arguments" detail='JSON array, for example ["run", "dev"].' wide>

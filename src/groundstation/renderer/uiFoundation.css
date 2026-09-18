@@ -1,4 +1,4 @@
-/* Mission Control UI foundation.
+/* OUTARCH UI foundation.
    This file intentionally loads after the historical stylesheet so active
    screens share one readable type scale, one motion budget and one surface
    language while the older rules are retired incrementally. */

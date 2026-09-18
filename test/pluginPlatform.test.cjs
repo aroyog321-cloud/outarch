@@ -51,3 +51,44 @@ test("plugin actions wait for local approval and revoked grants cancel authority
   platform.configure(manifest.id, { grantedPermissions: [] });
   assert.equal(platform.listApprovals().find(item => item.id === later.id).state, "revoked");
 });
+
+test("plugin can request and execute approved automation actions", async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "mission-control-plugin-auto-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  let now = 20_000;
+  const calls = [];
+  const autoManifest = {
+    manifestVersion: 1,
+    id: "dev.mission-control.auto-test",
+    name: "Auto Tester",
+    version: "1.0.0",
+    publisher: "Tests",
+    description: "Automation tests",
+    permissions: ["automation.run.request"],
+    surfaces: ["settings.summary", "needs.request"],
+    actions: [{ id: "trigger-ci", label: "Trigger CI", type: "automation", operations: ["test", "run"] }]
+  };
+  const store = new PluginPlatformStore(path.join(directory, "plugins.json"), { now: () => now });
+  const engine = {
+    listAutomations: () => [{ id: "ci-pipeline", name: "CI Pipeline" }],
+    testAutomation: async id => { calls.push(["testAutomation", id]); return { ok: true }; }
+  };
+  const platform = new PermissionedPluginPlatform({
+    store,
+    missionContext: { snapshot: () => ({ generatedAt: now }) },
+    getEngineApi: () => engine,
+    now: () => now,
+    chooseManifest: async () => ({ manifest: autoManifest, source: "auto.plugin.json" })
+  });
+
+  await platform.chooseAndInstall();
+  platform.configure(autoManifest.id, { enabled: true, grantedPermissions: ["automation.run.request"] });
+  const approval = platform.requestAction(autoManifest.id, { actionId: "trigger-ci", operation: "test", target: "ci-pipeline", reason: "Run automated tests" });
+  assert.equal(approval.state, "pending");
+  assert.equal(approval.targetName, "CI Pipeline");
+  assert.equal(approval.type, "automation");
+  
+  const result = await platform.resolveApproval(approval.id, "approve");
+  assert.equal(result.state, "approved");
+  assert.deepEqual(calls, [["testAutomation", "ci-pipeline"]]);
+});

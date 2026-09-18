@@ -2,14 +2,36 @@
   "manifestVersion": 1,
   "id": "dev.mission-control.test-runner",
   "name": "Test Runner Intelligence",
-  "version": "1.0.0",
-  "publisher": "Mission Control examples",
-  "description": "Reviews bounded test-worker health and may request an approved restart.",
-  "permissions": ["health.read", "events.read", "worker.lifecycle.request"],
-  "surfaces": ["settings.summary", "health.status", "needs.request"],
+  "version": "1.1.0",
+  "publisher": "OUTARCH examples",
+  "description": "Reviews bounded test-worker health, evaluates test status, and requests approved test runs.",
+  "permissions": ["health.read", "events.read", "worker.lifecycle.request", "automation.run.request"],
+  "surfaces": ["settings.summary", "health.status", "cockpit.banner", "needs.request"],
   "contributions": [
     { "id": "tests-summary", "surface": "settings.summary", "title": "Test intelligence", "value": "Evidence linked", "detail": "Uses bounded test-worker health and event metadata.", "tone": "neutral" },
-    { "id": "tests-health", "surface": "health.status", "title": "Test worker health", "value": "Observed", "detail": "Requests recovery only through a local approval.", "tone": "healthy" }
+    {
+      "id": "tests-health",
+      "surface": "health.status",
+      "title": "Test suite status",
+      "value": "Observed",
+      "detail": "Requests test workflow runs through local approval.",
+      "tone": "healthy",
+      "rules": [
+        {
+          "all": [
+            { "metric": "workers.failed.count", "operator": "gt", "operand": 0 }
+          ],
+          "value": "Failures detected",
+          "detail": "{workers.failed.names} failed. Trigger automated test suite.",
+          "tone": "critical",
+          "actionId": "run-test-suite",
+          "actionLabel": "Run Test Automation"
+        }
+      ]
+    }
   ],
-  "actions": [{ "id": "restart-tests", "label": "Restart test worker", "type": "worker", "operations": ["restart"] }]
+  "actions": [
+    { "id": "restart-tests", "label": "Restart test worker", "type": "worker", "operations": ["restart"] },
+    { "id": "run-test-suite", "label": "Trigger test automation suite", "type": "automation", "operations": ["run", "test"] }
+  ]
 }

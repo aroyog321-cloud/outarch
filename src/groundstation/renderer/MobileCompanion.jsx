@@ -1,6 +1,7 @@
 import React from "react";
 import { confirmedRequest, missionApi } from "./missionApi.js";
 import { generateQRCodeMatrix } from "./qrGenerator.js";
+import { copyText } from "./clipboard.js";
 
 const SCOPE_OPTIONS = [
   ["summary.read", "Project Summary", "Health and aggregate state"],
@@ -226,7 +227,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
   const copyText = async (text, key) => {
     if (!text) return;
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopiedKey(key);
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
       copyTimerRef.current = setTimeout(() => setCopiedKey(""), 2200);
@@ -313,7 +314,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
         </div>
       </header>
 
-      {resourceState.statusError && <div className="integration-resource-notice" role="status"><span><strong>Mobile service status could not be refreshed.</strong> {statusKnown ? `Showing status verified ${refreshAge(resourceState.statusUpdatedAt)}.` : "Controls remain unavailable until Mission Control can verify the service."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
+      {resourceState.statusError && <div className="integration-resource-notice" role="status"><span><strong>Mobile service status could not be refreshed.</strong> {statusKnown ? `Showing status verified ${refreshAge(resourceState.statusUpdatedAt)}.` : "Controls remain unavailable until OUTARCH can verify the service."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
 
       <dl className="companion__facts">
         <div><dt>Paired phones</dt><dd>{knownCount(status?.deviceCount)}</dd><small>{status?.revokedDeviceCount ? `${status.revokedDeviceCount} revoked, kept in the audit trail` : "Credentials held by the OS keychain"}</small></div>
@@ -376,7 +377,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
             {busy === "configure" ? "Turning on…" : "Turn on"}
           </button>}
         </div>
-      ) : <div className="companion__off" aria-busy={resourceState.loading ? "true" : undefined}><div><strong>{resourceState.loading ? "Checking Mobile Companion…" : "Mobile Companion unavailable"}</strong><p>{resourceState.loading ? "Mission Control is verifying local service and secure-storage availability." : "Retry the status request before enabling or configuring mobile supervision."}</p></div></div>}
+      ) : <div className="companion__off" aria-busy={resourceState.loading ? "true" : undefined}><div><strong>{resourceState.loading ? "Checking Mobile Companion…" : "Mobile Companion unavailable"}</strong><p>{resourceState.loading ? "OUTARCH is verifying local service and secure-storage availability." : "Retry the status request before enabling or configuring mobile supervision."}</p></div></div>}
 
       <section className="companion__section" aria-label="What paired phones can do">
         <header>

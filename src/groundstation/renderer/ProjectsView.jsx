@@ -95,7 +95,7 @@ export default function ProjectsView({ data, loading, onChoose, onOpen, onRemove
           <div className="empty-state project-empty">
             <span>⊞</span>
             <strong>{projects.length ? "No matching projects" : "No recent projects"}</strong>
-            <p>{projects.length ? "Try a different name or path." : "Choose any folder to create a local Mission Control workspace."}</p>
+            <p>{projects.length ? "Try a different name or path." : "Choose any folder to create a local OUTARCH workspace."}</p>
           </div>
         )}
       </section>

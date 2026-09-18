@@ -30,7 +30,7 @@ final class CompanionTransport {
 
   static String base64Url(byte[] value) { return Base64.encodeToString(value, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP); }
   static byte[] fromBase64Url(String value) { return Base64.decode(value, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP); }
-  static String endpoint(String value) { String clean = value.trim().replaceAll("/+$", ""); if (!clean.matches("http://(?:10\\.|192\\.168\\.|172\\.(?:1[6-9]|2[0-9]|3[01])\\.)[^/]+")) throw new IllegalArgumentException("Use the private-LAN endpoint shown by Mission Control"); return clean; }
+  static String endpoint(String value) { String clean = value.trim().replaceAll("/+$", ""); if (!clean.matches("http://(?:10\\.|192\\.168\\.|172\\.(?:1[6-9]|2[0-9]|3[01])\\.)[^/]+")) throw new IllegalArgumentException("Use the private-LAN endpoint shown by OUTARCH"); return clean; }
 
   static JSONObject pair(String endpointValue, String code, String deviceName) throws Exception {
     String endpoint = endpoint(endpointValue);
@@ -57,7 +57,7 @@ final class CompanionTransport {
     JSONObject headers = new JSONObject().put("X-Mission-Control-Device", deviceId).put("X-Mission-Control-Time", String.valueOf(timestamp)).put("X-Mission-Control-Nonce", nonce);
     JSONObject sealed = post(endpoint + REQUEST, envelope, headers);
     JSONObject opened = decrypt(secret, sealed, aad + "|response");
-    if (!opened.optBoolean("ok", false)) throw new IllegalStateException(opened.optString("error", "Mission Control rejected the request"));
+    if (!opened.optBoolean("ok", false)) throw new IllegalStateException(opened.optString("error", "OUTARCH rejected the request"));
     return opened.getJSONObject("result");
   }
 
@@ -81,6 +81,6 @@ final class CompanionTransport {
     if (headers != null) for (String key : JSONObject.getNames(headers)) connection.setRequestProperty(key, headers.getString(key));
     if (body != null) { connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "application/json"); try (OutputStream output = connection.getOutputStream()) { output.write(body.toString().getBytes(StandardCharsets.UTF_8)); } }
     InputStream stream = connection.getResponseCode() < 400 ? connection.getInputStream() : connection.getErrorStream(); StringBuilder value = new StringBuilder(); try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) { String line; while ((line = reader.readLine()) != null && value.length() < 262144) value.append(line); }
-    JSONObject result = new JSONObject(value.toString()); if (connection.getResponseCode() >= 400) throw new IllegalStateException(result.optString("error", "Mission Control request failed")); return result;
+    JSONObject result = new JSONObject(value.toString()); if (connection.getResponseCode() >= 400) throw new IllegalStateException(result.optString("error", "OUTARCH request failed")); return result;
   }
 }

@@ -171,7 +171,7 @@ async function attachFull(engineApi, sessionId, io = {}) {
       }
     }
     try {
-      stdout.write(`${WINDOWS_INPUT_MODE_OFF}\x1b[?25h\r\n[Returning to Mission Control]\r\n`);
+      stdout.write(`${WINDOWS_INPUT_MODE_OFF}\x1b[?25h\r\n[Returning to OUTARCH]\r\n`);
     } catch (err) {
       recordAttachError(err);
     }

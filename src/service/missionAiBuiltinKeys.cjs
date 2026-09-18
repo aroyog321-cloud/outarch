@@ -18,8 +18,11 @@
 //      file and rebuilding.
 // ============================================================================
 
-const MISSION_AI_PRIMARY_KEY = "AQ.Ab8RN6Lu7l6uPPC7wnuWZw6cob1nL9yU2TzyqgRI6WoMM5Mbkw";
-const MISSION_AI_FALLBACK_KEY = "AQ.Ab8RN6Ko8rqsFglQtThYkBHl553F9Gki2_q1yOy02iBkrRHHDg";
+const MISSION_AI_PRIMARY_KEY = "AQ.Ab8RN6JvljUGoIzVbZms0iDcRZdsMYn_ZmBOP_4E7DevQihklg";
+const MISSION_AI_FALLBACK_KEY = "AQ.Ab8RN6J0gq3tUL-4tHvV6w1T9lGawVl-ieV-pKeJR_Kr_6geeg";
+
+const MISSION_AI_NVIDIA_PRIMARY_KEY = "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";
+const MISSION_AI_NVIDIA_FALLBACK_KEY = "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";
 
 // ----------------------------------------------------------------------------
 
@@ -35,11 +38,42 @@ function usableKey(value) {
 }
 
 function builtinKeys(override = null) {
-  // Tests inject their own pair; the shipped app reads the constants above.
-  const source = override || { primary: MISSION_AI_PRIMARY_KEY, fallback: MISSION_AI_FALLBACK_KEY };
+  // Tests inject their own keys; the shipped app reads the constants above.
+  if (override && typeof override === "object") {
+    if (override.gemini || override.nvidia) {
+      return {
+        gemini: {
+          primary: usableKey(override.gemini?.primary) ? override.gemini.primary.trim() : null,
+          fallback: usableKey(override.gemini?.fallback) ? override.gemini.fallback.trim() : null
+        },
+        nvidia: {
+          primary: usableKey(override.nvidia?.primary) ? override.nvidia.primary.trim() : null,
+          fallback: usableKey(override.nvidia?.fallback) ? override.nvidia.fallback.trim() : null
+        }
+      };
+    }
+    const hasNvidia = Boolean(override.nvidiaPrimary || override.nvidiaFallback || (override.primary && override.primary.startsWith("nvapi-")));
+    return {
+      gemini: {
+        primary: usableKey(override.primary) && !override.primary.startsWith("nvapi-") ? override.primary.trim() : null,
+        fallback: usableKey(override.fallback) && !override.fallback.startsWith("nvapi-") ? override.fallback.trim() : null
+      },
+      nvidia: {
+        primary: usableKey(override.nvidiaPrimary) ? override.nvidiaPrimary.trim() : (override.primary && override.primary.startsWith("nvapi-") ? override.primary.trim() : null),
+        fallback: usableKey(override.nvidiaFallback) ? override.nvidiaFallback.trim() : (override.fallback && override.fallback.startsWith("nvapi-") ? override.fallback.trim() : null)
+      }
+    };
+  }
+
   return {
-    primary: usableKey(source.primary) ? source.primary.trim() : null,
-    fallback: usableKey(source.fallback) ? source.fallback.trim() : null
+    gemini: {
+      primary: usableKey(MISSION_AI_PRIMARY_KEY) ? MISSION_AI_PRIMARY_KEY.trim() : null,
+      fallback: usableKey(MISSION_AI_FALLBACK_KEY) ? MISSION_AI_FALLBACK_KEY.trim() : null
+    },
+    nvidia: {
+      primary: usableKey(MISSION_AI_NVIDIA_PRIMARY_KEY) ? MISSION_AI_NVIDIA_PRIMARY_KEY.trim() : null,
+      fallback: usableKey(MISSION_AI_NVIDIA_FALLBACK_KEY) ? MISSION_AI_NVIDIA_FALLBACK_KEY.trim() : null
+    }
   };
 }
 
@@ -68,7 +102,7 @@ class BuiltinMissionAiCredentials {
       if (raw.length > MAX_PREFERENCES_BYTES) return { model: null, includeTerminalEvidence: false };
       const value = JSON.parse(raw.toString("utf8"));
       return {
-        // Only the free-tier Flash models run on the built-in keys, whatever the file says.
+        // Only curated built-in models run on the built-in keys, whatever the file says.
         model: isMissionModelId(value?.model) ? value.model : null,
         includeTerminalEvidence: value?.includeTerminalEvidence === true
       };
@@ -86,8 +120,16 @@ class BuiltinMissionAiCredentials {
     this.#fs.renameSync(temporary, this.#preferencesPath);
   }
 
-  hasKey(slot) {
-    return Boolean(slot === "secondary" || slot === "fallback" ? this.#keys.fallback : this.#keys.primary);
+  hasKey(slot = "primary", provider = null) {
+    const wantsFallback = slot === "secondary" || slot === "fallback";
+    const subSlot = wantsFallback ? "fallback" : "primary";
+    if (provider === "nvidia") {
+      return Boolean(this.#keys.nvidia?.[subSlot]);
+    }
+    if (provider === "gemini") {
+      return Boolean(this.#keys.gemini?.[subSlot]);
+    }
+    return Boolean(this.#keys.gemini?.[subSlot] || this.#keys.nvidia?.[subSlot]);
   }
 
   protectionStatus() {
@@ -96,12 +138,21 @@ class BuiltinMissionAiCredentials {
 
   status() {
     const preferences = this.#readPreferences();
-    const primary = Boolean(this.#keys.primary);
-    const fallback = Boolean(this.#keys.fallback);
+    const primaryGemini = Boolean(this.#keys.gemini?.primary);
+    const fallbackGemini = Boolean(this.#keys.gemini?.fallback);
+    const primaryNvidia = Boolean(this.#keys.nvidia?.primary);
+    const fallbackNvidia = Boolean(this.#keys.nvidia?.fallback);
+    const primary = primaryGemini || primaryNvidia;
+    const fallback = fallbackGemini || fallbackNvidia;
     return {
       configured: primary || fallback,
       builtin: true,
-      keyState: { primary: { configured: primary }, secondary: { configured: fallback } },
+      keyState: {
+        primary: { configured: primary },
+        secondary: { configured: fallback },
+        gemini: { primary: primaryGemini, fallback: fallbackGemini },
+        nvidia: { primary: primaryNvidia, fallback: fallbackNvidia }
+      },
       activeSlot: primary ? "primary" : fallback ? "secondary" : null,
       secondaryConfigured: fallback,
       model: preferences.model || "gemini-2.5-flash",
@@ -132,10 +183,15 @@ class BuiltinMissionAiCredentials {
     return this.status();
   }
 
-  apiKey(slot = "primary") {
+  apiKey(slot = "primary", provider = null) {
     const wantsFallback = slot === "secondary" || slot === "fallback";
-    const key = wantsFallback ? (this.#keys.fallback || this.#keys.primary) : (this.#keys.primary || this.#keys.fallback);
-    if (!key) throw new Error("Mission AI keys are not set in this build");
+    const targetProvider = provider === "nvidia" ? "nvidia" : (provider === "gemini" ? "gemini" : (this.#keys.gemini?.primary || this.#keys.gemini?.fallback ? "gemini" : "nvidia"));
+    const bucket = this.#keys[targetProvider] || this.#keys.gemini;
+    const key = wantsFallback ? (bucket.fallback || bucket.primary) : (bucket.primary || bucket.fallback);
+    if (!key) {
+      if (provider === "nvidia") throw new Error("Mission AI NVIDIA keys are not set in this build");
+      throw new Error("Mission AI keys are not set in this build");
+    }
     return key;
   }
 

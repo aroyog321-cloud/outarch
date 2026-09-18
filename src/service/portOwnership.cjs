@@ -6,10 +6,10 @@
 // Control's whole authority model is that it owns the PTYs it spawned and
 // nothing else, so the useful and honest question is *ownership*:
 //
-//   * If the listener descends from a worker Mission Control started, the app
+//   * If the listener descends from a worker OUTARCH started, the app
 //     already has the authority to stop it, through the existing confirmation
 //     ceremony. No new power is needed.
-//   * If it is a foreign process, Mission Control reports it — PID and name —
+//   * If it is a foreign process, OUTARCH reports it — PID and name —
 //     and stops there. Terminating an arbitrary system process is a categorical
 //     expansion of what this app is allowed to do, and a crash banner is the
 //     worst possible place to grant it.
@@ -80,7 +80,7 @@ function parseProcessTree(output) {
 }
 
 // Walks from the listener up to init, stopping at the first PID that belongs to
-// a Mission Control worker. Depth-bounded and cycle-guarded, because a corrupt
+// an OUTARCH worker. Depth-bounded and cycle-guarded, because a corrupt
 // or racing snapshot of the process table must not hang the inspection.
 function resolveOwnership({ pid, tree, workers }) {
   const owners = new Map();
@@ -119,7 +119,7 @@ function resolveOwnership({ pid, tree, workers }) {
 // it is allowed to say, so the copy cannot drift from the authority.
 function describePortOwner(result) {
   if (!result || result.available === false) {
-    return result?.error || "Mission Control could not inspect port owners on this system.";
+    return result?.error || "OUTARCH could not inspect port owners on this system.";
   }
   // "We looked and found nothing" and "we could not look" are different
   // answers, and only one of them means the port is free. Collapsing them is
@@ -130,10 +130,10 @@ function describePortOwner(result) {
   }
   const owner = result.owners[0];
   if (owner.owned) {
-    return `Port ${result.port} is held by ${owner.sessionName}, a worker Mission Control supervises. You can stop it from here.`;
+    return `Port ${result.port} is held by ${owner.sessionName}, a worker OUTARCH supervises. You can stop it from here.`;
   }
   const name = owner.chain?.[0]?.name;
-  return `Port ${result.port} is held by ${name ? `${name} (PID ${owner.pid})` : `PID ${owner.pid}`}, which Mission Control did not start. Mission Control will not terminate a process it does not own — stop it from Task Manager or its own tooling.`;
+  return `Port ${result.port} is held by ${name ? `${name} (PID ${owner.pid})` : `PID ${owner.pid}`}, which OUTARCH did not start. OUTARCH will not terminate a process it does not own — stop it from Task Manager or its own tooling.`;
 }
 
 module.exports = {

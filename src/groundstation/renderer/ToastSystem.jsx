@@ -2,7 +2,7 @@ import React from "react";
 import { playNotificationSound } from "./notificationSound.js";
 
 /* ===========================================================================
-   ToastSystem — how Mission Control shows a notification inside the window.
+   ToastSystem — how OUTARCH shows a notification inside the window.
 
    Usage:
      const { toast } = useToast();

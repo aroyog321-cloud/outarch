@@ -1,6 +1,6 @@
 "use strict";
 
-// Local Service Registry for Mission Control.
+// Local Service Registry for OUTARCH.
 // Tracks active web services, development servers, database listeners, and API endpoints
 // discovered from engine workers. Enforces generation scoping and state tracking.
 

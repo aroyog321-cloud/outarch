@@ -6,6 +6,14 @@
 }
 
 .mission-graph-dialog {
+  /* The dialog renders outside the shell, where these names still hold the
+     retired palette; its captions measured 4.26:1. State the current one. */
+  --gs-text: var(--mc-text);
+  --gs-muted: var(--mc-text-muted);
+  --gs-dim: var(--mc-text-dim);
+  --gs-line: var(--mc-hairline);
+  --gs-line-strong: var(--mc-border);
+  --gs-accent: var(--mc-accent-strong);
   position: fixed;
   z-index: 151;
   top: 50%;
@@ -103,7 +111,7 @@
 .mission-graph-inspector dd { margin: 4px 0 0; color: var(--gs-text,var(--text)); font-size: 12.5px; line-height: 1.45; }
 .mission-graph-inspector footer { display: flex; gap: 6px; margin-top: 17px; }
 .mission-graph-inspector footer button,.mission-graph-empty button { min-height: 34px; padding: 0 11px; color: var(--gs-muted,var(--muted)); background: transparent; border: 1px solid var(--gs-line-strong,var(--line-strong)); border-radius: var(--mc-radius-xs); cursor: pointer; }
-.mission-graph-inspector footer button.primary,.mission-graph-empty button { color: var(--accent-ink); background: var(--gs-accent,var(--accent)); border-color: transparent; font-weight: 680; }
+.mission-graph-inspector footer button.primary,.mission-graph-empty button { color: var(--mc-text-ink); background: var(--mc-accent); border-color: transparent; font-weight: 680; }
 .mission-graph-cycle,.mission-graph-warning,.mission-graph-error { padding: 9px 11px; color: var(--amber); background: color-mix(in srgb, var(--mc-warning) 6%, transparent); border: 1px solid color-mix(in srgb, var(--mc-warning) 18%, transparent); border-radius: var(--mc-radius-xs); font-size: 11.5px; }
 .mission-graph-cycle { margin-top: 12px; }
 .mission-graph-warning { margin-bottom: 10px; }

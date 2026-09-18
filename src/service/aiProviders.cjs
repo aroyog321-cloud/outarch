@@ -15,8 +15,9 @@
 
 const { redactText } = require("./contextSanitizer.cjs");
 
-const REQUEST_TIMEOUT_MS = 60 * 1000;
-const LIST_TIMEOUT_MS = 15 * 1000;
+const REQUEST_TIMEOUT_MS = 180 * 1000;
+const REASONING_REQUEST_TIMEOUT_MS = 300 * 1000;
+const LIST_TIMEOUT_MS = 30 * 1000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 // Every model a key's listing returns is offered, so the cap only guards
 // against a runaway listing; OpenRouter alone lists several hundred.
@@ -216,9 +217,9 @@ function flagshipScore(modelId) {
   const id = String(modelId || "").toLowerCase();
   let score = 0;
   // Modern standard flagship workhorse models (fastest, warm, most reliable)
-  if (/llama-3\.3|llama-3\.1-(70b|8b)|llama-3\.1-nemotron-70b|gpt-(5|4|o\d)|claude-3-7|claude-3-5|deepseek-(r1|v3|chat)|qwen2\.5-(72b|coder|7b)|mistral-large/i.test(id)) {
+  if (/llama-3\.3|llama-3\.1-(70b|8b)|llama-3\.1-nemotron-70b|gpt-(5|4|o\d)|claude-3-7|claude-3-5|deepseek-(r1|v3|chat)|qwen2\.5-(72b|coder|7b)|mistral-large|gemini-2\.5|gemini-3/i.test(id)) {
     score += 100;
-  } else if (/llama-3|llama3|qwen2\.5|gemma-2|mistral-small|phi-4|phi-3\.5/i.test(id)) {
+  } else if (/llama-3|llama3|qwen2\.5|gemma-2|mistral-small|phi-4|phi-3\.5|gemini-2\.0|gemini-1\.5/i.test(id)) {
     score += 50;
   } else if (/instruct|chat|nemotron/i.test(id)) {
     score += 20;
@@ -262,43 +263,71 @@ function defaultModel(models) {
 
 // ---------------------------------------------------------- Mission AI models
 //
-// Mission AI runs on the two keys built into the app, on Google's free tier.
-// It offers only stable Flash and Flash-Lite models: a Pro model or a preview
-// spends a free quota in a handful of questions, dated snapshots and aliases
-// duplicate a stable model, and image, audio, live and TTS models cannot hold
-// a chat. From what the keys can reach it keeps the two newest Flash models and
-// the newest Flash-Lite — fast, balanced, and light on the limits. The rule is
-// a shape, not a list of names, so it keeps working as Google ships versions.
-const MISSION_MODEL_ID = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/;
+// Mission AI runs on the built-in Google and NVIDIA keys.
+// It offers curated, stable Gemini models alongside NVIDIA models.
+const MISSION_MODEL_ID = /^(gemini-(\d+(?:\.\d+)?)-(flash|pro)(-lite|-8b)?|gemini-(1\.5|2\.0|2\.5)-(flash|pro|flash-8b))/i;
+
 const MISSION_FALLBACK_MODELS = Object.freeze([
   ["gemini-2.5-flash", "Gemini 2.5 Flash"],
-  ["gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"]
+  ["gemini-2.5-pro", "Gemini 2.5 Pro"],
+  ["gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"],
+  ["gemini-2.0-flash", "Gemini 2.0 Flash"],
+  ["gemini-2.0-flash-lite", "Gemini 2.0 Flash-Lite"],
+  ["gemini-1.5-flash", "Gemini 1.5 Flash"],
+  ["gemini-1.5-pro", "Gemini 1.5 Pro"],
+  ["gemini-1.5-flash-8b", "Gemini 1.5 Flash-8B"]
 ]);
+const MISSION_GEMINI_FALLBACK_IDS = new Set(MISSION_FALLBACK_MODELS.map(([id]) => id));
+
+const NVIDIA_MISSION_MODELS = Object.freeze([
+  ["nvidia/nemotron-3.5-lightning-30b-a3b", "Nemotron 3.5 Lightning"],
+  ["nvidia/nemotron-3-super-120b-a12b", "Nemotron 3 Super 120B"],
+  ["nvidia/nemotron-3-ultra-550b-a55b", "Nemotron 3 Ultra 550B"],
+  ["nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "Nemotron 3 Nano Omni"],
+  ["meta/llama-3.2-11b-vision-instruct", "Llama 3.2 11B Vision"],
+  ["meta/muse-glimmer-30b", "Muse Glimmer 30B"],
+  ["openai/gpt-oss-20b", "GPT-OSS 20B"],
+  ["z-ai/glm-5.3", "GLM 5.3"],
+  ["moonshotai/kimi-k3", "Kimi K3"]
+]);
+const NVIDIA_MISSION_MODEL_IDS = new Set(NVIDIA_MISSION_MODELS.map(([id]) => id));
+
+function isMissionGeminiModelId(modelId) {
+  const id = String(modelId || "").toLowerCase().replace(/^models\//, "");
+  if (MISSION_GEMINI_FALLBACK_IDS.has(id)) return true;
+  if (NON_CHAT.test(id) || id.includes("gemma")) return false;
+  return MISSION_MODEL_ID.test(id);
+}
 
 function isMissionModelId(modelId) {
-  return MISSION_MODEL_ID.test(String(modelId || ""));
+  const id = String(modelId || "").toLowerCase();
+  return isMissionGeminiModelId(id) || NVIDIA_MISSION_MODEL_IDS.has(id);
 }
 
-function curateMissionModels(models) {
-  const stable = (Array.isArray(models) ? models : []).filter(model => isMissionModelId(model?.id));
-  const newest = list => [...list].sort((left, right) => versionOf(right.id) - versionOf(left.id));
-  const flash = newest(stable.filter(model => !model.id.endsWith("-lite"))).slice(0, 2);
-  const lite = newest(stable.filter(model => model.id.endsWith("-lite"))).slice(0, 1);
-  const curated = [...flash, ...lite];
-  return curated.length ? curated : missionFallbackModels();
+function curateMissionModels(models, { geminiOnly = false } = {}) {
+  const valid = (Array.isArray(models) ? models : []).filter(model => isMissionGeminiModelId(model?.id));
+  const ranked = rankModels(valid);
+  if (geminiOnly) return ranked.length ? ranked : missionFallbackModels({ gemini: true, nvidia: false });
+  return ranked.length ? ranked : missionFallbackModels({ gemini: true, nvidia: false });
 }
 
-function missionFallbackModels() {
-  return MISSION_FALLBACK_MODELS.map(([id, label]) => describeModel(id, label));
+function missionFallbackModels({ gemini = true, nvidia = true } = {}) {
+  const list = [];
+  if (gemini) list.push(...MISSION_FALLBACK_MODELS.map(([id, label]) => describeModel(id, label, { provider: "gemini" })));
+  if (nvidia) list.push(...NVIDIA_MISSION_MODELS.map(([id, label]) => describeModel(id, label, { provider: "nvidia" })));
+  return list;
 }
 
 function describeModel(id, displayName = null, extra = {}) {
   const clean = String(id).replace(/^models\//, "");
+  const family = extra.family || modelFamily(clean);
+  const provider = extra.provider || (clean.includes("/") || family === "nvidia" || family === "kimi" ? "nvidia" : (family === "gemini" ? "gemini" : "gemini"));
   return {
     id: clean,
     label: prettyModelName(clean, displayName),
-    family: modelFamily(clean),
+    family,
     tier: modelTier(clean),
+    provider,
     ...extra
   };
 }
@@ -364,8 +393,9 @@ function friendlyStatus(status) {
 }
 
 async function send(fetchImpl, url, init, { apiKey, timeoutMs, signal }) {
+  const effectiveTimeout = Number.isInteger(timeoutMs) && timeoutMs > 0 ? timeoutMs : REQUEST_TIMEOUT_MS;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), effectiveTimeout);
   timer.unref?.();
   const onAbort = () => controller.abort();
   signal?.addEventListener?.("abort", onAbort, { once: true });
@@ -374,7 +404,7 @@ async function send(fetchImpl, url, init, { apiKey, timeoutMs, signal }) {
     return await readJson(response, apiKey);
   } catch (error) {
     if (error?.name === "AbortError") {
-      const wrapped = new Error(signal?.aborted ? "The request was cancelled" : `The provider did not answer within ${Math.round(timeoutMs / 1000)} seconds`);
+      const wrapped = new Error(signal?.aborted ? "The request was cancelled" : `The provider did not answer within ${Math.round(effectiveTimeout / 1000)} seconds`);
       wrapped.name = signal?.aborted ? "AbortError" : "TimeoutError";
       wrapped.retryable = !signal?.aborted;
       throw wrapped;
@@ -576,10 +606,13 @@ function parseOpenAi(data) {
   }).filter(call => call.name);
   const usage = data?.usage || {};
   const cached = Number(usage.prompt_tokens_details?.cached_tokens) || 0;
-  const reasoning = Number(usage.completion_tokens_details?.reasoning_tokens) || 0;
+  const reasoning = Number(usage.completion_tokens_details?.reasoning_tokens) || Number(usage.reasoning_tokens) || 0;
   let raw = typeof message.content === "string" ? message.content : Array.isArray(message.content) ? message.content.map(item => item?.text || "").join("") : "";
   if (!raw && !toolCalls.length && typeof data?.text === "string") {
     raw = data.text;
+  }
+  if (!raw && !toolCalls.length && typeof message.reasoning_content === "string" && message.reasoning_content.trim()) {
+    raw = message.reasoning_content;
   }
   return {
     // Reasoning models served through OpenAI-compatible hosts (DeepSeek R1,
@@ -690,12 +723,23 @@ async function chat(request = {}) {
   throw new Error("The provider rejected the request");
 }
 
-async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messages, tools = [], maxTokens = null, temperature = null, fetch: fetchImpl = global.fetch, signal, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
+function isReasoningOrThinkingModel(modelId) {
+  const id = String(modelId || "").toLowerCase();
+  return /^(o1|o3|o4|deepseek-r1|qwq)/.test(id) || /reason|think|nemotron|kimi|glm-5|diffusiongemma/i.test(id);
+}
+
+function resolveChatTimeout(model, timeoutMs = null) {
+  if (Number.isInteger(timeoutMs) && timeoutMs > 0) return timeoutMs;
+  return isReasoningOrThinkingModel(model) ? REASONING_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+}
+
+async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messages, tools = [], maxTokens = null, temperature = null, fetch: fetchImpl = global.fetch, signal, timeoutMs = null } = {}) {
   const cleanKey = sanitizeApiKey(apiKey);
   const spec = providerSpec(provider, baseUrl);
   if (typeof fetchImpl !== "function") throw new TypeError("fetch is unavailable");
   if (typeof model !== "string" || !model.trim()) throw new TypeError("A model is required");
-  const options = { apiKey: cleanKey, timeoutMs, signal };
+  const effectiveTimeout = resolveChatTimeout(model, timeoutMs);
+  const options = { apiKey: cleanKey, timeoutMs: effectiveTimeout, signal };
 
   if (spec.style === "gemini") {
     const data = await send(fetchImpl, `${spec.baseUrl}/models/${encodeURIComponent(model)}:generateContent`, {
@@ -715,7 +759,7 @@ async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messa
   }
   const headers = { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${cleanKey}` };
   // OpenRouter attributes traffic by these; they carry no user data.
-  if (spec.id === "openrouter") { headers["HTTP-Referer"] = "https://mission-control.local"; headers["X-Title"] = "Mission Control"; }
+  if (spec.id === "openrouter") { headers["HTTP-Referer"] = "https://outarch.local"; headers["X-Title"] = "OUTARCH"; }
   const data = await send(fetchImpl, `${spec.baseUrl}/chat/completions`, {
     method: "POST",
     headers,
@@ -732,6 +776,9 @@ async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messa
 module.exports = {
   PROVIDERS,
   REQUEST_TIMEOUT_MS,
+  REASONING_REQUEST_TIMEOUT_MS,
+  isReasoningOrThinkingModel,
+  resolveChatTimeout,
   sanitizeApiKey,
   detectProvider,
   detectProviderCandidates,

@@ -221,7 +221,7 @@ class NotificationService extends EventEmitter {
       ? "Several workers need you"
       : `${clip(record.sessionName || record.sessionId, 60)} needs you`;
     const body = summary
-      ? "Mission Control paused individual alerts for a moment. Open Needs You for the full queue."
+      ? "OUTARCH paused individual alerts for a moment. Open Needs You for the full queue."
       : clip(record.reason || "A decision is waiting in Needs You.");
 
     try {
@@ -257,7 +257,7 @@ class NotificationService extends EventEmitter {
     }
     try {
       const notification = new this.#Notification({
-        title: "Mission Control test notification",
+        title: "OUTARCH test notification",
         body: "Desktop notifications are working. Real alerts still follow your severity and quiet-hours policy."
       });
       notification.on("click", () => {

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radical Notification UX Concepts — Mission Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&family=Lexend+Mega:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-surface: #0e121a;
+      --bg-card: #141a24;
+      --bg-glass: rgba(14, 18, 26, 0.82);
+      
+      --text-white: #f8fafc;
+      --text-gray: #94a3b8;
+      --text-dim: #64748b;
+      
+      --c-cyan: #06b6d4;
+      --c-emerald: #10b981;
+      --c-amber: #f59e0b;
+      --c-rose: #f43f5e;
+      --c-purple: #a855f7;
+      --c-lime: #a3e635;
+      --c-neon-yellow: #facc15;
+
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-loud: 'Lexend Mega', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-white);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+        linear-gradient(to bottom, transparent 90%, rgba(0,0,0,0.8));
+    }
+
+    /* Top Navigation */
+    .nav-bar {
+      height: 54px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: rgba(7, 9, 14, 0.9);
+      backdrop-filter: blur(12px);
+      z-index: 50;
+    }
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      background: rgba(6, 182, 212, 0.14);
+      color: var(--c-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    /* Main Demo Layout */
+    .demo-grid {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px 100px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 32px;
+    }
+
+    /* Left Control Sidebar */
+    .controls-card {
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px;
+      height: fit-content;
+      position: sticky;
+      top: 80px;
+    }
+    .ctrl-group {
+      margin-bottom: 20px;
+    }
+    .ctrl-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .btn-sim {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text-white);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+    .btn-sim:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.2);
+      transform: translateX(4px);
+    }
+    .btn-sim kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-gray);
+    }
+
+    /* Right Showcase Cards */
+    .concepts-container {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .concept-section {
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .concept-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--c-cyan);
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      padding: 3px 10px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+    .concept-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .concept-desc {
+      font-size: 13.5px;
+      color: var(--text-gray);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .concept-stage {
+      background: #06080d;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 32px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      position: relative;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* =========================================================================
+       CONCEPT 1: DYNAMIC ISLAND / TOP-CENTER FLUID CAPSULE (MORPHING HUD)
+       ========================================================================= */
+    .dynamic-capsule-wrap {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dynamic-capsule {
+      background: rgba(15, 18, 26, 0.95);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 36px;
+      box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 48px;
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dynamic-capsule:hover {
+      border-color: rgba(255,255,255,0.3);
+      transform: scale(1.02);
+    }
+    .dynamic-capsule.is-expanded {
+      border-radius: 20px;
+      padding: 16px 20px;
+      min-width: 460px;
+    }
+
+    /* Radial Progress Ring */
+    .capsule-ring-box {
+      width: 34px;
+      height: 34px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .capsule-ring-svg {
+      transform: rotate(-90deg);
+      width: 34px;
+      height: 34px;
+    }
+    .capsule-ring-bg {
+      fill: none;
+      stroke: rgba(255,255,255,0.1);
+      stroke-width: 3;
+    }
+    .capsule-ring-fill {
+      fill: none;
+      stroke: var(--c-cyan);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 100;
+      stroke-dashoffset: 26; /* 74% */
+      filter: drop-shadow(0 0 6px var(--c-cyan));
+      transition: stroke-dashoffset 0.4s ease;
+    }
+    .capsule-ring-val {
+      position: absolute;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .capsule-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .capsule-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .capsule-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+    .capsule-sub {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-gray);
+    }
+    .capsule-pills {
+      display: flex;
+      gap: 6px;
+    }
+    .capsule-chip {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      text-transform: uppercase;
+    }
+    .capsule-chip.danger { background: rgba(244, 63, 94, 0.18); color: var(--c-rose); border: 1px solid rgba(244, 63, 94, 0.35); }
+    .capsule-chip.ready { background: rgba(16, 185, 129, 0.18); color: var(--c-emerald); border: 1px solid rgba(16, 185, 129, 0.35); }
+
+    /* =========================================================================
+       CONCEPT 2: AMBIENT TELEMETRY RIBBON (BOTTOM NASA / BLOOMBERG FLIGHT BAR)
+       ========================================================================= */
+    .telemetry-ribbon-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 38px;
+      background: #090c12;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      z-index: 1000;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+    .telemetry-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .telemetry-tag {
+      color: var(--text-dim);
+    }
+    .telemetry-tag b {
+      color: var(--c-emerald);
+      font-weight: 700;
+    }
+    .telemetry-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .status-lamp {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .status-lamp:hover {
+      background: rgba(255,255,255,0.09);
+    }
+    .lamp-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .lamp-dot.pulse-green {
+      background: var(--c-emerald);
+      box-shadow: 0 0 8px var(--c-emerald);
+      animation: pulse-glow 1.6s infinite;
+    }
+    .lamp-dot.pulse-red {
+      background: var(--c-rose);
+      box-shadow: 0 0 10px var(--c-rose);
+      animation: pulse-glow 1s infinite;
+    }
+    .lamp-dot.pulse-amber {
+      background: var(--c-amber);
+      box-shadow: 0 0 8px var(--c-amber);
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Telemetry Flyout Drawer */
+    .telemetry-drawer {
+      position: absolute;
+      bottom: 42px;
+      right: 16px;
+      width: 360px;
+      background: #0f141f;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      box-shadow: 0 -12px 36px rgba(0,0,0,0.75);
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .telemetry-drawer.open {
+      display: flex;
+    }
+
+    /* =========================================================================
+       CONCEPT 3: RAYCAST / SPOTLIGHT COMMAND HUD (CENTER KEYBOARD TRIAGE)
+       ========================================================================= */
+    .spotlight-modal {
+      width: 520px;
+      background: rgba(18, 22, 32, 0.95);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.08);
+      overflow: hidden;
+      font-family: var(--font-sans);
+    }
+    .spotlight-header {
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .spotlight-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .spotlight-kbd-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.06);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .spotlight-actions-list {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .spotlight-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-white);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .spotlight-item:hover, .spotlight-item.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: #38bdf8;
+    }
+    .spotlight-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .spotlight-key-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-gray);
+    }
+    .spotlight-item:hover .spotlight-key-badge {
+      background: #0284c7;
+      color: #fff;
+      border-color: #38bdf8;
+    }
+
+    /* =========================================================================
+       CONCEPT 4: NEO-BRUTAL CYBERPUNK (RETRO HIGH-ENERGY HACKER HUD)
+       ========================================================================= */
+    .neobrutal-card {
+      width: 100%;
+      max-width: 480px;
+      background: #050505;
+      border: 2.5px solid var(--c-lime);
+      box-shadow: 6px 6px 0px var(--c-lime);
+      border-radius: 0px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      color: #fff;
+      position: relative;
+    }
+    .neobrutal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px dashed rgba(163, 230, 53, 0.4);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .neobrutal-badge {
+      background: var(--c-lime);
+      color: #000;
+      font-weight: 800;
+      padding: 3px 8px;
+      font-size: 11px;
+      letter-spacing: -0.02em;
+    }
+    .neobrutal-title {
+      font-family: var(--font-loud);
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .neobrutal-code {
+      background: #111;
+      border: 1px solid #333;
+      padding: 8px;
+      font-size: 11.5px;
+      color: var(--c-neon-yellow);
+      margin-bottom: 12px;
+    }
+    .neobrutal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .neobrutal-btn {
+      flex: 1;
+      background: #000;
+      border: 2px solid #fff;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px #fff;
+      transition: all 0.1s;
+    }
+    .neobrutal-btn:hover {
+      background: var(--c-lime);
+      color: #000;
+      border-color: var(--c-lime);
+      box-shadow: 1px 1px 0px #000;
+      transform: translate(2px, 2px);
+    }
+    .neobrutal-btn.kill {
+      border-color: var(--c-rose);
+      color: var(--c-rose);
+      box-shadow: 3px 3px 0px var(--c-rose);
+    }
+    .neobrutal-btn.kill:hover {
+      background: var(--c-rose);
+      color: #fff;
+      box-shadow: 1px 1px 0px #000;
+    }
+
+    /* =========================================================================
+       CONCEPT 5: BENTO TILE MINI-CONSOLE (MODULAR WIDGET STACK)
+       ========================================================================= */
+    .bento-console {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+      max-width: 500px;
+    }
+    .bento-tile {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s;
+    }
+    .bento-tile:hover {
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+    }
+    .bento-tile.span-2 {
+      grid-column: span 2;
+    }
+    .bento-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .bento-val {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin: 4px 0;
+    }
+    .bento-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .bento-bar-fill {
+      height: 100%;
+      background: var(--c-cyan);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAV -->
+  <header class="nav-bar">
+    <div class="brand-title">
+      MISSION CONTROL <span class="brand-tag">RADICAL UI/UX PARADIGMS</span>
+    </div>
+    <div style="font-size:12px;font-family:var(--font-mono);color:var(--text-gray);">
+      Press <kbd style="background:rgba(255,255,255,0.1);padding:2px 5px;border-radius:3px;">1</kbd> - <kbd style="background:rgba(255,255,255,0.1);padding:2px 5px;border-radius:3px;">4</kbd> to trigger concepts
+    </div>
+  </header>
+
+  <!-- DYNAMIC ISLAND (TOP-CENTER CAPSULE) -->
+  <div class="dynamic-capsule-wrap" id="dynamicCapsuleWrap">
+    <div class="dynamic-capsule" id="dynamicCapsule" onclick="toggleCapsuleExpand()">
+      <div class="capsule-ring-box">
+        <svg class="capsule-ring-svg">
+          <circle cx="17" cy="17" r="14" class="capsule-ring-bg"></circle>
+          <circle cx="17" cy="17" r="14" class="capsule-ring-fill" id="capsuleFill"></circle>
+        </svg>
+        <span class="capsule-ring-val" id="capsuleVal">74%</span>
+      </div>
+      <div class="capsule-content">
+        <div class="capsule-title-row">
+          <span class="capsule-title">BUILD IN PROGRESS</span>
+          <div class="capsule-pills">
+            <span class="capsule-chip danger">1 Critical</span>
+            <span class="capsule-chip ready">Deploying</span>
+          </div>
+        </div>
+        <span class="capsule-sub">app_service_v2 / merge request #419</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMBIENT TELEMETRY RIBBON (BOTTOM NASA/BLOOMBERG FLIGHT BAR) -->
+  <div class="telemetry-ribbon-bar">
+    <div class="telemetry-left">
+      <span class="telemetry-tag">SYSTEM: <b>OPERATIONAL</b></span>
+      <span class="telemetry-tag">CPU: <b>64%</b></span>
+      <span class="telemetry-tag">RAM: <b>14.8GB</b></span>
+      <span class="telemetry-tag">NET: <b>104 Mbps</b></span>
+    </div>
+    <div class="telemetry-right">
+      <div class="status-lamp" onclick="toggleTelemetryDrawer()">
+        <span class="lamp-dot pulse-green"></span>
+        <span>BUILD_SRV</span>
+      </div>
+      <div class="status-lamp" onclick="toggleTelemetryDrawer()">
+        <span class="lamp-dot pulse-amber"></span>
+        <span>DATABASE</span>
+      </div>
+      <div class="status-lamp" onclick="toggleTelemetryDrawer()">
+        <span class="lamp-dot pulse-red"></span>
+        <span>PORT_3000 (CONFLICT)</span>
+      </div>
+    </div>
+
+    <!-- Telemetry Flyout Drawer -->
+    <div class="telemetry-drawer" id="telemetryDrawer">
+      <strong style="font-size:12px;color:#fff;">Active Telemetry Alerts (3)</strong>
+      <div style="font-size:11.5px;color:var(--c-rose);background:rgba(244,63,94,0.1);padding:8px;border-radius:6px;">
+        ⚠ Port 3000 collision with PID 9184
+        <button style="margin-top:6px;width:100%;background:var(--c-rose);color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;" onclick="alert('Killed PID 9184')">⚡ Kill PID 9184</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN SHOWCASE GRID -->
+  <main class="demo-grid">
+
+    <!-- LEFT SIMULATION CONTROLS -->
+    <aside class="controls-card">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Live Interactive Triggers</span>
+        <button class="btn-sim" onclick="simulateCapsuleProgress()">
+          <span>🌊 Dynamic Island Progress</span>
+          <kbd>1</kbd>
+        </button>
+        <button class="btn-sim" onclick="toggleSpotlight(true)">
+          <span>⚡ Spotlight Quick HUD</span>
+          <kbd>2</kbd>
+        </button>
+        <button class="btn-sim" onclick="flashTelemetryAlert()">
+          <span>📡 Telemetry Alert Lamp</span>
+          <kbd>3</kbd>
+        </button>
+        <button class="btn-sim" onclick="pulseNeoBrutal()">
+          <span>⚡ Neo-Brutalist Trigger</span>
+          <kbd>4</kbd>
+        </button>
+      </div>
+
+      <div class="ctrl-group">
+        <span class="ctrl-label">Design Philosophies</span>
+        <p style="font-size:12px;color:var(--text-gray);line-height:1.5;">
+          These 5 alternative paradigms eliminate standard floating toast rectangles in favor of non-intrusive floating HUDs, ambient ribbons, and keyboard-first command bars.
+        </p>
+      </div>
+    </aside>
+
+    <!-- RIGHT CONCEPTS SHOWCASE -->
+    <div class="concepts-container">
+
+      <!-- CONCEPT 1: DYNAMIC ISLAND HUD -->
+      <section class="concept-section">
+        <span class="concept-badge">PARADIGM 01 — FLUID FLOATING CAPSULE</span>
+        <h2 class="concept-title">Dynamic Island HUD (Top-Center Floating Capsule)</h2>
+        <p class="concept-desc">
+          Instead of a box in the corner covering code, notifications dock as an ultra-compact floating pill at the top-center. It morphs with spring physics to show live circular progress rings and expands on click/hover into an actionable mini-cockpit.
+        </p>
+        <div class="concept-stage">
+          <div class="dynamic-capsule" style="cursor:pointer;" onclick="simulateCapsuleProgress()">
+            <div class="capsule-ring-box">
+              <svg class="capsule-ring-svg">
+                <circle cx="17" cy="17" r="14" class="capsule-ring-bg"></circle>
+                <circle cx="17" cy="17" r="14" class="capsule-ring-fill" style="stroke-dashoffset: 15;"></circle>
+              </svg>
+              <span class="capsule-ring-val">85%</span>
+            </div>
+            <div class="capsule-content">
+              <div class="capsule-title-row">
+                <span class="capsule-title">RUST CRATE COMPILATION</span>
+                <span class="capsule-chip ready">STAGE 4/6</span>
+              </div>
+              <span class="capsule-sub">target/release/mission-control (1.4s elapsed)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONCEPT 2: SPOTLIGHT / RAYCAST COMMAND BAR -->
+      <section class="concept-section">
+        <span class="concept-badge">PARADIGM 02 — KEYBOARD-FIRST TRIAGE</span>
+        <h2 class="concept-title">Spotlight Command HUD (Raycast Style)</h2>
+        <p class="concept-desc">
+          For power users who hate reaching for the mouse. Critical alerts pop up as a center-screen command bar with instant 1-key triage shortcuts (<kbd>C</kbd>, <kbd>R</kbd>, <kbd>D</kbd>, <kbd>Esc</kbd>).
+        </p>
+        <div class="concept-stage">
+          <div class="spotlight-modal">
+            <div class="spotlight-header">
+              <span class="spotlight-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--c-rose)" strokeWidth="2.5"><polygon points="12 2 2 22 22 22"/></svg>
+                PORT 8080 CONFLICT DETECTED
+              </span>
+              <span class="spotlight-kbd-tag">⌥ + C</span>
+            </div>
+            <div class="spotlight-actions-list">
+              <div class="spotlight-item active" onclick="alert('⚡ Killed PID 1245 & restarted server')">
+                <div class="spotlight-item-left">
+                  <span class="spotlight-key-badge">K</span>
+                  <span><strong>Kill PID 1245</strong> & Launch on :8080</span>
+                </div>
+                <span style="font-size:11px;color:var(--text-dim);">Recommended</span>
+              </div>
+              <div class="spotlight-item" onclick="alert('Re-bound to port 8081')">
+                <div class="spotlight-item-left">
+                  <span class="spotlight-key-badge">B</span>
+                  <span>Bind to Next Free Port (<strong>:8081</strong>)</span>
+                </div>
+              </div>
+              <div class="spotlight-item" onclick="alert('Opened terminal trace')">
+                <div class="spotlight-item-left">
+                  <span class="spotlight-key-badge">T</span>
+                  <span>Inspect Process Trace in Terminal</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONCEPT 3: AMBIENT TELEMETRY RIBBON -->
+      <section class="concept-section">
+        <span class="concept-badge">PARADIGM 03 — FLIGHT STATUS TAPE</span>
+        <h2 class="concept-title">Ambient Telemetry Ribbon (NASA Flight Tape)</h2>
+        <p class="concept-desc">
+          Zero floating popups! All events stream seamlessly through an ultra-dense, ambient bottom ticker bar with pulsing LED status lamps that expand only when clicked.
+        </p>
+        <div class="concept-stage" style="padding: 16px;">
+          <div style="width:100%;background:#090c12;border:1px solid rgba(255,255,255,0.12);padding:10px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11.5px;">
+            <div style="display:flex;gap:16px;">
+              <span>HEALTH: <b style="color:var(--c-emerald)">99.8%</b></span>
+              <span>MEMORY: <b style="color:var(--c-amber)">88% (HOT)</b></span>
+              <span>WORKERS: <b style="color:#fff">8 ACTIVE</b></span>
+            </div>
+            <div style="display:flex;gap:10px;">
+              <span class="status-lamp"><span class="lamp-dot pulse-green"></span> GATEWAY:200</span>
+              <span class="status-lamp"><span class="lamp-dot pulse-red"></span> REDIS:OOM</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONCEPT 4: NEO-BRUTALIST MATRIX HUD -->
+      <section class="concept-section">
+        <span class="concept-badge">PARADIGM 04 — HIGH-CONTRAST NEO-BRUTAL</span>
+        <h2 class="concept-title">Neo-Brutalist Cyber-Matrix HUD</h2>
+        <p class="concept-desc">
+          Electric lime borders, hard drop shadows, bracketed monospace hotkeys, and stark high-energy contrast. Bold, memorable, and unmistakably developer-focused.
+        </p>
+        <div class="concept-stage">
+          <div class="neobrutal-card" id="neoCard">
+            <div class="neobrutal-head">
+              <span class="neobrutal-badge">MISSION AI // ANOMALY</span>
+              <span style="font-size:11px;color:var(--c-lime)">[SEV-1]</span>
+            </div>
+            <div class="neobrutal-title">MEMORY LEAK DETECTED</div>
+            <div class="neobrutal-code">
+              RAM +14MB/min &gt; callback.ts:48 &gt; redis.pool
+            </div>
+            <div class="neobrutal-actions">
+              <button class="neobrutal-btn" onclick="alert('Applied AI Patch')">[A] AUTO-PATCH</button>
+              <button class="neobrutal-btn kill" onclick="alert('Killed rogue worker')">[K] RESTART WORKER</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONCEPT 5: BENTO TILE MINI-CONSOLE -->
+      <section class="concept-section">
+        <span class="concept-badge">PARADIGM 05 — MODULAR BENTO CONSOLE</span>
+        <h2 class="concept-title">Bento Tile Mini-Console (Docked Micro-Console)</h2>
+        <p class="concept-desc">
+          Modular widget tiles with live sparkline bars and instant controls docked unobtrusively in a micro-drawer.
+        </p>
+        <div class="concept-stage">
+          <div class="bento-console">
+            <div class="bento-tile span-2">
+              <span class="bento-title">Cluster Deployment Status</span>
+              <div class="bento-val" style="color:var(--c-cyan)">4/4 Services Operational</div>
+              <div class="bento-bar"><div class="bento-bar-fill" style="width:100%"></div></div>
+            </div>
+            <div class="bento-tile">
+              <span class="bento-title">API Response</span>
+              <div class="bento-val" style="color:var(--c-emerald)">14ms</div>
+              <span style="font-size:11px;color:var(--text-gray)">p99 latency</span>
+            </div>
+            <div class="bento-tile">
+              <span class="bento-title">Port Watchdog</span>
+              <div class="bento-val" style="color:var(--c-rose)">1 Conflict</div>
+              <span style="font-size:11px;color:var(--c-rose)">:3000 locked</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    // Capsule Progress Demo
+    let progress = 74;
+    function simulateCapsuleProgress() {
+      progress = (progress + 10);
+      if (progress > 100) progress = 15;
+      const offset = 100 - progress;
+      document.getElementById('capsuleFill').style.strokeDashoffset = offset;
+      document.getElementById('capsuleVal').innerText = progress + '%';
+    }
+
+    function toggleCapsuleExpand() {
+      const c = document.getElementById('dynamicCapsule');
+      c.classList.toggle('is-expanded');
+    }
+
+    function toggleTelemetryDrawer() {
+      const d = document.getElementById('telemetryDrawer');
+      d.classList.toggle('open');
+    }
+
+    function flashTelemetryAlert() {
+      const d = document.getElementById('telemetryDrawer');
+      d.classList.add('open');
+      setTimeout(() => d.classList.remove('open'), 4000);
+    }
+
+    function pulseNeoBrutal() {
+      const card = document.getElementById('neoCard');
+      card.style.transform = 'scale(1.04)';
+      setTimeout(() => card.style.transform = 'scale(1)', 200);
+    }
+
+    // Keyboard hotkeys
+    window.addEventListener('keydown', e => {
+      if (e.key === '1') simulateCapsuleProgress();
+      if (e.key === '2') alert('[Spotlight HUD triggered via ⌥+C]');
+      if (e.key === '3') flashTelemetryAlert();
+      if (e.key === '4') pulseNeoBrutal();
+    });
+  </script>
+</body>
+</html>

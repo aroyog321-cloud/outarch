@@ -105,7 +105,7 @@ export function CrashLens({ session, onAction, onAskAI, onDismiss }) {
   const [actioning, setActioning] = React.useState("");
   const [dismissed, setDismissed] = React.useState(false);
   // T026 — the answer to "what is holding this port" is the engine's, including
-  // whether the holder is a worker Mission Control is allowed to stop.
+  // whether the holder is a worker OUTARCH is allowed to stop.
   const [portOwner, setPortOwner] = React.useState(null);
   const { toast } = useToast();
 
@@ -217,7 +217,7 @@ export function CrashLens({ session, onAction, onAskAI, onDismiss }) {
             {actioning === "restart" ? "Restarting…" : "Restart worker"}
           </button>
         )}
-        {crash.actions.includes("ask-ai") && (
+        {crash.actions.includes("ask-ai") && onAskAI && (
           <button
             className="crash-lens__btn crash-lens__btn--ai"
             disabled={Boolean(actioning)}

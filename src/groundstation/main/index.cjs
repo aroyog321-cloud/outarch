@@ -3,6 +3,7 @@ const path = require("node:path");
 const {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   nativeImage,
@@ -46,6 +47,26 @@ const { parseGroundstationArgs } = require("./options.cjs");
 const { WorkspaceIntelligence } = require("./workspaceIntelligence.cjs");
 const { TerminalWindowManager } = require("./terminalWindowManager.cjs");
 const { WorkspaceBrowser } = require("./workspaceBrowser.cjs");
+const { execFile } = require("node:child_process");
+const { APP_USER_MODEL_ID, ASSETS: BRAND_ASSETS, PRODUCT_NAME } = require("../../brand/index.cjs");
+const { registerWindowsAppIdentity, resolveUserDataHome } = require("./appIdentity.cjs");
+
+// OUTARCH's own data folder and name. Both are settled before anything asks
+// Electron for a path or takes the single-instance lock, which is keyed on
+// the data folder. The first launch carries the pre-OUTARCH data across.
+const userDataHome = resolveUserDataHome({ appData: app.getPath("appData") });
+app.setPath("userData", userDataHome.directory);
+if (userDataHome.error) console.warn(`${PRODUCT_NAME} kept its previous data folder: ${userDataHome.error}`);
+app.setName(PRODUCT_NAME);
+if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
+
+// One OUTARCH at a time: opening it again brings the running window forward
+// instead of failing on the project that window already holds. A launch that
+// names a project (--config) is a deliberate second workspace and runs on
+// its own, as does a visual capture run.
+const namesProject = process.argv.some(argument => argument === "-c" || argument === "--config" || argument.startsWith("--config="));
+const holdsInstanceLock = namesProject || Boolean(process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) || app.requestSingleInstanceLock();
+if (!holdsInstanceLock) app.quit();
 
 let mainWindow = null;
 // The main window's native controls. Focus mode asks for a shallower strip so
@@ -157,7 +178,7 @@ async function captureVisualMatrix(window, outputDirectory) {
   }
 
   const cards = captures.map(item => `<figure><img loading="lazy" src="${item.filename}" alt="${item.route} in ${item.theme} at ${item.width} by ${item.height}px"><figcaption>${item.route} / ${item.theme} / ${item.width}x${item.height}px</figcaption></figure>`).join("\n");
-  const contactSheet = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Mission Control visual matrix</title><style>body{margin:0;padding:24px;background:#101314;color:#edf2ef;font:13px Inter,system-ui,sans-serif}header{position:sticky;top:0;z-index:2;padding:12px 0 20px;background:#101314}h1{margin:0 0 5px;font-size:20px}p{margin:0;color:#a8b0ac}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}figure{margin:0;padding:8px;border:1px solid #303735;background:#171b1a;border-radius:10px}img{display:block;width:100%;height:auto;border-radius:6px}figcaption{padding:8px 2px 2px;color:#c7ceca}</style><header><h1>Mission Control visual matrix</h1><p>8 routes / 3 themes / ${VISUAL_CAPTURE_VIEWPORTS.length} viewports / ${captures.length} captures</p></header><main class="grid">${cards}</main></html>`;
+  const contactSheet = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>OUTARCH visual matrix</title><style>body{margin:0;padding:24px;background:#101314;color:#edf2ef;font:13px Inter,system-ui,sans-serif}header{position:sticky;top:0;z-index:2;padding:12px 0 20px;background:#101314}h1{margin:0 0 5px;font-size:20px}p{margin:0;color:#a8b0ac}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}figure{margin:0;padding:8px;border:1px solid #303735;background:#171b1a;border-radius:10px}img{display:block;width:100%;height:auto;border-radius:6px}figcaption{padding:8px 2px 2px;color:#c7ceca}</style><header><h1>OUTARCH visual matrix</h1><p>8 routes / 3 themes / ${VISUAL_CAPTURE_VIEWPORTS.length} viewports / ${captures.length} captures</p></header><main class="grid">${cards}</main></html>`;
   await fs.promises.writeFile(path.join(target, "index.html"), contactSheet, "utf8");
   return { target, count: captures.length };
 }
@@ -296,12 +317,13 @@ async function createDetachedTerminalWindow(spec) {
     minWidth: spec.minWidth,
     minHeight: spec.minHeight,
     backgroundColor: "#080a09",
-    title: `${spec.workerName} — Mission Control`,
+    icon: BRAND_ASSETS.windowIcon,
+    title: `${spec.workerName} — ${PRODUCT_NAME}`,
     titleBarStyle: "hidden",
     // A shallow strip, per the detached-terminal sketch: the terminal is the
     // content, the chrome is only deep enough for identity and window controls.
     titleBarOverlay: {
-      color: "#0a0b0d",
+      color: "#171717",
       symbolColor: "#cbd0dc",
       height: 32
     },
@@ -372,7 +394,7 @@ async function showManualRecovery(window) {
       type: "error",
       title: "Groundstation recovery paused",
       message: "Groundstation stopped reloading after repeated renderer failures.",
-      detail: "Engine-owned workers are still supervised. Retry the desktop interface, or close Mission Control safely.",
+      detail: "Engine-owned workers are still supervised. Retry the desktop interface, or close OUTARCH safely.",
       buttons: ["Retry Groundstation", "Close safely"],
       defaultId: 0,
       cancelId: 1,
@@ -413,7 +435,8 @@ function createWindow(options = {}) {
     minHeight: Math.min(680, height),
     center: true,
     backgroundColor: "#080a09",
-    title: "Mission Control Groundstation",
+    icon: BRAND_ASSETS.windowIcon,
+    title: PRODUCT_NAME,
     titleBarStyle: "hidden",
     titleBarOverlay: { ...MAIN_TITLE_BAR_OVERLAY, color: windowChrome.color },
     show: false,
@@ -491,6 +514,18 @@ function pendingOverlayIcon(count) {
   return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`).resize({ width: 16, height: 16 });
 }
 
+// The main window or one of its terminal pop-outs, and only their top frame.
+function assertTrustedAppFrame(event) {
+  const sender = event?.sender;
+  const owner = sender ? BrowserWindow.fromWebContents(sender) : null;
+  const known = Boolean(owner && !owner.isDestroyed() && (owner === mainWindow || detachedTerminalWindows.has(owner)));
+  if (!known || (event.senderFrame && event.senderFrame !== sender.mainFrame)) {
+    throw new Error("IPC request is accepted only from an OUTARCH window");
+  }
+}
+
+const MAX_COPY_CHARACTERS = 8 * 1024 * 1024;
+
 function assertTrustedMainFrame(event) {
   if (
     !mainWindow ||
@@ -532,7 +567,7 @@ async function shutdownAndClose(window) {
     try {
       await dialog.showMessageBox(window, {
         type: "error",
-        title: "Mission Control is still supervising workers",
+        title: "OUTARCH is still supervising workers",
         message: "Groundstation could not safely stop every PTY.",
         detail: ids ? `Still running: ${ids}` : result.error || "Unknown shutdown failure"
       });
@@ -552,6 +587,8 @@ async function shutdownAndClose(window) {
   rendererFailureDuringShutdown = null;
   rendererRecovery?.dispose();
   missionAi?.dispose();
+  // Commands the assistant is running in its private terminal end with the app.
+  aiAssistant?.dispose();
   void mcpGateway?.dispose();
   void mobileCompanion?.dispose();
   pluginPlatform?.dispose();
@@ -571,12 +608,13 @@ async function shutdownAndClose(window) {
 }
 
 async function start() {
+  if (!holdsInstanceLock) return;
   let options;
   try {
     const argv = process.argv.slice(app.isPackaged ? 1 : 2);
     options = parseGroundstationArgs(argv);
   } catch (error) {
-    dialog.showErrorBox("Mission Control could not start", error.message);
+    dialog.showErrorBox("OUTARCH could not start", error.message);
     app.quit();
     return;
   }
@@ -628,10 +666,10 @@ async function start() {
     getEngineApi: () => engineHost?.engineApi || null,
     chooseManifest: async () => {
       const options = {
-        title: "Install a Mission Control plugin manifest",
+        title: "Install an OUTARCH plugin manifest",
         buttonLabel: "Inspect manifest",
         properties: ["openFile"],
-        filters: [{ name: "Mission Control plugin manifest", extensions: ["json"] }]
+        filters: [{ name: "OUTARCH plugin manifest", extensions: ["json"] }]
       };
       const result = mainWindow && !mainWindow.isDestroyed()
         ? await dialog.showOpenDialog(mainWindow, options)
@@ -674,6 +712,15 @@ async function start() {
     }
     return true;
   });
+  // The page clipboard refuses while the window is unfocused, which is when a
+  // notification's Copy action runs; the main process has no such limit.
+  ipcMain.handle("mission-control:copy-text", async (event, text) => {
+    assertTrustedAppFrame(event);
+    if (typeof text !== "string") throw new TypeError("copied text must be a string");
+    if (text.length > MAX_COPY_CHARACTERS) throw new RangeError("That is too much text to copy at once");
+    clipboard.writeText(text);
+    return true;
+  });
   ipcMain.handle("mission-control:set-pending-badge", async (event, rawCount) => {
     assertTrustedMainFrame(event);
     const count = Number(rawCount);
@@ -695,7 +742,7 @@ async function start() {
     registry: projectRegistry,
     chooseDirectory: async () => {
       const dialogOptions = {
-        title: "Open a project in Mission Control",
+        title: "Open a project in OUTARCH",
         buttonLabel: "Choose project",
         properties: ["openDirectory", "createDirectory"]
       };
@@ -732,12 +779,14 @@ async function start() {
         : String(registryError);
     }
   } catch (error) {
-    dialog.showErrorBox("Mission Control could not open the workspace", error.message);
+    dialog.showErrorBox("OUTARCH could not open the workspace", error.message);
     app.quit();
     return;
   }
 
   mainWindow = createWindow({ load: false });
+  // Toasts are headed with the app's registered name and logo.
+  if (!process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) void registerWindowsAppIdentity({ execFile, iconPath: BRAND_ASSETS.iconPng256 });
   // T033/T036 — the notifier is main-process because only the main process owns
   // the OS notification surface and the window a click has to bring forward.
   const focusMainWindow = () => {
@@ -747,7 +796,7 @@ async function start() {
     mainWindow.focus();
   };
   // One notification center decides every surface: the in-app toast, the
-  // Windows toast (only when Mission Control is not the window in use), the
+  // Windows toast (only when OUTARCH is not the window in use), the
   // sound, and whether two signals are really one incident.
   notificationCenter = new NotificationCenter({
     Notification,
@@ -946,6 +995,7 @@ async function start() {
 app.whenReady().then(start).catch(async error => {
   recoveryService?.mainFailed("startup-failure");
   missionAi?.dispose();
+  aiAssistant?.dispose();
   await mcpGateway?.dispose();
   await mobileCompanion?.dispose();
   pluginPlatform?.dispose();
@@ -955,8 +1005,16 @@ app.whenReady().then(start).catch(async error => {
   } catch (shutdownError) {
     // Startup reporting must still complete if cleanup itself throws.
   }
-  dialog.showErrorBox("Mission Control crashed during startup", error.message);
+  dialog.showErrorBox("OUTARCH crashed during startup", error.message);
   app.quit();
+});
+
+// A second launch lands here: bring the window that is already open forward.
+app.on("second-instance", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
 });
 
 app.on("window-all-closed", () => {

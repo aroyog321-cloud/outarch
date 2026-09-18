@@ -1,4 +1,4 @@
-/* Mission Control's notification chimes.
+/* OUTARCH's notification chimes.
 
    Synthesised with Web Audio rather than shipped as files: nothing to package,
    nothing the operating system can refuse to play, and each tone is a few

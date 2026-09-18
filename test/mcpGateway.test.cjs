@@ -4,7 +4,9 @@ const { test } = require("node:test");
 const {
   MCP_PROTOCOL_VERSION,
   SecureMcpGateway,
-  allowedOrigin
+  allowedOrigin,
+  withCodexServer,
+  withoutCodexServer
 } = require("../src/service/mcpGateway.cjs");
 
 class MemoryStore {
@@ -161,7 +163,7 @@ test("Secure MCP HTTP transport binds locally, authenticates, validates Origin, 
   });
   assert.equal(getDiscovery.status, 200);
   assert.match(getDiscovery.headers["content-type"], /text\/html/);
-  assert.match(getDiscovery.body, /Mission Control Secure MCP Gateway/);
+  assert.match(getDiscovery.body, /OUTARCH Secure MCP Gateway/);
   assert.match(getDiscovery.body, /claude_desktop_config\.json/);
 });
 
@@ -204,5 +206,67 @@ test("SecureMcpGateway getToken retrieves configured credentials and installClie
   const cursorJson = JSON.parse(fsMap.get(cursorResult.filePath));
   assert.equal(cursorJson.mcpServers["mission-control"].type, "http");
   assert.equal(cursorJson.mcpServers["mission-control"].headers.Authorization, `Bearer ${store.token()}`);
+
+  const codexResult = gateway.installClient({ target: "codex" });
+  assert.equal(codexResult.ok, true);
+  assert.match(codexResult.message, /Codex CLI/);
+  const codexContent = fsMap.get(codexResult.filePath);
+  assert.match(codexContent, /\[mcp_servers\.mission-control\]/);
+
+  const geminiResult = gateway.installClient({ target: "gemini-cli" });
+  assert.equal(geminiResult.ok, true);
+  assert.match(geminiResult.message, /Gemini CLI/);
+
+  // Test clientStatus
+  const statusMap = gateway.clientStatus({ workspacePath: "/mock/workspace" });
+  assert.equal(statusMap["claude-code"].installed, true);
+  assert.equal(statusMap["claude-desktop"].installed, true);
+  assert.equal(statusMap.cursor.installed, true);
+  assert.equal(statusMap.codex.installed, true);
+  assert.equal(statusMap["gemini-cli"].installed, true);
+
+  // Test removeClient
+  const removeClaude = gateway.removeClient({ target: "claude-code" });
+  assert.equal(removeClaude.ok, true);
+  assert.equal(removeClaude.removed, true);
+  const updatedClaudeJson = JSON.parse(fsMap.get(claudeCodeResult.filePath));
+  assert.equal(updatedClaudeJson.mcpServers?.["mission-control"], undefined);
+
+  const removeCodex = gateway.removeClient({ target: "codex" });
+  assert.equal(removeCodex.ok, true);
+  assert.equal(removeCodex.removed, true);
+  const updatedCodex = fsMap.get(codexResult.filePath);
+  assert.equal(/\[mcp_servers\.mission-control\]/.test(updatedCodex), false);
+
+  const removeCursor = gateway.removeClient({ target: "cursor", workspacePath: "/mock/workspace" });
+  assert.equal(removeCursor.ok, true);
+  assert.equal(removeCursor.removed, true);
+
+  const updatedStatusMap = gateway.clientStatus({ workspacePath: "/mock/workspace" });
+  assert.equal(updatedStatusMap["claude-code"].installed, false);
+  assert.equal(updatedStatusMap.codex.installed, false);
+  assert.equal(updatedStatusMap.cursor.installed, false);
+  assert.equal(updatedStatusMap["claude-desktop"].installed, true);
 });
+
+test("withoutCodexServer cleanly strips mission-control server from TOML while preserving other sections", () => {
+  const initial = [
+    'model = "gpt-4"',
+    "",
+    "[mcp_servers.other-tool]",
+    'command = "other"',
+    'args = ["arg1"]',
+    "",
+    "[mcp_servers.mission-control]",
+    'command = "npx"',
+    'args = ["-y", "mcp-remote", "http://127.0.0.1:37421/mcp"]',
+    ""
+  ].join("\n");
+
+  const stripped = withoutCodexServer(initial);
+  assert.equal(/mcp_servers\.mission-control/.test(stripped), false);
+  assert.match(stripped, /model = "gpt-4"/);
+  assert.match(stripped, /\[mcp_servers\.other-tool\]/);
+});
+
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   Mission Control — Premium Design System v3.0
+   OUTARCH — Premium Design System v3.0
    Glassmorphism · Micro-animations · Feature Accents · Power Rail
    ============================================================ */
 
@@ -12,11 +12,13 @@
   --theme-card: var(--orbital-card);
   --theme-overlay: var(--orbital-overlay);
   --theme-text-strong: var(--orbital-text);
-  --theme-text-default: #d0d8d2;
-  --theme-text-muted: #8d9890;
-  --theme-text-dim: #5a6460;
+  /* Dialogs and menus render outside the shell and read these values, so they
+     follow the current palette rather than the retired green one. */
+  --theme-text-default: var(--mc-text-soft);
+  --theme-text-muted: var(--mc-text-muted);
+  --theme-text-dim: var(--mc-text-dim);
   --theme-accent: var(--orbital-accent);
-  --theme-accent-ink: #071509;
+  --theme-accent-ink: var(--mc-accent-ink);
 
   --font-display: var(--font-family-display);
   --font-ui: var(--font-family-ui);
@@ -999,7 +1001,7 @@ button:disabled { opacity: .48; cursor: not-allowed !important; filter: none !im
 .timeline .timeline-event .timeline-kind { color: var(--event-accent); }
 .timeline .timeline-event.is-selected { background: color-mix(in srgb,var(--event-accent) 7%,var(--surface-card)) !important; border-color: color-mix(in srgb,var(--event-accent) 32%,transparent) !important; box-shadow: inset 3px 0 var(--event-accent); }
 .history-evidence { background: var(--glass-surface-strong) !important; border-left-color: var(--border-default) !important; box-shadow: var(--shadow-lg); backdrop-filter: blur(22px); }
-.history-chapters button.is-active { border-color: color-mix(in srgb,var(--accent-primary) 35%,transparent) !important; box-shadow: var(--shadow-glow-green); }.history-chapters button.has-risk { background: var(--accent-danger-soft) !important; border-color: color-mix(in srgb,var(--accent-danger) 28%,transparent) !important; }
+.history-chapters button.is-active { border-left-color: color-mix(in srgb,var(--mc-accent) 40%,var(--mc-border)) !important; }.history-chapters button.has-risk { background: color-mix(in srgb,var(--mc-danger) 7%,transparent) !important; border-left-color: color-mix(in srgb,var(--mc-danger) 40%,var(--mc-border)) !important; }
 
 /* Settings and integration identity. */
 .settings-hub { max-width: 1400px; }
@@ -1268,7 +1270,7 @@ button:disabled { opacity: .48; cursor: not-allowed !important; filter: none !im
 .autostart-batch {
   height: 26px;
   padding: 0 8px;
-  color: var(--accent-primary);
+  color: var(--mc-accent-strong);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
@@ -1447,7 +1449,7 @@ button:disabled { opacity: .48; cursor: not-allowed !important; filter: none !im
 .btn-ask-ai span {
   padding: 1px 4px;
   color: var(--mc-void);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
   background: var(--mc-ai);

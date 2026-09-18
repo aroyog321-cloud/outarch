@@ -58,16 +58,16 @@ function relativeFile(uri) {
 function setStatus(state, detail = "") {
   if (!statusItem) return;
   if (state === "connected") {
-    statusItem.text = "$(radio-tower) Mission Control";
-    statusItem.tooltip = detail || "Editor context is synchronized with Mission Control";
+    statusItem.text = "$(radio-tower) OUTARCH";
+    statusItem.tooltip = detail || "Editor context is synchronized with OUTARCH";
     statusItem.backgroundColor = undefined;
   } else if (state === "connecting") {
-    statusItem.text = "$(sync~spin) Mission Control";
+    statusItem.text = "$(sync~spin) OUTARCH";
     statusItem.tooltip = "Authenticating with the local Groundstation";
     statusItem.backgroundColor = undefined;
   } else {
-    statusItem.text = "$(debug-disconnect) Mission Control";
-    statusItem.tooltip = detail || "Mission Control Bridge is disconnected";
+    statusItem.text = "$(debug-disconnect) OUTARCH";
+    statusItem.tooltip = detail || "OUTARCH Bridge is disconnected";
     statusItem.backgroundColor = undefined;
   }
   statusItem.show();
@@ -283,7 +283,7 @@ function managedTerminal(message) {
   if (match && activeRoot) {
     return { id, terminal: match };
   }
-  throw new Error("This terminal is not managed by Mission Control in the active project");
+  throw new Error("This terminal is not managed by OUTARCH in the active project");
 }
 
 async function runTerminalCommand(message) {
@@ -293,7 +293,7 @@ async function runTerminalCommand(message) {
     let id = null;
     if (message.type === "command:terminal-create") {
       if (!hasPermission("terminals.manage")) throw new Error("Terminal management permission was not granted");
-      const name = String(message.name || "Mission Control").trim().slice(0, 80) || "Mission Control";
+      const name = String(message.name || "OUTARCH").trim().slice(0, 80) || "OUTARCH";
       const cwd = String(message.cwd || ".");
       const resolved = cwd === "." ? activeRoot : resolveProjectFile(activeRoot, cwd);
       if (!resolved) throw new Error("Terminal cwd is outside the active project");
@@ -348,7 +348,7 @@ function handleFrame(message) {
   if (message.type === "command:open-file") void openFile(message).catch(() => {});
   else if (message.type === "command:open-problems") void vscode.commands.executeCommand("workbench.actions.view.problems");
   else if (["command:terminal-create", "command:terminal-write", "command:terminal-focus", "command:terminal-close"].includes(message.type)) void runTerminalCommand(message);
-  else if (message.type === "disconnect") disconnect(`Mission Control disconnected: ${message.reason || "requested"}`);
+  else if (message.type === "disconnect") disconnect(`OUTARCH disconnected: ${message.reason || "requested"}`);
   else if (message.type === "ping") send({ type: "pong", at: Date.now() });
 }
 
@@ -374,12 +374,12 @@ async function connectFromUri(uri) {
   const token = params.get("token");
   const project = params.get("project");
   if (!Number.isInteger(port) || port < 1 || port > 65535 || typeof token !== "string" || token.length < 32 || !/^[a-f0-9]{20}$/.test(project || "")) {
-    void vscode.window.showErrorMessage("Mission Control supplied an invalid bridge invitation.");
+    void vscode.window.showErrorMessage("OUTARCH supplied an invalid bridge invitation.");
     return;
   }
   const folder = workspaceForProject(project);
   if (!folder) {
-    void vscode.window.showErrorMessage("Open the same project folder in VS Code before connecting Mission Control.");
+    void vscode.window.showErrorMessage("Open the same project folder in VS Code before connecting OUTARCH.");
     return;
   }
   disconnect("Connecting…");
@@ -405,7 +405,7 @@ async function connectFromUri(uri) {
   }));
   connection.on("data", handleData);
   connection.on("error", () => {
-    if (socket === connection) disconnect("Mission Control is not accepting bridge connections");
+    if (socket === connection) disconnect("OUTARCH is not accepting bridge connections");
   });
   connection.on("close", () => {
     clearTimeout(timeout);
@@ -454,7 +454,7 @@ function activate(context) {
   context.subscriptions.push(
     statusItem,
     vscode.window.registerUriHandler({ handleUri: connectFromUri }),
-    vscode.commands.registerCommand("missionControlBridge.connect", () => vscode.window.showInformationMessage("Use Connect VS Code in Mission Control Settings to create a secure invitation.")),
+    vscode.commands.registerCommand("missionControlBridge.connect", () => vscode.window.showInformationMessage("Use Connect VS Code in OUTARCH Settings to create a secure invitation.")),
     vscode.commands.registerCommand("missionControlBridge.disconnect", () => disconnect("Disconnected by you")),
     vscode.window.onDidChangeActiveTextEditor(scheduleSnapshot),
     vscode.window.onDidChangeTextEditorSelection(scheduleSnapshot),

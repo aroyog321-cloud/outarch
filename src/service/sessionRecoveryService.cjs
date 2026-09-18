@@ -1,6 +1,6 @@
 "use strict";
 
-// Session Recovery Service for Mission Control.
+// Session Recovery Service for OUTARCH.
 // Reconciles interrupted workers after unexpected crashes or unclean shutdowns.
 // Formulates reviewed recovery proposals without automatic unauthorized execution.
 
@@ -24,7 +24,7 @@ class SessionRecoveryService {
 
       if (isCurrentlyAlive) {
         state = "running-reconnectable";
-        detail = "Process is currently alive and active under Mission Control";
+        detail = "Process is currently alive and active under OUTARCH";
       } else if (run.status === "exited") {
         state = "exited";
         detail = `Worker previously exited with code ${run.exitCode ?? 0}`;

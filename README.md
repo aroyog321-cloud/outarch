@@ -1,7 +1,9 @@
-# Mission Control
+<p align="center"><img src="assets/brand/source/outarch-wordmark-source.png" alt="OUTARCH" width="480"></p>
 
-Mission Control is a Windows-first, local developer command center built around
-one authoritative Node.js process/session engine. It now has two clients:
+# OUTARCH
+
+OUTARCH (formerly Mission Control) is a Windows-first, local developer command
+center built around one authoritative Node.js process/session engine. It now has two clients:
 
 - **Groundstation**, an Electron/React desktop control surface with real
   one-, two-, four-, and six-pane xterm.js layouts across Groundstation,
@@ -16,16 +18,17 @@ owned by `SessionEngine` behind the public `EngineAPI` boundary.
 Groundstation connects to the real engine through Protocol v1. It does not use
 demo state and does not spawn replacement shells to render terminals.
 
-Mission Control 2.19 maps the supplied full-app UI concept onto the real
+OUTARCH 2.19 maps the supplied full-app UI concept onto the real
 renderer: a compact instrument rail, project status tape, dense manifests,
 workspace-first terminals, a unified decision room, and one graphite visual
 language across Agents, Recipes, History, Mission AI, Projects, Integrations,
 Settings, and every dialog. Prototype buttons were not copied; the existing
 EngineAPI-backed actions remain the implementation behind each control.
 
-On Windows 11, extract the release and double-click
-`OPEN_MISSION_CONTROL_WINDOWS.cmd`. The launcher performs the one-time native
-dependency install and opens the current Electron Groundstation. Do not open
+On Windows 11, extract the release and double-click `OPEN_OUTARCH_WINDOWS.cmd`
+(the old `OPEN_MISSION_CONTROL_WINDOWS.cmd` still works). If OUTARCH is already
+open, launching it again brings that window to the front. The launcher performs
+the one-time native dependency install and opens the Electron desktop app. Do not open
 `mission-control-prototype.html` to inspect recent changes: it is only the
 preserved static v1.7 visual reference and has no EngineAPI connection.
 
@@ -104,15 +107,15 @@ Install the optional extension included with this release:
 code --install-extension integrations\vscode\mission-control-bridge-0.2.0.vsix
 ```
 
-Open the same project in Mission Control and VS Code, then choose **Connect VS
-Code** in Mission Control Settings. The app sends a one-time launch invitation
+Open the same project in OUTARCH and VS Code, then choose **Connect VS
+Code** in OUTARCH Settings. The app sends a one-time launch invitation
 to the extension and begins synchronization only after the extension proves it
 has the exact active project.
 
 The bridge reports the active project-relative file, cursor, bounded diagnostics,
 aggregate Git state, task results, and terminal names. It does not receive raw
 terminal output, write terminal input, create terminals, expose environment
-values, or take PTY ownership. Switching Mission Control projects disconnects
+values, or take PTY ownership. Switching OUTARCH projects disconnects
 the previous editor immediately.
 
 ## Gemini Mission Supervisor
@@ -123,7 +126,7 @@ project** for one grounded answer or **Plan workspace actions** for a structured
 proposal. It remains contextual—not a chatbot—and creates no primary page.
 
 The API key remains in the Electron main-process credential boundary and is
-never returned to the renderer or stored in project files. Mission Control
+never returned to the renderer or stored in project files. OUTARCH
 refuses to store it when secure OS encryption is unavailable. Provider requests
 use the Gemini Interactions endpoint with server-side storage disabled. Terminal
 output is omitted unless the user explicitly permits bounded, redacted evidence.
@@ -177,7 +180,7 @@ For a same-machine MCP client, use the exact endpoint and one-time bearer token
 shown by Settings. The gateway intentionally binds only to localhost; do not
 forward or expose that port to the internet. Browser-hosted clients cannot reach
 localhost unless they provide a separately secured local connector, which is
-outside Mission Control's current release boundary.
+outside OUTARCH's current release boundary.
 
 ## Automation Workflows
 
@@ -213,7 +216,7 @@ rendezvous still require separate release infrastructure.
 ## Permission-controlled plugins
 
 Open **Settings → Permission-controlled plugins** to import a local JSON
-manifest. Every manifest installs disabled with no permissions. Mission Control
+manifest. Every manifest installs disabled with no permissions. OUTARCH
 rejects executable, filesystem, process, network, terminal, environment, URL,
 and secret authority. The first supported capabilities are bounded context,
 memory, attention, activity, health, and approval-gated worker or recipe
@@ -221,7 +224,7 @@ requests. Example manifests are available under `plugins/examples`.
 
 ## Windows release verification
 
-Run `VERIFY_MISSION_CONTROL_WINDOWS.cmd` after extraction to build the renderer
+Run `VERIFY_OUTARCH_WINDOWS.cmd` after extraction to build the renderer
 and exercise the installed native PTY through CMD and Windows PowerShell. It
 produces `windows-acceptance-report.json` without workspace paths, commands,
 terminal transcripts, or environment values. Continue the interactive checks
@@ -298,7 +301,7 @@ that was already running before launch.
 - Bounded, replayable activity history for lifecycle, attention, workspace,
   and attach events without retaining raw terminal-output events twice
 - Durable activity history for persistent workspaces, with monotonic event
-  sequences preserved across Mission Control restarts
+  sequences preserved across OUTARCH restarts
 - Compact recent-activity surface in the TUI, driven by real engine events
 - Transaction-safe workspace mutations that fail before runtime state can
   diverge from the saved configuration
@@ -339,18 +342,18 @@ Control does not replace it with a fallback shell. When the default
 `termctl.config.json` is absent, the original one-shell onboarding fallback is
 still used.
 
-Only one Mission Control process can own a persistent workspace at a time. The
+Only one OUTARCH process can own a persistent workspace at a time. The
 workspace lock records the owner PID and is removed during normal shutdown;
 stale locks left by a crashed process are recovered on the next launch.
 Normal quit waits for every owned PTY to report exit before releasing that
-lease. If a PTY is stuck, shutdown pauses and Mission Control remounts instead
+lease. If a PTY is stuck, shutdown pauses and OUTARCH remounts instead
 of opening a window where another instance could launch duplicate work.
 
-Mission Control reads `termctl.config.json` from the current working directory.
+OUTARCH reads `termctl.config.json` from the current working directory.
 If that default file is missing, it starts one platform-default shell. If the
 file exists but is invalid, startup stops with an error.
 Valid workspace files use schema version `1`. Legacy files without `version`
-remain supported and are upgraded when Mission Control first saves them.
+remain supported and are upgraded when OUTARCH first saves them.
 
 Commands containing spaces, such as `npm run dev`, run through the platform
 shell. For a direct executable with explicit arguments, use an `args` array:
@@ -395,7 +398,7 @@ are exposed through snapshots so secrets do not leak into the dashboard.
 
 Top-level `commands` are saved worker presets. They are validated when the
 workspace loads but never launch a process at that time. Press `p` to choose a
-preset; Mission Control atomically adds it to `sessions` through the same
+preset; OUTARCH atomically adds it to `sessions` through the same
 EngineAPI creation path used by the normal wizard. Presets default to manual
 startup, so selecting one registers an idle worker and `s` starts it. Set
 `"autoStart": true` on a preset only when selecting it should launch
@@ -407,7 +410,7 @@ events, activity history, or picker data.
 where PSReadLine cannot accept byte-stream input after Full Attach. It disables
 PSReadLine for that session, so leave it off when normal PowerShell editing and
 history already work. When enabled, put the executable in `command` and every
-option in `args`; Mission Control does not guess how to split a command line.
+option in `args`; OUTARCH does not guess how to split a command line.
 
 Sessions start automatically by default for backward compatibility. Set
 `"autoStart": false` to restore a worker as `idle` without launching its PTY.
@@ -418,7 +421,7 @@ wizard can also register a manual session without executing it.
 Creating, renaming, or removing a session in the TUI updates the same workspace
 file atomically. Create and rename are persisted before runtime mutation. A
 running session is stopped before removal is persisted, then removed from the
-engine only after the save succeeds. If that save fails, Mission Control keeps
+engine only after the save succeeds. If that save fails, OUTARCH keeps
 the stopped session tracked and reports a hard failure; it never abandons an
 owned PTY or claims that an unsaved mutation succeeded.
 
@@ -457,7 +460,7 @@ cannot stop a PTY, the API reopens so the operator can take corrective action.
 | `n` | Rename | — | — |
 | `x` | Kill with typed confirmation | — | — |
 | `d` | Remove with typed confirmation | — | — |
-| `q` | Quit Mission Control | — | — |
+| `q` | Quit OUTARCH | — | — |
 | `?` / `h` | Open keyboard guide | — | — |
 
 `Ctrl+\\` is also accepted as a Full Attach detach fallback. `Ctrl+]` is the

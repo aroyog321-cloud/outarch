@@ -1,4 +1,4 @@
-# Mission Control Android supervision client
+# OUTARCH Android supervision client
 
 This Android 13+ client is a supervision companion, not a mobile IDE or remote
 shell. Open this folder in Android Studio, build the `app` module, and install

@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Notification UI/UX Redesign & Template Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #090c10;
+      --bg-surface: #0f141c;
+      --bg-surface-elevated: #161c26;
+      --bg-surface-glass: rgba(18, 24, 34, 0.72);
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.13);
+      --border-strong: rgba(255, 255, 255, 0.22);
+      
+      --text-main: #f3f6fa;
+      --text-muted: #9aa5b5;
+      --text-dim: #647082;
+      
+      /* Status Tones */
+      --tone-success: #10b981;
+      --tone-success-soft: rgba(16, 185, 129, 0.12);
+      --tone-success-glow: rgba(16, 185, 129, 0.35);
+
+      --tone-danger: #f43f5e;
+      --tone-danger-soft: rgba(244, 63, 94, 0.12);
+      --tone-danger-glow: rgba(244, 63, 94, 0.35);
+
+      --tone-warning: #f59e0b;
+      --tone-warning-soft: rgba(245, 158, 11, 0.12);
+      --tone-warning-glow: rgba(245, 158, 11, 0.35);
+
+      --tone-info: #3b82f6;
+      --tone-info-soft: rgba(59, 130, 246, 0.12);
+      --tone-info-glow: rgba(59, 130, 246, 0.35);
+
+      --tone-ai: #a855f7;
+      --tone-ai-soft: rgba(168, 85, 247, 0.14);
+      --tone-ai-glow: rgba(168, 85, 247, 0.4);
+
+      --tone-cyan: #06b6d4;
+      --tone-cyan-soft: rgba(6, 182, 212, 0.12);
+
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --radius-pill: 9999px;
+
+      --shadow-elevation: 0 16px 36px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-medium);
+      --shadow-glow-ai: 0 0 30px -4px var(--tone-ai-glow);
+    }
+
+    /* Themes */
+    body.theme-obsidian {
+      --bg-canvas: #040507;
+      --bg-surface: #0a0c10;
+      --bg-surface-elevated: #10141a;
+      --bg-surface-glass: rgba(12, 16, 22, 0.85);
+    }
+    body.theme-slate {
+      --bg-canvas: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-surface-elevated: #334155;
+      --bg-surface-glass: rgba(30, 41, 59, 0.85);
+    }
+    body.theme-titanium {
+      --bg-canvas: #f1f5f9;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #e2e8f0;
+      --bg-surface-glass: rgba(255, 255, 255, 0.85);
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --border-medium: rgba(0, 0, 0, 0.14);
+      --border-strong: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(59, 130, 246, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+      background-attachment: fixed;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Top Navigation / Brand Header */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-surface-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.4);
+    }
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 7px;
+      background: var(--tone-info-soft);
+      color: var(--tone-info);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 12px;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-group {
+      display: flex;
+      align-items: center;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 3px;
+      gap: 2px;
+    }
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pill-btn.active {
+      background: var(--text-main);
+      color: var(--bg-canvas);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .pill-btn:hover:not(.active) {
+      color: var(--text-main);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .bell-trigger {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .bell-trigger:hover {
+      border-color: var(--border-strong);
+      background: rgba(255,255,255,0.08);
+      transform: translateY(-1px);
+    }
+    .bell-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      background: var(--tone-danger);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      min-width: 17px;
+      height: 17px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      padding: 0 4px;
+      box-shadow: 0 0 10px var(--tone-danger-glow);
+      animation: pulse-badge 2s infinite;
+    }
+
+    @keyframes pulse-badge {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    /* Main Showcase Container */
+    .showcase-container {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* Sidebar: Interactive Trigger Palette */
+    .trigger-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      position: sticky;
+      top: 80px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .trigger-group {
+      margin-bottom: 22px;
+    }
+    .trigger-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      display: block;
+    }
+    .trigger-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .btn-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-align: left;
+    }
+    .btn-trigger:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: var(--border-medium);
+      transform: translateX(3px);
+    }
+    .btn-trigger .icon-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-trigger .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .btn-trigger .shortcut {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .dot.success { background: var(--tone-success); box-shadow: 0 0 8px var(--tone-success); }
+    .dot.danger { background: var(--tone-danger); box-shadow: 0 0 8px var(--tone-danger); }
+    .dot.warning { background: var(--tone-warning); box-shadow: 0 0 8px var(--tone-warning); }
+    .dot.info { background: var(--tone-info); box-shadow: 0 0 8px var(--tone-info); }
+    .dot.ai { background: var(--tone-ai); box-shadow: 0 0 8px var(--tone-ai); }
+    .dot.progress { background: var(--tone-cyan); box-shadow: 0 0 8px var(--tone-cyan); }
+
+    .btn-action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .btn-action-row button {
+      flex: 1;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-action-row button:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-main);
+    }
+
+    /* Right: Main Content & Template Previews */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    /* Style Selector Banner */
+    .style-banner {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+    .style-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .style-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .style-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+    .style-card.selected {
+      border-color: var(--tone-info);
+      background: rgba(59, 130, 246, 0.08);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.18);
+    }
+    .style-card .style-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+    .style-card .style-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      margin-top: 4px;
+      color: var(--text-main);
+    }
+    .style-card .style-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* Template Cards Grid */
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    .templates-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 20px;
+    }
+
+    .template-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+    .template-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+    .template-category {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .template-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .template-badge.ready { background: var(--tone-success-soft); color: var(--tone-success); }
+    .template-badge.conflict { background: var(--tone-danger-soft); color: var(--tone-danger); }
+    .template-badge.progress { background: var(--tone-cyan-soft); color: var(--tone-cyan); }
+    .template-badge.ai { background: var(--tone-ai-soft); color: var(--tone-ai); }
+
+    /* ==========================================================================
+       NOTIFICATION CARD CORE (THE REDESIGNED TOAST / NOTIFICATION COMPONENT)
+       ========================================================================== */
+    .notif-card {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    /* Style Variant A: Hyper-Precision Glassmorphism (Default) */
+    .style-glass .notif-card {
+      background: var(--bg-surface-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-medium);
+      box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .style-glass .notif-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3.5px;
+      border-radius: 4px 0 0 4px;
+    }
+    .style-glass .notif-card.is-success::before { background: var(--tone-success); box-shadow: 0 0 12px var(--tone-success); }
+    .style-glass .notif-card.is-danger::before { background: var(--tone-danger); box-shadow: 0 0 12px var(--tone-danger); }
+    .style-glass .notif-card.is-warning::before { background: var(--tone-warning); box-shadow: 0 0 12px var(--tone-warning); }
+    .style-glass .notif-card.is-info::before { background: var(--tone-info); box-shadow: 0 0 12px var(--tone-info); }
+    .style-glass .notif-card.is-ai::before { background: var(--tone-ai); box-shadow: 0 0 14px var(--tone-ai); }
+    .style-glass .notif-card.is-progress::before { background: var(--tone-cyan); box-shadow: 0 0 12px var(--tone-cyan); }
+
+    /* Style Variant B: Clean Linear Dev (Modern SaaS Minimalist) */
+    .style-linear .notif-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--text-dim);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+    .style-linear .notif-card.is-success { border-left-color: var(--tone-success); }
+    .style-linear .notif-card.is-danger { border-left-color: var(--tone-danger); }
+    .style-linear .notif-card.is-warning { border-left-color: var(--tone-warning); }
+    .style-linear .notif-card.is-ai { border-left-color: var(--tone-ai); }
+    .style-linear .notif-card.is-progress { border-left-color: var(--tone-cyan); }
+
+    /* Style Variant C: Interactive Command Card */
+    .style-command .notif-card {
+      background: #0d1117;
+      border: 1px solid var(--border-medium);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+      font-family: var(--font-sans);
+    }
+
+    /* Style Variant D: Dynamic Island / Floating Capsule */
+    .style-capsule .notif-card {
+      background: rgba(15, 20, 28, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 20px 40px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+      padding: 12px 18px;
+    }
+
+    /* Common Card Internals */
+    .notif-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .notif-card.is-success .notif-icon { background: var(--tone-success-soft); color: var(--tone-success); }
+    .notif-card.is-danger .notif-icon { background: var(--tone-danger-soft); color: var(--tone-danger); }
+    .notif-card.is-warning .notif-icon { background: var(--tone-warning-soft); color: var(--tone-warning); }
+    .notif-card.is-info .notif-icon { background: var(--tone-info-soft); color: var(--tone-info); }
+    .notif-card.is-ai .notif-icon { background: var(--tone-ai-soft); color: var(--tone-ai); }
+    .notif-card.is-progress .notif-icon { background: var(--tone-cyan-soft); color: var(--tone-cyan); }
+
+    .notif-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .notif-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 3px;
+    }
+    .notif-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notif-time {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    .notif-message {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+
+    /* Monospace Context Snippets */
+    .notif-code-box {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #7dd3fc;
+      margin: 6px 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: text;
+    }
+    .notif-source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
+    /* Action Buttons Row */
+    .notif-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .notif-btn {
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid transparent;
+    }
+    .notif-btn.btn-primary {
+      background: var(--tone-info);
+      color: #fff;
+    }
+    .notif-btn.btn-primary:hover {
+      background: #2563eb;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+    .notif-btn.btn-success {
+      background: var(--tone-success);
+      color: #064e3b;
+      font-weight: 700;
+    }
+    .notif-btn.btn-success:hover {
+      background: #059669;
+      color: #fff;
+    }
+    .notif-btn.btn-danger {
+      background: var(--tone-danger);
+      color: #fff;
+    }
+    .notif-btn.btn-danger:hover {
+      background: #e11d48;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+    .notif-btn.btn-ai {
+      background: linear-gradient(135deg, #8b5cf6, #d946ef);
+      color: #fff;
+    }
+    .notif-btn.btn-ai:hover {
+      box-shadow: 0 0 16px var(--tone-ai-glow);
+    }
+    .notif-btn.btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--border-subtle);
+      color: var(--text-main);
+    }
+    .notif-btn.btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-medium);
+    }
+    .notif-btn .kbd {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      padding: 1px 4px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 3px;
+      opacity: 0.85;
+    }
+
+    /* Progress bar element */
+    .notif-progress-wrap {
+      margin: 8px 0 4px;
+    }
+    .notif-progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .notif-progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .notif-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--tone-cyan), #3b82f6);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+      position: relative;
+    }
+    .notif-progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Close / Dismiss button */
+    .notif-close {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.15s;
+    }
+    .notif-close:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Auto-dismiss countdown bar */
+    .notif-timer-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2.5px;
+      background: var(--text-dim);
+      opacity: 0.4;
+      animation: timer-shrink 4.5s linear forwards;
+    }
+    @keyframes timer-shrink {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
+    /* ==========================================================================
+       LIVE FLOATING TOAST SYSTEM CONTAINER (TOP-RIGHT DECK)
+       ========================================================================== */
+    .live-toast-portal {
+      position: fixed;
+      top: 68px;
+      right: 24px;
+      width: 390px;
+      max-width: calc(100vw - 48px);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .live-toast-portal .notif-card {
+      pointer-events: auto;
+      animation: toast-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border-medium);
+    }
+    .live-toast-portal .notif-card.is-leaving {
+      animation: toast-leave 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes toast-enter {
+      from { opacity: 0; transform: translateY(-16px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toast-leave {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateX(30px) scale(0.92); }
+    }
+
+    /* ==========================================================================
+       NOTIFICATION CENTER FLYOUT DRAWER (POPUP)
+       ========================================================================== */
+    .notif-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      z-index: 1050;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .notif-drawer-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notif-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 440px;
+      max-width: 100vw;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-medium);
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: -20px 0 60px rgba(0, 0, 0, 0.6);
+    }
+    .notif-drawer.is-open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .drawer-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .drawer-tabs {
+      display: flex;
+      padding: 8px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      gap: 8px;
+      overflow-x: auto;
+    }
+    .drawer-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .drawer-tab.active {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+    }
+    .drawer-tab .count-pill {
+      font-size: 10.5px;
+      padding: 1px 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+    }
+    .drawer-tab.active .count-pill {
+      background: var(--tone-info-soft);
+      color: var(--tone-info);
+    }
+
+    .drawer-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .drawer-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 240px;
+      text-align: center;
+      color: var(--text-dim);
+      gap: 12px;
+    }
+
+    .drawer-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-surface-glass);
+    }
+
+    /* Comparison Matrix Table */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-top: 14px;
+    }
+    .matrix-table th, .matrix-table td {
+      padding: 10px 14px;
+      border: 1px solid var(--border-subtle);
+      text-align: left;
+    }
+    .matrix-table th {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      font-weight: 700;
+    }
+    .matrix-table td {
+      color: var(--text-muted);
+    }
+
+    /* Code Export Modal / Area */
+    .code-export-box {
+      background: #090c10;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #93c5fd;
+      overflow-x: auto;
+      line-height: 1.6;
+      position: relative;
+    }
+    .code-copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 5px 10px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .showcase-container {
+        grid-template-columns: 1fr;
+      }
+      .style-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .trigger-panel {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body class="style-glass theme-obsidian">
+
+  <!-- TOP HEADER & GLOBAL CONTROLS -->
+  <header class="top-header">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div class="brand-title">
+        MISSION CONTROL <span class="brand-badge">UI/UX REDESIGN LAB</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <!-- Theme Switcher -->
+      <div class="btn-group">
+        <button class="pill-btn active" onclick="setTheme('obsidian', this)">Obsidian</button>
+        <button class="pill-btn" onclick="setTheme('slate', this)">Slate</button>
+        <button class="pill-btn" onclick="setTheme('titanium', this)">Light</button>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button id="soundToggle" class="pill-btn" onclick="toggleAudio()" style="display:flex;align-items:center;gap:6px;background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <span id="soundLabel">Audio: On</span>
+      </button>
+
+      <!-- Notification Center Bell Trigger -->
+      <button class="bell-trigger" onclick="toggleDrawer(true)" title="Open Notification Center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5Z"/>
+          <path d="M13.7 19.5a2 2 0 0 1-3.4 0"/>
+        </svg>
+        <span class="bell-badge" id="bellBadgeCount">4</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- LIVE TOAST PORTAL (REAL INTERACTIVE TOAST STACK) -->
+  <div class="live-toast-portal" id="liveToastPortal"></div>
+
+  <!-- NOTIFICATION CENTER FLYOUT DRAWER -->
+  <div class="notif-drawer-backdrop" id="drawerBackdrop" onclick="toggleDrawer(false)"></div>
+  <aside class="notif-drawer" id="notifDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5Z"/>
+          <path d="M13.7 19.5a2 2 0 0 1-3.4 0"/>
+        </svg>
+        Notification Center
+      </div>
+      <button class="notif-close" onclick="toggleDrawer(false)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Drawer Tabs -->
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" onclick="filterDrawer('all', this)">All <span class="count-pill">7</span></button>
+      <button class="drawer-tab" onclick="filterDrawer('unread', this)">Unread <span class="count-pill">4</span></button>
+      <button class="drawer-tab" onclick="filterDrawer('action', this)">Needs Action <span class="count-pill">2</span></button>
+      <button class="drawer-tab" onclick="filterDrawer('ai', this)">AI Copilot <span class="count-pill">1</span></button>
+    </div>
+
+    <!-- Drawer List -->
+    <div class="drawer-list" id="drawerList">
+      <!-- Drawer items injected dynamically -->
+    </div>
+
+    <div class="drawer-footer">
+      <span style="font-size:11.5px;color:var(--text-dim);"><kbd style="font-family:var(--font-mono);background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:3px;">Esc</kbd> to close</span>
+      <button class="notif-btn btn-secondary" onclick="clearAllDrawer()">Clear All History</button>
+    </div>
+  </aside>
+
+  <!-- MAIN SHOWCASE GRID -->
+  <main class="showcase-container">
+
+    <!-- LEFT SIDEBAR: LIVE TRIGGER PALETTE -->
+    <section class="trigger-panel">
+      <h2 class="panel-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Interactive Simulator
+      </h2>
+      <p class="panel-subtitle">Click any event below to spawn real interactive notifications in top-right.</p>
+
+      <div class="trigger-group">
+        <span class="trigger-label">1. Worker & Service Lifecycle</span>
+        <div class="trigger-grid">
+          <button class="btn-trigger" onclick="triggerToast('success_service')">
+            <span class="icon-wrap"><span class="dot success"></span>Service Started (Ready)</span>
+            <span class="shortcut">1</span>
+          </button>
+          <button class="btn-trigger" onclick="triggerToast('danger_port')">
+            <span class="icon-wrap"><span class="dot danger"></span>Port 3000 Conflict</span>
+            <span class="shortcut">2</span>
+          </button>
+          <button class="btn-trigger" onclick="triggerToast('danger_crash')">
+            <span class="icon-wrap"><span class="dot danger"></span>Worker Crash (Exit 137)</span>
+            <span class="shortcut">3</span>
+          </button>
+          <button class="btn-trigger" onclick="triggerToast('warning_memory')">
+            <span class="icon-wrap"><span class="dot warning"></span>Memory Limit (92%)</span>
+            <span class="shortcut">4</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="trigger-group">
+        <span class="trigger-label">2. Background Tasks & AI</span>
+        <div class="trigger-grid">
+          <button class="btn-trigger" onclick="triggerToast('progress_docker')">
+            <span class="icon-wrap"><span class="dot progress"></span>Docker Build (Live Progress)</span>
+            <span class="shortcut">5</span>
+          </button>
+          <button class="btn-trigger" onclick="triggerToast('ai_anomaly')">
+            <span class="icon-wrap"><span class="dot ai"></span>Mission AI: Anomaly Alert</span>
+            <span class="shortcut">6</span>
+          </button>
+          <button class="btn-trigger" onclick="triggerToast('info_sync')">
+            <span class="icon-wrap"><span class="dot info"></span>Git Sync / Webhook</span>
+            <span class="shortcut">7</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="trigger-group">
+        <span class="trigger-label">3. Mass Actions & Policy</span>
+        <div class="btn-action-row">
+          <button onclick="spawnRapidStack()">⚡ Rapid 4-Burst</button>
+          <button onclick="clearAllToasts()">Clear Stack</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- STYLE SELECTOR BANNER -->
+      <section class="style-banner">
+        <div>
+          <h1 style="font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-0.02em;">
+            Notification Design Archetypes
+          </h1>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:2px;">
+            Select a design paradigm below to immediately re-render all notifications across the entire app interface:
+          </p>
+        </div>
+
+        <div class="style-cards">
+          <!-- Style 1 -->
+          <div class="style-card selected" onclick="setStyle('style-glass', this)">
+            <span class="style-tag">Variant A</span>
+            <div class="style-name">HUD Glassmorphism</div>
+            <div class="style-desc">Frosted translucent glass, neon state glow edge, telemetry badges, ultra-modern developer feel.</div>
+          </div>
+
+          <!-- Style 2 -->
+          <div class="style-card" onclick="setStyle('style-linear', this)">
+            <span class="style-tag">Variant B</span>
+            <div class="style-name">Clean Linear Dev</div>
+            <div class="style-desc">Sharp geometric borders, solid dark panels, micro-type hierarchy, keyboard-first focus.</div>
+          </div>
+
+          <!-- Style 3 -->
+          <div class="style-card" onclick="setStyle('style-command', this)">
+            <span class="style-tag">Variant C</span>
+            <div class="style-name">DevOps Command Card</div>
+            <div class="style-desc">Inline terminal commands, log diff previews, 1-click execution for port fixes & PID termination.</div>
+          </div>
+
+          <!-- Style 4 -->
+          <div class="style-card" onclick="setStyle('style-capsule', this)">
+            <span class="style-tag">Variant D</span>
+            <div class="style-name">Dynamic Island HUD</div>
+            <div class="style-desc">Morphing floating pill capsule, radial circular progress, high-density minimal footprint.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEMPLATE SPECIFICATIONS GALLERY -->
+      <section>
+        <div class="section-title">
+          <span>7 Production-Ready Notification Templates</span>
+          <span style="font-size:12px;font-weight:600;color:var(--text-dim);font-family:var(--font-mono);">OUTARCH / MISSION CONTROL 2.19+</span>
+        </div>
+        <p class="section-subtitle">
+          Engineered for developer workflows: zero clutter, instantaneous triage, 1-click resolution actions, and non-blocking background progress.
+        </p>
+
+        <div class="templates-grid">
+
+          <!-- TEMPLATE 1: SERVICE SUCCESS WITH ACTIONS -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                T01 — Service Readiness
+              </span>
+              <span class="template-badge ready">Auto-Dismiss 4.5s</span>
+            </div>
+
+            <div class="notif-card is-success">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">
+                    API Gateway is Live
+                    <span class="notif-source-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3.5" y="5" width="17" height="14" rx="2.2"/><path d="m7.5 10 2.5 2-2.5 2"/></svg> gateway-srv</span>
+                  </span>
+                  <span class="notif-time">just now</span>
+                </div>
+                <p class="notif-message">Compiled in 184ms. HTTP/2 & WebSocket endpoints listening.</p>
+                <div class="notif-code-box">
+                  <span>http://localhost:8080/v2/health</span>
+                  <span style="color:var(--text-dim);font-size:10px;">[200 OK]</span>
+                </div>
+                <div class="notif-actions">
+                  <button class="notif-btn btn-primary" onclick="triggerSampleAction('Opening localhost:8080 in browser')">
+                    Open in Browser <span class="kbd">⌘O</span>
+                  </button>
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('URL copied to clipboard!')">
+                    Copy URL
+                  </button>
+                </div>
+              </div>
+              <button class="notif-close" title="Dismiss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              <div class="notif-timer-bar"></div>
+            </div>
+          </div>
+
+          <!-- TEMPLATE 2: PORT CONFLICT RESOLUTION (ACTIONABLE) -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>
+                T02 — Conflict & Action Prompt
+              </span>
+              <span class="template-badge conflict">Persistent / Needs Decision</span>
+            </div>
+
+            <div class="notif-card is-danger">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">
+                    Port 3000 Collision
+                    <span class="notif-source-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3.5" y="5" width="17" height="14" rx="2.2"/><path d="m7.5 10 2.5 2-2.5 2"/></svg> web-client</span>
+                  </span>
+                  <span class="notif-time">2m ago</span>
+                </div>
+                <p class="notif-message">Port is already bound by an orphan process from another session.</p>
+                <div class="notif-code-box">
+                  <span style="color:#fda4af;">PID 9184 (node) → listening on :3000</span>
+                  <span style="color:var(--text-dim);font-size:10px;">EADDRINUSE</span>
+                </div>
+                <div class="notif-actions">
+                  <button class="notif-btn btn-danger" onclick="triggerSampleAction('Killed PID 9184 and restarted web-client on :3000')">
+                    ⚡ Kill PID 9184 & Start <span class="kbd">↵</span>
+                  </button>
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Re-assigned web-client to port 3001')">
+                    Use Port 3001
+                  </button>
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Inspecting process PID 9184 in terminal')">
+                    Inspect PID
+                  </button>
+                </div>
+              </div>
+              <button class="notif-close" title="Dismiss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+
+          <!-- TEMPLATE 3: LIVE STREAMING PROGRESS -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/></svg>
+                T03 — Live Background Task
+              </span>
+              <span class="template-badge progress">Streaming State</span>
+            </div>
+
+            <div class="notif-card is-progress">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">
+                    Building Docker Container
+                    <span class="notif-source-tag">build-pipeline</span>
+                  </span>
+                  <span class="notif-time">0:42s</span>
+                </div>
+                <p class="notif-message">Compiling release binary and bundling layer 4 of 6.</p>
+                
+                <div class="notif-progress-wrap">
+                  <div class="notif-progress-header">
+                    <span>Step 4/6: cargo build --release</span>
+                    <span id="demoProgressPercent">68%</span>
+                  </div>
+                  <div class="notif-progress-track">
+                    <div class="notif-progress-fill" id="demoProgressBar" style="width: 68%;"></div>
+                  </div>
+                </div>
+
+                <div class="notif-actions">
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Attached to live terminal build stream')">
+                    Stream Logs
+                  </button>
+                  <button class="notif-btn btn-secondary" style="color:var(--tone-danger);" onclick="triggerSampleAction('Build cancelled by operator')">
+                    Cancel Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TEMPLATE 4: AI COPILOT INSIGHT & FIX -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3.5c.4 4.4 4.1 8.1 8.5 8.5-4.4.4-8.1 4.1-8.5 8.5-.4-4.4-4.1-8.1-8.5-8.5 4.4-.4 8.1-4.1 8.5-8.5Z"/></svg>
+                T04 — Mission AI Copilot
+              </span>
+              <span class="template-badge ai">AI Suggested Fix</span>
+            </div>
+
+            <div class="notif-card is-ai">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3.5c.4 4.4 4.1 8.1 8.5 8.5-4.4.4-8.1 4.1-8.5 8.5-.4-4.4-4.1-8.1-8.5-8.5 4.4-.4 8.1-4.1 8.5-8.5Z"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">
+                    Mission AI: Memory Leak Detected
+                    <span class="notif-source-tag">mission-ai</span>
+                  </span>
+                  <span class="notif-time">1m ago</span>
+                </div>
+                <p class="notif-message">Worker <code>auth-service</code> RAM usage escalated +42% after route <code>/oauth/callback</code> invoked.</p>
+                <div class="notif-code-box">
+                  <span style="color:#d8b4fe;">Unclosed Redis connection pool in callback.ts:48</span>
+                </div>
+                <div class="notif-actions">
+                  <button class="notif-btn btn-ai" onclick="triggerSampleAction('Mission AI applied patch: closed connection leak in callback.ts')">
+                    ✨ Apply AI Auto-Patch
+                  </button>
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Opening AI Assistant investigation chat')">
+                    Explain in Chat
+                  </button>
+                </div>
+              </div>
+              <button class="notif-close" title="Dismiss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+
+          <!-- TEMPLATE 5: WARNING / RESOURCE THRESHOLD -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                T05 — Telemetry Warning
+              </span>
+              <span class="template-badge" style="background:var(--tone-warning-soft);color:var(--tone-warning);">Caution</span>
+            </div>
+
+            <div class="notif-card is-warning">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 3h.01"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">High CPU Throttling (94%)</span>
+                  <span class="notif-time">4m ago</span>
+                </div>
+                <p class="notif-message">Worker <code>elastic-indexer</code> is saturated. Garbage collector triggered 14 pauses.</p>
+                <div class="notif-actions">
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Restarted worker with 2GB heap limit')">
+                    Restart with --max-old-space=2048
+                  </button>
+                  <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Opened worker sparklines & metrics')">
+                    View Profiler
+                  </button>
+                </div>
+              </div>
+              <button class="notif-close" title="Dismiss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              <div class="notif-timer-bar"></div>
+            </div>
+          </div>
+
+          <!-- TEMPLATE 6: BATCH STACK ROLLUP (+N MORE) -->
+          <div class="template-box">
+            <div class="template-header">
+              <span class="template-category">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                T06 — Grouped Batch Rollup
+              </span>
+              <span class="template-badge ready">Stack Accordion</span>
+            </div>
+
+            <div class="notif-card is-info" style="cursor:pointer;" onclick="toggleDrawer(true)">
+              <div class="notif-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              </div>
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">Workspace 'Production-Cluster' Ready</span>
+                  <span class="notif-time">10s ago</span>
+                </div>
+                <p class="notif-message">4 background workers initialized cleanly in 820ms.</p>
+                <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                  <span class="notif-source-tag" style="color:var(--tone-success);">✓ web:3000</span>
+                  <span class="notif-source-tag" style="color:var(--tone-success);">✓ api:8080</span>
+                  <span class="notif-source-tag" style="color:var(--tone-success);">✓ db:5432</span>
+                  <span class="notif-source-tag" style="color:var(--tone-success);">✓ redis:6379</span>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--tone-info);font-weight:700;display:flex;align-items:center;gap:4px;align-self:center;">
+                Review <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ARCHITECTURAL COMPARISON & SPECIFICATION TABLE -->
+      <section style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:24px;">
+        <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:6px;">
+          UI/UX Redesign Evaluation Matrix
+        </h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+          How the 4 proposed styles contrast across ergonomics, developer density, visual delight, and keyboard accessibility:
+        </p>
+
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>Design Style</th>
+              <th>Key Visual Signatures</th>
+              <th>Information Density</th>
+              <th>Action Usability</th>
+              <th>Target Persona</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong style="color:#60a5fa;">HUD Glassmorphism (A)</strong></td>
+              <td>Frosted glass blur, neon accent state glow, micro telemetry badges</td>
+              <td>High (9/10)</td>
+              <td>Dual Primary/Ghost buttons with shortcut badges</td>
+              <td>Developers who want a futuristic, modern control-center feel</td>
+            </tr>
+            <tr>
+              <td><strong style="color:#34d399;">Clean Linear Dev (B)</strong></td>
+              <td>Geometric borders, crisp typography, solid dark panels</td>
+              <td>Ultra-High (10/10)</td>
+              <td>Compact inline links, high-contrast focus rings</td>
+              <td>Minimalists, high-frequency terminal power users</td>
+            </tr>
+            <tr>
+              <td><strong style="color:#f43f5e;">DevOps Command Card (C)</strong></td>
+              <td>Embedded code diffs, inline PID/terminal action triggers</td>
+              <td>Contextual (8/10)</td>
+              <td>1-click execution (`Kill PID & Start`, `Rollback`)</td>
+              <td>Engineers managing multi-service complex microservices</td>
+            </tr>
+            <tr>
+              <td><strong style="color:#c084fc;">Dynamic Island HUD (D)</strong></td>
+              <td>Morphing floating capsule pill, circular radial progress</td>
+              <td>Adaptive (7/10)</td>
+              <td>Expands on hover/click into full action card</td>
+              <td>Operators wanting zero canvas obstruction during coding</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- CODE INTEGRATION GUIDE -->
+      <section style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:24px;">
+        <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:6px;">
+          React Component API & Implementation
+        </h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+          Drop-in compatible with existing <code>useToast()</code> and <code>NotificationTray.jsx</code> hooks in Mission Control:
+        </p>
+
+        <div class="code-export-box">
+          <button class="code-copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('codeExample').innerText); alert('Copied code snippet!');">Copy Code</button>
+<pre id="codeExample"><code>// 1. Port Conflict with 1-Click Kill Action
+toast.danger("Port 3000 is occupied by PID 9184 (node)", {
+  title: "Port 3000 Collision",
+  source: "web-client",
+  actions: [
+    { label: "⚡ Kill PID 9184 & Start", run: () => killAndStart(9184, 3000), tone: "danger" },
+    { label: "Use Port 3001", run: () => startOnPort(3001) }
+  ]
+});
+
+// 2. Live Background Task with in-place transition
+const task = toast.progress("Building Docker Image...", { source: "build-srv" });
+task.updateProgress(0.68, "Step 4/6: Compiling rust crates");
+// On completion:
+task.succeed("Docker Image 'prod-worker:v2.1' ready", { 
+  actions: [{ label: "Deploy to Cluster", run: () => deploy() }] 
+});
+
+// 3. AI Copilot Insight
+toast.ai("Unclosed Redis pool detected in callback.ts:48", {
+  title: "Mission AI Memory Anomaly",
+  actions: [
+    { label: "✨ Apply Auto-Patch", run: () => applyPatch(), tone: "ai" },
+    { label: "Explain in Chat", run: () => openAiAssistant() }
+  ]
+});</code></pre>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    // Audio Synthesizer for UI notification chimes using Web Audio API
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type, duration, delay = 0) {
+      if (!audioEnabled) return;
+      initAudio();
+      setTimeout(() => {
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type || 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+      }, delay);
+    }
+
+    function playChime(kind) {
+      if (!audioEnabled) return;
+      if (kind === 'success') {
+        playTone(523.25, 'sine', 0.15, 0);   // C5
+        playTone(659.25, 'sine', 0.25, 80);  // E5
+      } else if (kind === 'danger') {
+        playTone(392.00, 'triangle', 0.18, 0); // G4
+        playTone(311.13, 'triangle', 0.28, 90); // Eb4
+      } else if (kind === 'ai') {
+        playTone(587.33, 'sine', 0.2, 0);   // D5
+        playTone(880.00, 'sine', 0.3, 70);  // A5
+      } else if (kind === 'progress') {
+        playTone(440.00, 'sine', 0.1, 0);
+      } else {
+        playTone(440.00, 'sine', 0.15, 0);
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('soundLabel').innerText = `Audio: ${audioEnabled ? 'On' : 'Off'}`;
+    }
+
+    // Theme Switcher
+    function setTheme(themeName, btn) {
+      document.body.classList.remove('theme-obsidian', 'theme-slate', 'theme-titanium');
+      document.body.classList.add(`theme-${themeName}`);
+      document.querySelectorAll('.top-header .pill-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    // Style Switcher
+    function setStyle(styleClass, card) {
+      document.body.classList.remove('style-glass', 'style-linear', 'style-command', 'style-capsule');
+      document.body.classList.add(styleClass);
+      document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+      if (card) card.classList.add('selected');
+    }
+
+    // Drawer State & Data
+    let drawerItems = [
+      {
+        id: 1,
+        type: 'danger',
+        title: 'Port 3000 Collision',
+        source: 'web-client',
+        time: '2m ago',
+        message: 'Port is already bound by PID 9184 (node).',
+        read: false,
+        actions: ['⚡ Kill PID 9184 & Start', 'Use Port 3001']
+      },
+      {
+        id: 2,
+        type: 'ai',
+        title: 'Mission AI: Memory Leak Detected',
+        source: 'mission-ai',
+        time: '5m ago',
+        message: 'Unclosed Redis connection pool in callback.ts:48',
+        read: false,
+        actions: ['✨ Apply AI Auto-Patch']
+      },
+      {
+        id: 3,
+        type: 'success',
+        title: 'API Gateway is Live',
+        source: 'gateway-srv',
+        time: '12m ago',
+        message: 'Listening on http://localhost:8080/v2/health',
+        read: false,
+        actions: ['Open Browser']
+      },
+      {
+        id: 4,
+        type: 'warning',
+        title: 'CPU Throttling Alert',
+        source: 'elastic-indexer',
+        time: '25m ago',
+        message: 'CPU usage spiked to 94%. GC pauses recorded.',
+        read: true,
+        actions: ['View Profiler']
+      }
+    ];
+
+    function renderDrawer(filter = 'all') {
+      const list = document.getElementById('drawerList');
+      list.innerHTML = '';
+
+      let filtered = drawerItems;
+      if (filter === 'unread') filtered = drawerItems.filter(i => !i.read);
+      if (filter === 'action') filtered = drawerItems.filter(i => i.actions && i.actions.length);
+      if (filter === 'ai') filtered = drawerItems.filter(i => i.type === 'ai');
+
+      if (!filtered.length) {
+        list.innerHTML = `
+          <div class="drawer-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <p>No notifications in this view.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = `notif-card is-${item.type} ${item.read ? 'is-read' : ''}`;
+        div.innerHTML = `
+          <div class="notif-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/></svg>
+          </div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">${item.title}</span>
+              <span class="notif-time">${item.time}</span>
+            </div>
+            <p class="notif-message">${item.message}</p>
+            ${item.actions && item.actions.length ? `
+              <div class="notif-actions">
+                ${item.actions.map(a => `<button class="notif-btn btn-secondary" onclick="triggerSampleAction('${a}')">${a}</button>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+          <button class="notif-close" onclick="removeDrawerItem(${item.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        `;
+        list.appendChild(div);
+      });
+
+      updateBadgeCount();
+    }
+
+    function toggleDrawer(open) {
+      document.getElementById('drawerBackdrop').classList.toggle('is-open', open);
+      document.getElementById('notifDrawer').classList.toggle('is-open', open);
+      if (open) {
+        renderDrawer('all');
+        // mark items read
+        drawerItems.forEach(i => i.read = true);
+        updateBadgeCount();
+      }
+    }
+
+    function filterDrawer(filter, btn) {
+      document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderDrawer(filter);
+    }
+
+    function removeDrawerItem(id) {
+      drawerItems = drawerItems.filter(i => i.id !== id);
+      renderDrawer('all');
+    }
+
+    function clearAllDrawer() {
+      drawerItems = [];
+      renderDrawer('all');
+    }
+
+    function updateBadgeCount() {
+      const unread = drawerItems.filter(i => !i.read).length;
+      const badge = document.getElementById('bellBadgeCount');
+      if (unread > 0) {
+        badge.style.display = 'grid';
+        badge.innerText = unread;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Live Floating Toast Spawner
+    let toastCounter = 1;
+
+    function triggerToast(type) {
+      const portal = document.getElementById('liveToastPortal');
+      const toast = document.createElement('div');
+      const id = 'toast-' + toastCounter++;
+
+      let html = '';
+      let kind = 'info';
+      let autoDismiss = true;
+      let duration = 4500;
+
+      if (type === 'success_service') {
+        kind = 'success';
+        playChime('success');
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Auth Service Ready <span class="notif-source-tag">auth-srv</span></span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">Port :5000 verified. JWT secret loaded.</p>
+            <div class="notif-actions">
+              <button class="notif-btn btn-primary" onclick="triggerSampleAction('Opening localhost:5000')">Open App</button>
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Copied :5000')">Copy Port</button>
+            </div>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <div class="notif-timer-bar"></div>
+        `;
+      } else if (type === 'danger_port') {
+        kind = 'danger';
+        autoDismiss = false; // Persistent
+        playChime('danger');
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Port 3000 Collision <span class="notif-source-tag">web-client</span></span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">PID 9184 is holding port 3000.</p>
+            <div class="notif-actions">
+              <button class="notif-btn btn-danger" onclick="triggerSampleAction('Killed PID 9184 and launched web-client')">⚡ Kill PID 9184</button>
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Switched to 3001')">Use 3001</button>
+            </div>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        `;
+      } else if (type === 'danger_crash') {
+        kind = 'danger';
+        autoDismiss = false;
+        playChime('danger');
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Worker Crashed (SIGKILL 137) <span class="notif-source-tag">indexer</span></span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">Out of Memory (OOM) killed by kernel.</p>
+            <div class="notif-actions">
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Restarting worker with +1GB RAM')">Restart (+1GB)</button>
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Inspecting crash dump')">View Trace</button>
+            </div>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        `;
+      } else if (type === 'warning_memory') {
+        kind = 'warning';
+        playChime('warning');
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 3h.01"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">RAM Spike 92%</span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">Memory usage exceeded safe threshold (3.7 / 4.0 GB).</p>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <div class="notif-timer-bar"></div>
+        `;
+      } else if (type === 'progress_docker') {
+        kind = 'progress';
+        playChime('progress');
+        autoDismiss = false;
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Building Docker Image</span>
+              <span class="notif-time">in progress</span>
+            </div>
+            <p class="notif-message">Step 3/5: Compiling Rust core engine...</p>
+            <div class="notif-progress-wrap">
+              <div class="notif-progress-track">
+                <div class="notif-progress-fill" style="width: 54%;"></div>
+              </div>
+            </div>
+            <div class="notif-actions">
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('Logs stream connected')">View Live Logs</button>
+            </div>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        `;
+      } else if (type === 'ai_anomaly') {
+        kind = 'ai';
+        playChime('ai');
+        autoDismiss = false;
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3.5c.4 4.4 4.1 8.1 8.5 8.5-4.4.4-8.1 4.1-8.5 8.5-.4-4.4-4.1-8.1-8.5-8.5 4.4-.4 8.1-4.1 8.5-8.5Z"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Mission AI Anomaly <span class="notif-source-tag">mission-ai</span></span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">High latency spike (+450ms) detected on API route.</p>
+            <div class="notif-actions">
+              <button class="notif-btn btn-ai" onclick="triggerSampleAction('AI optimization patch applied!')">✨ Optimize Query</button>
+              <button class="notif-btn btn-secondary" onclick="triggerSampleAction('AI diagnostics launched')">Diagnose</button>
+            </div>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        `;
+      } else {
+        kind = 'info';
+        playChime('info');
+        html = `
+          <div class="notif-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-head">
+              <span class="notif-title">Git Branch Synced</span>
+              <span class="notif-time">just now</span>
+            </div>
+            <p class="notif-message">Pulled 3 commits from origin/main.</p>
+          </div>
+          <button class="notif-close" onclick="dismissToast('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <div class="notif-timer-bar"></div>
+        `;
+      }
+
+      toast.id = id;
+      toast.className = `notif-card is-${kind}`;
+      toast.innerHTML = html;
+
+      // Keep max 3 toasts visible, remove oldest
+      while (portal.children.length >= 3) {
+        portal.removeChild(portal.firstChild);
+      }
+
+      portal.appendChild(toast);
+
+      if (autoDismiss) {
+        setTimeout(() => {
+          dismissToast(id);
+        }, duration);
+      }
+    }
+
+    function dismissToast(id) {
+      const t = document.getElementById(id);
+      if (t) {
+        t.classList.add('is-leaving');
+        setTimeout(() => {
+          if (t && t.parentNode) t.parentNode.removeChild(t);
+        }, 220);
+      }
+    }
+
+    function clearAllToasts() {
+      const portal = document.getElementById('liveToastPortal');
+      portal.innerHTML = '';
+    }
+
+    function spawnRapidStack() {
+      clearAllToasts();
+      triggerToast('success_service');
+      setTimeout(() => triggerToast('danger_port'), 180);
+      setTimeout(() => triggerToast('ai_anomaly'), 360);
+    }
+
+    function triggerSampleAction(msg) {
+      alert(`[Simulated Action]: ${msg}`);
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        toggleDrawer(false);
+      } else if (e.key === '1') {
+        triggerToast('success_service');
+      } else if (e.key === '2') {
+        triggerToast('danger_port');
+      } else if (e.key === '3') {
+        triggerToast('danger_crash');
+      } else if (e.key === '4') {
+        triggerToast('warning_memory');
+      } else if (e.key === '5') {
+        triggerToast('progress_docker');
+      } else if (e.key === '6') {
+        triggerToast('ai_anomaly');
+      } else if (e.key === '7') {
+        triggerToast('info_sync');
+      }
+    });
+
+    // Auto-progress animation ticker for demo
+    let progressVal = 68;
+    setInterval(() => {
+      progressVal = (progressVal + 2);
+      if (progressVal > 100) progressVal = 20;
+      const bar = document.getElementById('demoProgressBar');
+      const text = document.getElementById('demoProgressPercent');
+      if (bar && text) {
+        bar.style.width = progressVal + '%';
+        text.innerText = progressVal + '%';
+      }
+    }, 1200);
+
+    // Initial load
+    renderDrawer('all');
+  </script>
+</body>
+</html>

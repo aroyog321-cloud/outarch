@@ -1,11 +1,12 @@
 {
   "name": "bridge",
-  "displayName": "Mission Control Bridge",
-  "description": "Authenticated editor synchronization and explicitly owned managed-terminal control for Mission Control Groundstation.",
+  "displayName": "OUTARCH Bridge",
+  "description": "Authenticated editor synchronization and explicitly owned managed-terminal control for the OUTARCH desktop app.",
   "version": "0.2.0",
   "publisher": "mission-control",
   "private": true,
   "license": "UNLICENSED",
+  "icon": "media/outarch.png",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -25,11 +26,11 @@
     "commands": [
       {
         "command": "missionControlBridge.connect",
-        "title": "Mission Control: Connect Current Project"
+        "title": "OUTARCH: Connect Current Project"
       },
       {
         "command": "missionControlBridge.disconnect",
-        "title": "Mission Control: Disconnect Bridge"
+        "title": "OUTARCH: Disconnect Bridge"
       }
     ]
   }

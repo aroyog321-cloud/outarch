@@ -4,9 +4,10 @@ const DEFAULT_CONFIG_NAME = "termctl.config.json";
 
 function usage(version) {
   return [
-    `Mission Control ${version}`,
+    `OUTARCH ${version}`,
     "",
     "Usage: termctl [options]",
+    "       outarch [options]",
     "",
     "Options:",
     "  -c, --config <path>  Use a specific workspace file",

@@ -2,9 +2,10 @@
   "name": "termctl-tui",
   "version": "2.19.0",
   "type": "module",
-  "description": "Mission Control — a local-first developer command center with a shared PTY engine, TUI, and Groundstation desktop client.",
+  "description": "OUTARCH — a local-first developer command center with a shared PTY engine, TUI, and desktop client.",
   "bin": {
-    "termctl": "./bin/termctl.js"
+    "termctl": "./bin/termctl.js",
+    "outarch": "./bin/termctl.js"
   },
   "main": "src/engine/index.cjs",
   "files": [
@@ -12,8 +13,11 @@
     "src",
     "integrations/vscode",
     "dist/groundstation/renderer",
+    "OPEN_OUTARCH_WINDOWS.cmd",
+    "VERIFY_OUTARCH_WINDOWS.cmd",
     "OPEN_MISSION_CONTROL_WINDOWS.cmd",
     "VERIFY_MISSION_CONTROL_WINDOWS.cmd",
+    "scripts/ensure-renderer-build.cjs",
     "scripts/windows-release-check.cjs",
     "plugins/examples",
     "README-FIRST-WINDOWS.txt",
@@ -30,7 +34,7 @@
     "start": "node bin/termctl.js",
     "groundstation:build": "vite build --config vite.groundstation.config.mjs",
     "groundstation:capture": "npm run groundstation:build && node scripts/visual/capture-groundstation-matrix.cjs",
-    "groundstation": "npm run groundstation:build && electron src/groundstation/main/index.cjs",
+    "groundstation": "node scripts/ensure-renderer-build.cjs && electron src/groundstation/main/index.cjs",
     "groundstation:windows": "npm run groundstation",
     "verify:windows": "node scripts/windows-release-check.cjs",
     "test": "node --test --test-concurrency=1 test/*.test.cjs",

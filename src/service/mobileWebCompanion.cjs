@@ -1,33 +1,22 @@
 "use strict";
 
 function getMobileManifestJson() {
-  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#2563eb"/></linearGradient><linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#818cf8"/></linearGradient></defs><rect width="512" height="512" rx="128" fill="#080a10"/><rect x="24" y="24" width="464" height="464" rx="108" fill="url(#g)" opacity="0.18"/><rect x="24" y="24" width="464" height="464" rx="108" fill="none" stroke="rgba(56,189,248,0.3)" stroke-width="8"/><path d="M128 384V140l128 140 128-140v244" fill="none" stroke="url(#glow)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="280" r="22" fill="#38bdf8"/><circle cx="256" cy="280" r="34" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.5"/></svg>`;
-  const iconDataUrl = `data:image/svg+xml;base64,${Buffer.from(iconSvg).toString("base64")}`;
-
   return JSON.stringify({
-    name: "Mission Control · Mobile Companion",
-    short_name: "MC Companion",
-    description: "Encrypted mobile supervision and decision companion for Mission Control",
+    name: "OUTARCH · Mobile Companion",
+    short_name: "OUTARCH",
+    description: "Encrypted mobile supervision and decision companion for OUTARCH",
     start_url: "/mobile",
     scope: "/mobile",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#080a10",
-    theme_color: "#080a10",
+    background_color: "#000000",
+    theme_color: "#000000",
     categories: ["utilities", "developer-tools", "productivity"],
     icons: [
-      {
-        src: iconDataUrl,
-        sizes: "512x512",
-        type: "image/svg+xml",
-        purpose: "any maskable"
-      },
-      {
-        src: iconDataUrl,
-        sizes: "192x192",
-        type: "image/svg+xml",
-        purpose: "any maskable"
-      }
+      { src: "/mobile/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/mobile/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/mobile/icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/mobile/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
     ]
   }, null, 2);
 }
@@ -35,11 +24,12 @@ function getMobileManifestJson() {
 function getMobileServiceWorkerJs() {
   return `"use strict";
 
-const CACHE_NAME = "mc-companion-v2";
+const CACHE_NAME = "outarch-companion-v3";
 const ASSETS_TO_CACHE = [
   "/mobile",
   "/mobile/",
-  "/mobile/manifest.json"
+  "/mobile/manifest.json",
+  "/mobile/icon-192.png"
 ];
 
 self.addEventListener("install", event => {
@@ -78,7 +68,7 @@ self.addEventListener("fetch", event => {
 });
 
 self.addEventListener("push", event => {
-  let payload = { title: "Mission Control Alert", body: "New attention item or worker status update" };
+  let payload = { title: "OUTARCH Alert", body: "New attention item or worker status update" };
   try {
     if (event.data) payload = event.data.json();
   } catch {}
@@ -112,12 +102,14 @@ function getMobileWebCompanionHtml() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#080a10">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MC Companion">
+  <meta name="apple-mobile-web-app-title" content="OUTARCH">
   <link rel="manifest" href="/mobile/manifest.json">
-  <title>Mission Control · Mobile Companion</title>
+  <link rel="icon" type="image/png" href="/mobile/icon-192.png">
+  <link rel="apple-touch-icon" href="/mobile/apple-touch-icon.png">
+  <title>OUTARCH · Mobile Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -230,18 +222,12 @@ function getMobileWebCompanionHtml() {
     }
 
     .brand-mark {
+      display: block;
       width: 38px;
       height: 38px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.15));
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      border-radius: var(--radius-sm);
-      color: var(--primary);
-      font-size: 13.5px;
-      font-weight: 850;
-      letter-spacing: -0.02em;
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       flex-shrink: 0;
     }
 
@@ -922,9 +908,9 @@ function getMobileWebCompanionHtml() {
 
   <header>
     <div class="brand" onclick="switchTab('overview')">
-      <div class="brand-mark">MC</div>
+      <img class="brand-mark" src="/mobile/icon-192.png" alt="" width="38" height="38">
       <div class="brand-title">
-        <strong id="headerTitle">Mission Control</strong>
+        <strong id="headerTitle">OUTARCH</strong>
         <small id="headerSubtitle">Companion</small>
       </div>
     </div>
@@ -1534,7 +1520,7 @@ function getMobileWebCompanionHtml() {
         const endpoint = window.location.origin;
         const inviteRes = await fetch(endpoint + "/mobile/v1/invite");
         if (!inviteRes.ok) {
-          throw new Error("No active pairing session found on desktop. Click 'Invite Device' in Mission Control Settings.");
+          throw new Error("No active pairing session found on desktop. Click 'Invite Device' in OUTARCH Settings.");
         }
         const invite = await inviteRes.json();
 
@@ -2340,7 +2326,7 @@ function getMobileWebCompanionHtml() {
       }
       const d = appState.data;
       if (!d) {
-        container.innerHTML = \`<div class="card"><p class="msg">\${esc(appState.error || "Connecting to live Mission Control…")}</p></div>\`;
+        container.innerHTML = \`<div class="card"><p class="msg">\${esc(appState.error || "Connecting to live OUTARCH…")}</p></div>\`;
         return;
       }
 

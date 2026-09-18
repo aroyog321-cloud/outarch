@@ -1,7 +1,7 @@
 import React from "react";
 import { missionApi } from "./missionApi.js";
 
-// The Mission Control browser tile.
+// The OUTARCH browser tile.
 //
 // The page itself is not rendered by React: it is a real browser view owned by
 // the main process, painted over the rectangle this component reserves. So the
@@ -153,7 +153,7 @@ export default function WorkspaceBrowser({ style, onClose }) {
   };
 
   return (
-    <section className="workspace-browser" style={style} aria-label="Mission Control browser">
+    <section className="workspace-browser" style={style} aria-label="OUTARCH browser">
       <header className="workspace-browser__chrome">
         <div className="workspace-browser__nav" role="group" aria-label="Browser navigation">
           <button type="button" onClick={() => command("back")} disabled={!state.canGoBack} aria-label="Back">{chromeIcon("back")}</button>
@@ -187,7 +187,7 @@ export default function WorkspaceBrowser({ style, onClose }) {
         {!state.open && !state.url && (
           <div className="workspace-browser__empty">
             <strong>Nothing loaded yet</strong>
-            <p>Open a service from the Services panel, or type a local address above. Mission Control previews addresses on this machine; anything else opens in your system browser.</p>
+            <p>Open a service from the Services panel, or type a local address above. OUTARCH previews addresses on this machine; anything else opens in your system browser.</p>
           </div>
         )}
       </div>

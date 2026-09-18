@@ -158,7 +158,7 @@ export function useDecisions(terminalAlerts = {}, sessions = []) {
     records,
     sources: query.sources,
     counts: { ...query.counts, pending: activeCount },
-    complete: query.complete,
+    complete: status === "error" ? false : query.complete,
     status,
     error,
     acknowledge,

@@ -124,7 +124,7 @@ function workerHealth(session, resources, options = {}) {
       tone: "pressure",
       label: "Resource pressure",
       summary: signals.includes("high-cpu") && signals.includes("high-memory")
-        ? "CPU and memory are elevated; Mission Control is observing the worker."
+        ? "CPU and memory are elevated; OUTARCH is observing the worker."
         : signals.includes("high-cpu")
           ? "CPU is elevated; this may be expected during builds or tests."
           : "This process holds a significant share of system memory.",

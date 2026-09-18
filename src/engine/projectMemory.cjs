@@ -39,7 +39,7 @@ function isVerifiedSuccessEvent(event) {
 
 function evidenceStatement(event) {
   const evidence = event?.evidence || {};
-  if (event?.category === "tests") return `${Number(evidence.passed) || 0} tests passed${Number(evidence.failed) ? ` and ${Number(evidence.failed)} failed` : ""}`;
+  if (event?.category === "tests") { const passed = Number(evidence.passed) || 0; return `${passed} test${passed === 1 ? "" : "s"} passed${Number(evidence.failed) ? ` and ${Number(evidence.failed)} failed` : ""}`; }
   if (event?.category === "build") return evidence.status === "completed" ? "the build completed" : `the build reported ${evidence.status || "an update"}`;
   if (event?.category === "service") return evidence.ready ? "the service reported ready" : `service health was ${evidence.health || "recorded"}`;
   if (event?.category === "database") return evidence.connected ? "the database connection was confirmed" : `database connectivity was ${evidence.connection || "recorded"}`;
@@ -53,7 +53,13 @@ function failureStatement(event) {
   if (event?.reason) return String(event.reason).slice(0, 240);
   if (event?.type === "session:spawn-error") return "the worker could not start";
   if (event?.type === "session:exit" && Number.isInteger(event.exitCode)) return `the process exited with code ${event.exitCode}`;
-  if (event?.category === "tests") return `${Number(evidence.failed) || Number(evidence.suitesFailed) || 1} tests failed`;
+  if (event?.category === "tests") {
+    const tests = Number(evidence.failed);
+    if (tests) return `${tests} test${tests === 1 ? "" : "s"} failed`;
+    const suites = Number(evidence.suitesFailed);
+    if (suites) return `${suites} test suite${suites === 1 ? "" : "s"} failed`;
+    return "a test run failed";
+  }
   if (event?.category === "build") return "the build failed";
   if (event?.category === "service") return "service health failed";
   if (event?.category === "database") return "database connectivity failed";

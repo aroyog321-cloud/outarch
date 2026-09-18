@@ -2,8 +2,10 @@
 
 const crypto = require("node:crypto");
 const EventEmitter = require("node:events");
+const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
+const { ASSETS: BRAND_ASSETS } = require("../brand/index.cjs");
 const { redactText } = require("./contextSanitizer.cjs");
 const { getMobileManifestJson, getMobileServiceWorkerJs, getMobileWebCompanionHtml } = require("./mobileWebCompanion.cjs");
 
@@ -18,6 +20,21 @@ const MOBILE_APPROVAL_TTL_MS = 15 * 60 * 1000;
 const MOBILE_CLOCK_SKEW_MS = 2 * 60 * 1000;
 const MOBILE_NONCE_TTL_MS = 5 * 60 * 1000;
 const MAX_MOBILE_REQUEST_BYTES = 256 * 1024;
+// The OUTARCH icon for the home screen, the tab and the page header.
+const MOBILE_BRAND_ICONS = Object.freeze({
+  "/mobile/icon-192.png": BRAND_ASSETS.pwaIcon192,
+  "/mobile/icon-512.png": BRAND_ASSETS.pwaIcon512,
+  "/mobile/apple-touch-icon.png": BRAND_ASSETS.touchIcon180
+});
+const brandIconCache = new Map();
+function readBrandIcon(pathname) {
+  if (!brandIconCache.has(pathname)) {
+    let body = null;
+    try { body = fs.readFileSync(MOBILE_BRAND_ICONS[pathname]); } catch { body = null; }
+    brandIconCache.set(pathname, body);
+  }
+  return brandIconCache.get(pathname);
+}
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function b64(value) { return Buffer.from(value).toString("base64url"); }
@@ -412,6 +429,19 @@ class MobileCompanionGateway extends EventEmitter {
       return;
     }
 
+    if (request.method === "GET" && Object.hasOwn(MOBILE_BRAND_ICONS, pathname)) {
+      const icon = readBrandIcon(pathname);
+      if (!icon) return send(404, { ok: false, error: "Not found" });
+      response.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Length": icon.length
+      });
+      response.end(icon);
+      return;
+    }
+
     // Serve PWA Service Worker
     if (request.method === "GET" && pathname === "/mobile/sw.js") {
       const sw = getMobileServiceWorkerJs();
@@ -429,7 +459,7 @@ class MobileCompanionGateway extends EventEmitter {
 
     // Ping health check
     if (request.method === "GET" && pathname === MOBILE_PING_PATH) {
-      return send(200, { ok: true, version: MOBILE_API_VERSION, name: "Mission Control Mobile Gateway", running: Boolean(this.server?.listening) });
+      return send(200, { ok: true, version: MOBILE_API_VERSION, name: "OUTARCH Mobile Gateway", running: Boolean(this.server?.listening) });
     }
 
     // Live Server-Sent Events (SSE)

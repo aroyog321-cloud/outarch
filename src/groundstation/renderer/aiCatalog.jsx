@@ -196,9 +196,21 @@ export function ModelSwitcher({ status, surface, compact = false, disabled = fal
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [problem, setProblem] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [collapsed, setCollapsed] = React.useState({});
   const selection = status?.selections?.[surface] || null;
   const groups = modelGroups(status);
   const total = groups.reduce((sum, group) => sum + group.models.length, 0);
+
+  const builtinGroups = groups.filter(g => g.source === "mission");
+  const byokGroups = groups.filter(g => g.source === "byok");
+  const isSearching = Boolean(search.trim());
+
+  const toggleGroup = (groupId, e) => {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    setCollapsed(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
 
   const choose = async (group, model) => {
     setBusy(true);
@@ -214,6 +226,75 @@ export function ModelSwitcher({ status, surface, compact = false, disabled = fal
     }
   };
 
+  const renderKeyGroup = (group, isBuiltin = false) => {
+    const isCollapsed = !isSearching && Boolean(collapsed[group.id]);
+    const isCurrentGroup = selection && selection.source === group.source && (selection.keyId || null) === (group.keyId || null);
+
+    return (
+      <div className={`ai-model-menu__section ${isBuiltin ? "ai-model-menu__section--builtin" : "ai-model-menu__section--byok-key"}`} key={group.id}>
+        <div
+          className={`ai-model-menu__key-banner ${isBuiltin ? "ai-model-menu__key-banner--builtin" : ""}`}
+          onClick={e => toggleGroup(group.id, e)}
+          role="button"
+          tabIndex={0}
+          aria-expanded={!isCollapsed}
+          onKeyDown={e => {
+            if (e.key === "Enter" || e.key === " ") toggleGroup(group.id, e);
+          }}
+        >
+          <div className="ai-model-menu__key-banner-left">
+            <ModelMark family={providerFamily(group.provider)} size={14}/>
+            <span className="ai-model-menu__key-title">{group.heading}</span>
+            {isBuiltin ? (
+              <span className="ai-model-menu__section-badge is-free">Free</span>
+            ) : group.detail ? (
+              <span className="ai-model-menu__key-hint">{group.detail}</span>
+            ) : null}
+          </div>
+          <div className="ai-model-menu__key-banner-right">
+            <span className="ai-model-menu__count-badge">{group.models.length}</span>
+            <svg
+              className={`ai-model-menu__group-chevron ${isCollapsed ? "is-collapsed" : ""}`}
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <Command.Group key={group.id}>
+          {!isCollapsed && (
+            <div className="ai-model-menu__group-items">
+              {group.models.length === 0 && <div className="ai-model-menu__empty">No chat models found for this key.</div>}
+              {group.models.map(model => {
+                const current = isCurrentGroup && selection.model === model.id;
+                return (
+                  <Command.Item
+                    key={`${group.id}:${model.id}`}
+                    value={`${group.heading} ${model.label} ${model.id}`}
+                    disabled={busy}
+                    onSelect={() => void choose(group, model)}
+                    className={`ai-model-option ${current ? "is-current" : ""}`}
+                  >
+                    <ModelMark family={model.family} size={15}/>
+                    <span className="ai-model-option__name">{model.label}</span>
+                    {model.tier && <span className={`ai-model-option__tier tier-${model.tier}`}>{tierLabel(model.tier)}</span>}
+                    <svg className="ai-model-option__check" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </Command.Item>
+                );
+              })}
+            </div>
+          )}
+        </Command.Group>
+      </div>
+    );
+  };
+
   return <Popover.Root open={open} onOpenChange={setOpen}>
     <Popover.Trigger asChild>
       <button type="button" className={`ai-switcher ${compact ? "is-compact" : ""}`} disabled={disabled || !groups.length} aria-label={selection ? `Model: ${selection.label}. Change model` : "Choose a model"} onMouseDown={event => event.stopPropagation()}>
@@ -224,23 +305,59 @@ export function ModelSwitcher({ status, surface, compact = false, disabled = fal
       </button>
     </Popover.Trigger>
     <Popover.Portal>
-      <Popover.Content className="ai-model-menu" align={align || (compact ? "start" : "end")} sideOffset={6} collisionPadding={12} onOpenAutoFocus={event => { event.preventDefault(); event.currentTarget.querySelector("[cmdk-input]")?.focus(); }}>
+      <Popover.Content className="ai-model-menu" align={align || (compact ? "start" : "end")} sideOffset={6} collisionPadding={12} onOpenAutoFocus={event => { event.preventDefault(); const menu = event.currentTarget; (menu.querySelector("[cmdk-input]") || menu.querySelector("[cmdk-root]"))?.focus(); }}>
         <Command label="Choose a model" loop>
-          {total > 8 && <div className="ai-model-menu__search"><Command.Input placeholder={`Search ${total} models`} /></div>}
+          {total > 6 && (
+            <div className="ai-model-menu__search">
+              <Command.Input
+                placeholder={`Search ${total} models...`}
+                value={search}
+                onValueChange={setSearch}
+              />
+            </div>
+          )}
           <Command.List className="ai-model-menu__list">
             <Command.Empty className="ai-model-menu__empty">No model matches that.</Command.Empty>
-            {groups.map(group => <Command.Group key={group.id} heading={<span className="ai-model-menu__heading"><ModelMark family={providerFamily(group.provider)} size={12}/><span>{group.heading}</span><em>{group.detail}</em></span>}>
-              {group.models.length === 0 && <div className="ai-model-menu__empty">No chat models found for this key.</div>}
-              {group.models.map(model => {
-                const current = selection && selection.source === group.source && (selection.keyId || null) === (group.keyId || null) && selection.model === model.id;
-                return <Command.Item key={`${group.id}:${model.id}`} value={`${group.heading} ${model.label} ${model.id}`} disabled={busy} onSelect={() => void choose(group, model)} className={`ai-model-option ${current ? "is-current" : ""}`}>
-                  <ModelMark family={model.family} size={15}/>
-                  <span className="ai-model-option__name">{model.label}</span>
-                  {model.tier && <span className={`ai-model-option__tier tier-${model.tier}`}>{tierLabel(model.tier)}</span>}
-                  <svg className="ai-model-option__check" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </Command.Item>;
-              })}
-            </Command.Group>)}
+            
+            {builtinGroups.length > 0 && (
+              <div className="ai-model-menu__category ai-model-menu__category--builtin">
+                <div className="ai-model-menu__category-header">
+                  <span className="ai-model-menu__category-title">Built-in AI Models</span>
+                  <span className="ai-model-menu__section-badge is-free">Free Tier</span>
+                </div>
+                {builtinGroups.map(group => renderKeyGroup(group, true))}
+              </div>
+            )}
+
+            <div className="ai-model-menu__category ai-model-menu__category--byok">
+              <div className="ai-model-menu__category-header">
+                <span className="ai-model-menu__category-title">Your API Keys (BYOK)</span>
+                {byokGroups.length > 0 ? (
+                  <span className="ai-model-menu__section-badge">{byokGroups.length} {byokGroups.length === 1 ? "Key" : "Keys"}</span>
+                ) : (
+                  <span className="ai-model-menu__section-badge is-muted">None</span>
+                )}
+              </div>
+
+              {byokGroups.length > 0 ? (
+                <div className="ai-model-menu__byok-list">
+                  {byokGroups.map(group => renderKeyGroup(group, false))}
+                </div>
+              ) : (
+                <div className="ai-model-menu__byok-empty">
+                  <p>No custom provider keys configured.</p>
+                  {onManageKeys && (
+                    <button
+                      type="button"
+                      className="ai-model-menu__byok-add-btn"
+                      onClick={() => { setOpen(false); onManageKeys(); }}
+                    >
+                      + Add OpenAI, Anthropic, or Gemini Key
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </Command.List>
         </Command>
         {problem && <p className="ai-model-menu__problem" role="alert">{problem}</p>}

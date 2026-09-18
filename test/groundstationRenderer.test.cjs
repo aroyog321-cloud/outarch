@@ -154,7 +154,7 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.match(appSource, /Launching \$\{recipe\.name\}/);
   assert.match(appSource, /terminalLayout\.applyLayout/);
   assert.match(appSource, /Editor ownership stays explicit/);
-  assert.match(appSource, /Mission Control-managed terminals only/);
+  assert.match(appSource, /OUTARCH-managed terminals only/);
   assert.match(appSource, /Approve & create/);
   assert.match(appSource, /Approve & send/);
   assert.match(appSource, /vscode\.terminal\.write/);
@@ -252,7 +252,9 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   );
   assert.doesNotMatch(terminalSource, /className="terminal-session-select"/);
   assert.match(terminalSource, /className="terminal-session-menu"/);
-  assert.match(terminalSource, /terminal-pane__telemetry/);
+  // The connection chip (offline / Live) and its sparkline left the pane header
+  // on 2026-09-15 at the operator's request; the activity line keeps the state.
+  assert.doesNotMatch(terminalSource, /terminal-pane__telemetry/);
   assert.match(terminalSource, /session\.cwd \|\| "\."/);
   assert.match(terminalSource, /terminal-action-menu/);
   assert.match(terminalSource, /@radix-ui\/react-dropdown-menu/);
@@ -286,7 +288,7 @@ test("Groundstation 2.19 uses the live supervision composition and consolidated 
   // The dim text role must exist in the bridge; its value belongs to the
   // palette, and accessibilityMeasured.test.cjs is what holds it to contrast.
   assert.match(bridge, /--mc-text-dim:\s*#[0-9a-f]{3,8};/i);
-  assert.match(base, /Mission Control .* base layer/);
+  assert.match(base, /OUTARCH .* base layer/);
   assert.match(base, /grid-template-columns: var\(--mc-rail-w, 64px\) minmax\(0, 1fr\)/);
   assert.match(base, /\.mission-status-bar/);
   assertReducedMotionIsCentral();
@@ -441,7 +443,7 @@ test("VS Code Bridge stays contextual in Settings and uses Protocol-owned synchr
   assert.match(app, /"vscode\.openFile"/);
   assert.match(app, /notification\?\.type === "integration:event"/);
   assert.match(app, /Editor ownership stays explicit/);
-  assert.match(app, /Mission Control-managed terminals only/);
+  assert.match(app, /OUTARCH-managed terminals only/);
   assert.match(app, /raw output never crosses the bridge/);
   assert.match(app, /"vscode\.terminal\.create"/);
   assert.match(app, /"vscode\.terminal\.write"/);
@@ -533,7 +535,7 @@ test("Plugin Platform stays contextual, declarative, permissioned, and approval-
   // standalone queue component was dead code and is removed.
   assert.match(app, /decisionRecords=\{decisions\.records\}/);
   assert.doesNotMatch(app, /\["plugins",\s*"Plugins/);
-  assert.match(plugins, /Mission Control renders every contribution/);
+  assert.match(plugins, /OUTARCH renders every contribution/);
   assert.match(plugins, /Files, process, network, secrets, JSX, CSS, and handlers/);
   assert.doesNotMatch(plugins, /plugin\.approval\.resolve|<DecisionItem/);
   assert.match(protocol, /callPlugin\("resolveApproval", resolveApproval => resolveApproval\(nativeId, actionId\)\)/);

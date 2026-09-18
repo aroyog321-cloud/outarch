@@ -40,7 +40,7 @@ test("Mission AI and VS Code do not turn an unknown or stale status into a healt
   assert.match(app, /!statusKnown && resourceState\.loading \? "Checking status"/);
   assert.match(app, /!statusKnown && resourceState\.error \? "Status unavailable"/);
   assert.match(app, /resourceState\.error \? "Stale status"/);
-  assert.match(app, /Connection state is unknown, so Mission Control will not claim the bridge is ready or disconnected/);
+  assert.match(app, /Connection state is unknown, so OUTARCH will not claim the bridge is ready or disconnected/);
   assert.match(app, /const controlsAvailable = statusKnown && !resourceState\.error/);
   assert.match(app, /statusKnown \? `\$\{diagnostics\.errors \|\| 0\} errors/);
 });

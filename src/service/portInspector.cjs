@@ -4,7 +4,7 @@
 //
 // This service answers "who is holding this port, and did we start it". It has
 // no terminate path at all, by design: when the listener turns out to be a
-// Mission Control worker, the renderer routes to the *existing*
+// OUTARCH worker, the renderer routes to the *existing*
 // confirmation-gated worker stop, so no new destructive authority is created
 // for a crash banner to invoke.
 //

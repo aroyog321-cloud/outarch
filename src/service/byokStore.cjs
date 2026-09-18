@@ -108,7 +108,7 @@ class ByokStore {
   }
 
   add({ label, provider, baseUrl = null, apiKey, models = [], defaultModel = null, lastError = null } = {}) {
-    if (!this.protectionStatus().available) throw new Error("OS credential encryption is unavailable, so Mission Control will not store an API key on this device");
+    if (!this.protectionStatus().available) throw new Error("OS credential encryption is unavailable, so OUTARCH will not store an API key on this device");
     if (!validKey(apiKey)) throw new TypeError("That does not look like an API key — it should be 16 to 512 characters with no spaces");
     if (typeof provider !== "string" || !provider) throw new TypeError("A provider is required");
     const current = this.#read();

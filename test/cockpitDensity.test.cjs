@@ -36,7 +36,7 @@ test("Integrations renders as a contextual group below the primary seven", () =>
   assert.match(app, /className="top-navigation__contextual" role="group" aria-label="Configuration"/);
   // The nav landmark itself is locked by productFoundation.test.cjs; the group
   // must sit inside it rather than becoming a second landmark.
-  assert.match(app, /<nav className="top-navigation" aria-label="Mission Control navigation">/);
+  assert.match(app, /<nav className="top-navigation" aria-label="OUTARCH navigation">/);
   assert.match(cockpit, /\.top-navigation__contextual \{[\s\S]*border-top: 1px solid var\(--mc-border\)/);
 
   // Every route into Recipes that existed before the promotion still exists.

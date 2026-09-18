@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Mission Control — Workspace redesign (authoritative layer)
+   OUTARCH — Workspace redesign (authoritative layer)
 
    This file is loaded last and is the single source of truth for the terminal
    canvas geometry. It replaces the conflicting `.terminal-grid` rules that were
@@ -270,9 +270,9 @@
   color: var(--mc-text-muted);
   background: var(--mc-surface-3);
   border-radius: 3px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .05em;
 }
 #root#root .shell .terminal-role-tag.role-agent { color: var(--mc-ai); background: var(--mc-ai-soft); }
 #root#root .shell .terminal-role-tag.role-test { color: var(--mc-warning); background: var(--mc-warning-soft); }
@@ -487,8 +487,13 @@
 
 /* -------------------------------------------- one predictable narrow layout */
 
-@media (max-width: 1100px) {
-  .shell .view-workspace .terminal-grid:not(.has-expanded):not(.is-mosaic) {
+/* This was a viewport rule at 1100px, and it outranked the stage rule further
+   down: a 1024px window still stacked a chosen 2x2 into one column while the
+   layout switcher went on saying 2x2. It is now measured on the stage, and
+   only for the one layout that cannot fit - three 264px panes need about 830px.
+   Every layout still stacks at the 680px stage floor below. */
+@container workspace-stage (max-width: 860px) {
+  .shell .view-workspace .terminal-grid.layout-grid-3x2:not(.has-expanded):not(.is-mosaic) {
     /* Stacked full width, a terminal is being read rather than scanned, so the
        floor is a readable number of rows rather than the smallest pane that
        still looks like a pane. Two legible terminals with a scroll beat three
@@ -579,6 +584,7 @@
    read, so the single column stays the floor. */
 @container workspace-stage (max-width: 680px) {
   .shell .view-workspace .terminal-grid:not(.has-expanded):not(.is-mosaic) {
+    --pane-min-h: 248px;
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: none !important;
     grid-auto-rows: minmax(var(--pane-min-h), 1fr) !important;

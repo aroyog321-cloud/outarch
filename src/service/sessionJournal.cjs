@@ -1,6 +1,6 @@
 "use strict";
 
-// Transactional Session Journal for Mission Control.
+// Transactional Session Journal for OUTARCH.
 // Records clean shutdown markers, launch intents, and active worker runs
 // to enable safe crash recovery and pre-autostart reconciliation.
 

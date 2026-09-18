@@ -2,7 +2,7 @@
 
 // Readiness verification for discovered local services.
 //
-// A worker printing an address is a claim, not proof. Before Mission Control
+// A worker printing an address is a claim, not proof. Before OUTARCH
 // tells someone a service is ready — and certainly before it interrupts them
 // with a notification carrying an Open button — something has to confirm that
 // the port actually accepts a connection.

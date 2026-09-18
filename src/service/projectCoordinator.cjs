@@ -162,7 +162,7 @@ class ProjectCoordinator {
         "PROJECT_ALREADY_INITIALIZED",
         inspection.status === "missing"
           ? "selected project folder is no longer available"
-          : "the selected project already has a Mission Control workspace"
+          : "the selected project already has an OUTARCH workspace"
       );
     }
     const name = String(params.name || path.basename(target.rootPath)).trim();
@@ -279,7 +279,7 @@ class ProjectCoordinator {
       }
       throw new ProjectCoordinatorError(
         "PROJECT_CREATE_FAILED",
-        `unable to create Mission Control workspace: ${error.message}`
+        `unable to create OUTARCH workspace: ${error.message}`
       );
     }
   }

@@ -405,7 +405,7 @@ export default function App({ engineApi, requestFullAttach, onQuit = () => {} })
     e(
       Box,
       { justifyContent: "space-between" },
-      e(Text, { color: "cyan", bold: true }, "MISSION CONTROL"),
+      e(Text, { color: "cyan", bold: true }, "OUTARCH"),
       e(Text, { color: "gray" }, `${workspace.name} · ${workspace.persistent ? "saved" : "temporary"} · ${mode}`)
     ),
     e(OverviewStrip, { sessions }),

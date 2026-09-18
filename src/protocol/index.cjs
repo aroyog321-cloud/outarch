@@ -87,6 +87,9 @@ const METHODS = Object.freeze([
   "mcp.configure",
   "mcp.rotateToken",
   "mcp.installClient",
+  "mcp.removeClient",
+  "mcp.uninstallClient",
+  "mcp.clientStatus",
   "mcp.tools.list",
   "mcp.tool.call",
   "mcp.approval.list",
@@ -393,7 +396,7 @@ function assertOpenableServiceUrl(rawUrl) {
   }
   const host = parsed.hostname.toLowerCase();
   if (!LOOPBACK_HOSTS.has(host) && !LOOPBACK_HOSTS.has(`[${host}]`)) {
-    throw new ProtocolError("FORBIDDEN", "Only local addresses can be opened from Mission Control.");
+    throw new ProtocolError("FORBIDDEN", "Only local addresses can be opened from OUTARCH.");
   }
   // The path is evidence the worker advertised; the query and fragment are not
   // worth the risk of carrying a token into browser history.
@@ -419,7 +422,7 @@ function assertPreviewableUrl(rawUrl) {
   }
   const host = parsed.hostname.toLowerCase();
   if (!LOOPBACK_HOSTS.has(host) && !LOOPBACK_HOSTS.has(`[${host}]`)) {
-    throw new ProtocolError("FORBIDDEN", "Mission Control previews addresses on this machine. Use your system browser for anything else.");
+    throw new ProtocolError("FORBIDDEN", "OUTARCH previews addresses on this machine. Use your system browser for anything else.");
   }
   return parsed.toString();
 }
@@ -1152,6 +1155,16 @@ function createProtocolConnection(engineApi, options = {}) {
         const workspacePath = typeof params.workspacePath === "string" ? params.workspacePath : "";
         return { result: await callMcp("installClient", installClient => installClient({ target, workspacePath })) };
       }
+      case "mcp.removeClient":
+      case "mcp.uninstallClient": {
+        const target = requireString(params, "target");
+        const workspacePath = typeof params.workspacePath === "string" ? params.workspacePath : "";
+        return { result: await callMcp("removeClient", removeClient => removeClient({ target, workspacePath })) };
+      }
+      case "mcp.clientStatus": {
+        const workspacePath = typeof params.workspacePath === "string" ? params.workspacePath : "";
+        return { result: await callMcp("clientStatus", clientStatus => clientStatus({ workspacePath })) };
+      }
       case "mcp.tools.list":
         return {
           result: await callMcp("dispatchRequest", dispatchRequest =>
@@ -1675,7 +1688,7 @@ function createProtocolConnection(engineApi, options = {}) {
       // T026 — read-only. There is deliberately no terminate method here: when
       // the listener turns out to be a supervised worker the renderer routes to
       // the existing confirmation-gated worker stop, and when it is a foreign
-      // process Mission Control reports it and stops. A crash banner is the
+      // process OUTARCH reports it and stops. A crash banner is the
       // worst possible place to grant the power to kill arbitrary processes.
       case "crashlens.port.inspect": {
         if (!portInspector || typeof portInspector.inspect !== "function") {
@@ -1848,16 +1861,16 @@ function createProtocolConnection(engineApi, options = {}) {
       // re-checks each navigation, so a page cannot walk off the machine even
       // if a caller here were wrong.
       case "workspace.browser.open": {
-        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the OUTARCH browser is not available on this connection");
         const url = params?.url === undefined || params?.url === null ? null : assertPreviewableUrl(params.url);
         return { result: workspaceBrowser.open({ url, bounds: params?.bounds || null }) };
       }
       case "workspace.browser.bounds": {
-        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the OUTARCH browser is not available on this connection");
         return { result: workspaceBrowser.setBounds(params?.bounds || null) };
       }
       case "workspace.browser.command": {
-        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the Mission Control browser is not available on this connection");
+        if (!workspaceBrowser) throw new ProtocolError("UNAVAILABLE", "the OUTARCH browser is not available on this connection");
         const action = requireString(params, "action");
         if (!["back", "forward", "reload", "stop", "close"].includes(action)) {
           throw new ProtocolError("INVALID_PARAMS", "unknown browser action");

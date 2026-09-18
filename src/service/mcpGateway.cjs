@@ -7,6 +7,18 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { redactText } = require("./contextSanitizer.cjs");
+const { ASSETS: BRAND_ASSETS } = require("../brand/index.cjs");
+
+// The OUTARCH icon on the gateway's own page, inlined because the gateway
+// serves a single route.
+let brandIconDataUrl = null;
+function brandIconUrl() {
+  if (brandIconDataUrl === null) {
+    try { brandIconDataUrl = `data:image/png;base64,${fs.readFileSync(BRAND_ASSETS.iconPng128).toString("base64")}`; }
+    catch { brandIconDataUrl = ""; }
+  }
+  return brandIconDataUrl;
+}
 
 const MCP_PROTOCOL_VERSION = "2026-07-28";
 const MCP_LEGACY_VERSIONS = Object.freeze(["2025-11-25", "2025-06-18"]);
@@ -19,12 +31,12 @@ const CLIENT_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
 
 const RESOURCE_DEFINITIONS = Object.freeze([
   { scope: "context.read", uri: "mission-control://supervision/current", name: "project_supervision", title: "Project Supervision", description: "Unified facts, inferences, evidence IDs, running work, recent changes, and Needs You state." },
-  { scope: "context.read", uri: "mission-control://context/current", name: "mission_context", title: "Current Mission Context", description: "Bounded, structured, redacted state from the active Mission Control project." },
+  { scope: "context.read", uri: "mission-control://context/current", name: "mission_context", title: "Current Mission Context", description: "Bounded, structured, redacted state from the active OUTARCH project." },
   { scope: "context.read", uri: "mission-control://workers/current", name: "workers", title: "Current Workers", description: "Engine-owned workers plus explicitly owned VS Code terminal metadata from the unified supervision snapshot." },
   { scope: "context.read", uri: "mission-control://history/recent", name: "recent_history", title: "Recent History", description: "Bounded recent engine activity with stable evidence IDs." },
   { scope: "context.read", uri: "mission-control://recipes/current", name: "workspace_recipes", title: "Workspace Recipes", description: "Current dependency-aware workspace recipes and profiles." },
   { scope: "context.read", uri: "mission-control://vscode/current", name: "vscode_supervision", title: "VS Code Supervision", description: "VS Code connection, diagnostics, Git, tasks, and explicit terminal ownership metadata." },
-  { scope: "memory.read", uri: "mission-control://memory/current", name: "project_memory", title: "Project Memory", description: "Resumable run chapters and causal relationships recorded by Mission Control." },
+  { scope: "memory.read", uri: "mission-control://memory/current", name: "project_memory", title: "Project Memory", description: "Resumable run chapters and causal relationships recorded by OUTARCH." },
   { scope: "attention.read", uri: "mission-control://attention/current", name: "needs_you", title: "Needs You", description: "Current human-attention queue and lifecycle state." }
 ]);
 
@@ -247,6 +259,52 @@ function withCodexServer(content, endpoint, token) {
   return `${kept.length ? `${kept.join("\n")}\n\n` : ""}${section.join("\n")}\n`;
 }
 
+// These files belong to other tools (Claude, Cursor, Codex, Gemini). A write
+// goes to a temporary file that replaces the original in one step, so a crash
+// cannot leave half a config behind. Where the replace is refused (the file is
+// held open by its tool) the write goes to the file directly, as before.
+function writeClientConfig(fileSystem, filePath, content) {
+  if (typeof fileSystem.renameSync !== "function") {
+    fileSystem.writeFileSync(filePath, content, "utf8");
+    return;
+  }
+  const temporary = `${filePath}.outarch-${process.pid}-${Date.now()}.tmp`;
+  fileSystem.writeFileSync(temporary, content, "utf8");
+  try {
+    fileSystem.renameSync(temporary, filePath);
+  } catch {
+    try { fileSystem.rmSync?.(temporary, { force: true }); } catch { /* best effort */ }
+    fileSystem.writeFileSync(filePath, content, "utf8");
+  }
+}
+
+function readClientJson(fileSystem, configPath, target) {
+  if (!fileSystem.existsSync(configPath)) return {};
+  let config;
+  try {
+    const content = fileSystem.readFileSync(configPath, "utf8");
+    config = content.trim() ? JSON.parse(content) : {};
+  } catch (err) {
+    throw new Error(`Could not parse existing ${target} configuration file: ${err.message}`);
+  }
+  // Anything but an object is not a file this app understands; it is left alone.
+  if (!isPlainObject(config)) throw new Error(`The ${target} configuration file is not a JSON object, so OUTARCH left it unchanged`);
+  return config;
+}
+
+function withoutCodexServer(content) {
+  const lines = String(content || "").split(/\r?\n/);
+  const kept = [];
+  let skipping = false;
+  for (const line of lines) {
+    const header = line.trim().match(/^\[([^\]]+)\]$/);
+    if (header) skipping = header[1].trim() === "mcp_servers.mission-control" || header[1].trim().startsWith("mcp_servers.mission-control.");
+    if (!skipping) kept.push(line);
+  }
+  while (kept.length && kept[kept.length - 1].trim() === "") kept.pop();
+  return kept.length ? `${kept.join("\n")}\n` : "";
+}
+
 class SecureMcpGateway extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -403,20 +461,14 @@ class SecureMcpGateway extends EventEmitter {
     }
     if (target === "codex") {
       const existing = this.fs.existsSync(configPath) ? this.fs.readFileSync(configPath, "utf8") : "";
-      this.fs.writeFileSync(configPath, withCodexServer(existing, endpoint, token), "utf8");
+      writeClientConfig(this.fs, configPath, withCodexServer(existing, endpoint, token));
       this.#audit({ kind: "client-install", outcome: "installed", client: target, target: configPath });
-      return { ok: true, target, filePath: configPath, message: "Successfully configured Codex CLI! Start a new Codex session to use Mission Control." };
+      return { ok: true, target, filePath: configPath, message: "Successfully configured Codex CLI! Start a new Codex session to use OUTARCH." };
     }
-    let config = {};
-    if (this.fs.existsSync(configPath)) {
-      try {
-        const content = this.fs.readFileSync(configPath, "utf8");
-        config = content.trim() ? JSON.parse(content) : {};
-      } catch (err) {
-        throw new Error(`Could not parse existing ${target} configuration file: ${err.message}`);
-      }
+    const config = readClientJson(this.fs, configPath, target);
+    if (config.mcpServers !== undefined && !isPlainObject(config.mcpServers)) {
+      throw new Error(`The ${target} configuration has an unexpected "mcpServers" value, so OUTARCH left it unchanged`);
     }
-    if (!isPlainObject(config)) config = {};
     if (!isPlainObject(config.mcpServers)) config.mcpServers = {};
 
     if (target === "gemini-cli") {
@@ -448,15 +500,113 @@ class SecureMcpGateway extends EventEmitter {
       };
     }
 
-    this.fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    writeClientConfig(this.fs, configPath, `${JSON.stringify(config, null, 2)}\n`);
     this.#audit({ kind: "client-install", outcome: "installed", client: target, target: configPath });
     const targetLabel = CLIENT_LABELS[target];
     return {
       ok: true,
       target,
       filePath: configPath,
-      message: `Successfully configured ${targetLabel}! Restart ${targetLabel} to start using Mission Control.`
+      message: `Successfully configured ${targetLabel}! Restart ${targetLabel} to start using OUTARCH.`
     };
+  }
+
+  removeClient({ target, workspacePath = "" } = {}) {
+    if (!Object.hasOwn(CLIENT_LABELS, target)) {
+      throw new TypeError(`Unsupported client remove target: ${target}`);
+    }
+    const configPath = resolveClientConfigPath(target, workspacePath, this.os);
+    const targetLabel = CLIENT_LABELS[target];
+    if (!this.fs.existsSync(configPath)) {
+      return {
+        ok: true,
+        target,
+        filePath: configPath,
+        removed: false,
+        message: `No configuration file found for ${targetLabel}.`
+      };
+    }
+
+    if (target === "codex") {
+      const existing = this.fs.readFileSync(configPath, "utf8");
+      const updated = withoutCodexServer(existing);
+      // Nothing of ours in the file: it is not rewritten.
+      if (updated === existing || !/\[mcp_servers\.mission-control(?:\.[^\]]*)?\]/.test(existing)) {
+        return { ok: true, target, filePath: configPath, removed: false, message: "OUTARCH was not configured in Codex CLI." };
+      }
+      writeClientConfig(this.fs, configPath, updated);
+      this.#audit({ kind: "client-remove", outcome: "removed", client: target, target: configPath });
+      return {
+        ok: true,
+        target,
+        filePath: configPath,
+        removed: true,
+        message: `Successfully removed OUTARCH from Codex CLI! Restart Codex to apply.`
+      };
+    }
+
+    const config = readClientJson(this.fs, configPath, target);
+
+    let removed = false;
+    if (isPlainObject(config)) {
+      if (isPlainObject(config.mcpServers) && Object.hasOwn(config.mcpServers, "mission-control")) {
+        delete config.mcpServers["mission-control"];
+        removed = true;
+      }
+      if (config.name === "mission-control") {
+        delete config.name;
+        delete config.type;
+        delete config.url;
+        delete config.headers;
+        removed = true;
+      }
+    }
+
+    if (!removed) {
+      return { ok: true, target, filePath: configPath, removed: false, message: `OUTARCH was not configured in ${targetLabel}.` };
+    }
+    writeClientConfig(this.fs, configPath, `${JSON.stringify(config, null, 2)}\n`);
+    this.#audit({ kind: "client-remove", outcome: "removed", client: target, target: configPath });
+    return {
+      ok: true,
+      target,
+      filePath: configPath,
+      removed: true,
+      message: `Successfully removed OUTARCH from ${targetLabel}! Restart ${targetLabel} to apply.`
+    };
+  }
+
+  clientStatus({ workspacePath = "" } = {}) {
+    const statuses = {};
+    for (const target of Object.keys(CLIENT_LABELS)) {
+      try {
+        const configPath = resolveClientConfigPath(target, workspacePath, this.os);
+        let installed = false;
+        if (this.fs.existsSync(configPath)) {
+          const content = this.fs.readFileSync(configPath, "utf8");
+          if (target === "codex") {
+            installed = /\[mcp_servers\.mission-control\]/i.test(content);
+          } else {
+            const config = content.trim() ? JSON.parse(content) : {};
+            installed = Boolean(config?.mcpServers?.["mission-control"] || config?.name === "mission-control");
+          }
+        }
+        statuses[target] = {
+          target,
+          name: CLIENT_LABELS[target],
+          installed,
+          filePath: configPath
+        };
+      } catch {
+        statuses[target] = {
+          target,
+          name: CLIENT_LABELS[target],
+          installed: false,
+          filePath: ""
+        };
+      }
+    }
+    return statuses;
   }
 
   listApprovals() {
@@ -517,15 +667,15 @@ class SecureMcpGateway extends EventEmitter {
         return complete({
           supportedVersions: [...MCP_SUPPORTED_VERSIONS],
           capabilities: { tools: {}, resources: {} },
-          _meta: { "io.modelcontextprotocol/serverInfo": { name: "Mission Control Secure MCP Gateway", version: "2.16.0" } },
-          instructions: "Use bounded read tools for Mission Control state. Mutation tools create local approvals and never execute directly.",
+          _meta: { "io.modelcontextprotocol/serverInfo": { name: "OUTARCH Secure MCP Gateway", version: "2.16.0" } },
+          instructions: "Use bounded read tools for OUTARCH state. Mutation tools create local approvals and never execute directly.",
           ttlMs: 60_000,
           cacheScope: "private"
         });
       case "initialize": {
         const requested = typeof params.protocolVersion === "string" ? params.protocolVersion : MCP_LEGACY_VERSIONS[0];
         const negotiated = MCP_SUPPORTED_VERSIONS.includes(requested) ? requested : MCP_LEGACY_VERSIONS[0];
-        return { protocolVersion: negotiated, capabilities: { tools: {}, resources: {} }, serverInfo: { name: "Mission Control Secure MCP Gateway", version: "2.16.0" }, instructions: "Read access is bounded and redacted. Mutation tools create local approval requests." };
+        return { protocolVersion: negotiated, capabilities: { tools: {}, resources: {} }, serverInfo: { name: "OUTARCH Secure MCP Gateway", version: "2.16.0" }, instructions: "Read access is bounded and redacted. Mutation tools create local approval requests." };
       }
       case "notifications/initialized":
       case "ping":
@@ -648,7 +798,7 @@ class SecureMcpGateway extends EventEmitter {
       value = this.#createApproval(tool, args, client);
     }
     this.#audit({ kind: "tool", outcome: value?.state === "pending" ? "approval-requested" : "completed", client, capability: tool.scope, target: value?.target || name });
-    return textResult(value, value?.state === "pending" ? `Approval ${value.id} is waiting in Mission Control Needs You. No action has executed.` : null);
+    return textResult(value, value?.state === "pending" ? `Approval ${value.id} is waiting in OUTARCH Needs You. No action has executed.` : null);
   }
 
   #createApproval(tool, args, client) {
@@ -747,18 +897,21 @@ class SecureMcpGateway extends EventEmitter {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mission Control · Secure MCP Gateway</title>
+<title>OUTARCH · Secure MCP Gateway</title>
+${brandIconUrl() ? `<link rel="icon" type="image/png" href="${brandIconUrl()}">` : ""}
 <style>
   :root {
-    --bg: #090d0b;
-    --surface: #101612;
-    --surface-2: #161e19;
-    --border: #223227;
-    --text: #e1ede4;
-    --text-dim: #7f9986;
-    --accent: #4ade80;
-    --accent-dim: #22c55e33;
-    --amber: #f59e0b;
+    --bg: #000000;
+    --surface: #171717;
+    --surface-2: #1f1f1f;
+    --border: #2e2e2e;
+    --text: #fafafa;
+    --text-dim: #a1a1a1;
+    --accent: #3291ff;
+    --accent-dim: #0070f326;
+    --ok: #32d583;
+    --ok-dim: #32d58322;
+    --amber: #f5b942;
     --font-mono: "SFMono-Regular", Consolas, Menlo, Monaco, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
@@ -782,20 +935,19 @@ class SecureMcpGateway extends EventEmitter {
   }
   .title-group { display: flex; align-items: center; gap: 14px; }
   .logo {
-    width: 42px; height: 42px; border-radius: 8px;
-    background: #15261b; color: var(--accent);
-    display: grid; place-items: center; font-family: var(--font-mono);
-    font-weight: 700; font-size: 18px; border: 1px solid var(--border);
+    width: 42px; height: 42px; border-radius: 10px; flex: 0 0 auto;
+    display: grid; place-items: center; background: var(--bg); color: var(--text);
+    font-weight: 800; font-size: 18px;
   }
   h1 { font-size: 20px; font-weight: 650; }
   p.subtitle { font-size: 13px; color: var(--text-dim); }
   .status-pill {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 6px 12px; border-radius: 9999px;
-    background: var(--accent-dim); border: 1px solid #22c55e44;
-    color: var(--accent); font-size: 12px; font-weight: 600;
+    background: var(--ok-dim); border: 1px solid #32d58344;
+    color: var(--ok); font-size: 12px; font-weight: 600;
   }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
   .grid-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 12px; margin-bottom: 28px;
@@ -818,12 +970,12 @@ class SecureMcpGateway extends EventEmitter {
   .card p { font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
   .card code { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
   .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
-  .badge-read { background: #1b2e21; color: var(--accent); border: 1px solid #285435; }
+  .badge-read { background: var(--accent-dim); color: var(--accent); border: 1px solid #0070f366; }
   .badge-approval { background: #2e2614; color: var(--amber); border: 1px solid #544520; }
   pre {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; padding: 14px; overflow-x: auto;
-    font-family: var(--font-mono); font-size: 12px; color: #bfe3ca; line-height: 1.45;
+    font-family: var(--font-mono); font-size: 12px; color: #d4d4d4; line-height: 1.45;
   }
   .note {
     background: var(--surface-2); border-left: 3px solid var(--accent);
@@ -836,9 +988,9 @@ class SecureMcpGateway extends EventEmitter {
 <div class="container">
   <header>
     <div class="title-group">
-      <div class="logo">MC</div>
+      ${brandIconUrl() ? `<img class="logo" src="${brandIconUrl()}" alt="">` : `<div class="logo">O</div>`}
       <div>
-        <h1>Mission Control Secure MCP Gateway</h1>
+        <h1>OUTARCH Secure MCP Gateway</h1>
         <p class="subtitle">Model Context Protocol 2026-07-28 · JSON-RPC 2.0</p>
       </div>
     </div>
@@ -870,7 +1022,7 @@ class SecureMcpGateway extends EventEmitter {
   <section>
     <h2>Registered MCP Tools (${activeTools.length})</h2>
     <div class="tools-list">
-      ${toolsHtml || "<div class='card'><p>No tools enabled. Configure permissions in Mission Control Settings.</p></div>"}
+      ${toolsHtml || "<div class='card'><p>No tools enabled. Configure permissions in OUTARCH Settings.</p></div>"}
     </div>
   </section>
 
@@ -883,7 +1035,7 @@ class SecureMcpGateway extends EventEmitter {
     <h2>Cursor Setup (.cursor/mcp.json)</h2>
     <pre><code>${sampleCursorConfig}</code></pre>
     <div class="note">
-      <strong>Authentication:</strong> Copy your one-time token from the Mission Control app settings (<strong>Integrations &rarr; MCP Gateway &rarr; Rotate token</strong>) and replace <code>&lt;TOKEN&gt;</code>.
+      <strong>Authentication:</strong> Copy your one-time token from the OUTARCH app settings (<strong>Integrations &rarr; MCP Gateway &rarr; Rotate token</strong>) and replace <code>&lt;TOKEN&gt;</code>.
     </div>
   </section>
 </div>
@@ -955,7 +1107,7 @@ class SecureMcpGateway extends EventEmitter {
     catch (error) { return send(503, jsonRpcError(null, new McpGatewayError(-32004, error.message, 503))); }
     if (!timingSafeTokenMatch(authorization, expected)) {
       this.#audit({ kind: "authentication", outcome: "denied", client: request.socket?.remoteAddress || "unknown" });
-      return send(401, jsonRpcError(null, new McpGatewayError(-32002, "Authentication required", 401)), { "WWW-Authenticate": "Bearer realm=\"Mission Control MCP\"" });
+      return send(401, jsonRpcError(null, new McpGatewayError(-32002, "Authentication required", 401)), { "WWW-Authenticate": "Bearer realm=\"OUTARCH MCP\"" });
     }
     if (this.activeRequests >= MAX_MCP_CONCURRENT_REQUESTS) return send(429, jsonRpcError(null, new McpGatewayError(-32005, "MCP gateway is busy", 429)), { "Retry-After": "1" });
     this.activeRequests++;
@@ -996,6 +1148,7 @@ class SecureMcpGateway extends EventEmitter {
 module.exports = {
   CLIENT_LABELS,
   withCodexServer,
+  withoutCodexServer,
   CLIENT_ACTIVE_WINDOW_MS,
   MAX_MCP_CONCURRENT_REQUESTS,
   MAX_MCP_REQUEST_BYTES,

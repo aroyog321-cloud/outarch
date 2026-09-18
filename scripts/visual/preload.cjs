@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: 1,
   request: (method, params = {}) => ipcRenderer.invoke("mission-control:request", { version: 1, id: `h-${Date.now()}-${Math.random()}`, method, params }),
   openExternal: () => Promise.resolve({ ok: true }),
+  // The harness has no main-process clipboard; copying is a no-op that succeeds.
+  copyText: () => Promise.resolve(true),
   setWindowChrome: mode => ipcRenderer.invoke("mission-control:set-window-chrome", mode).catch(() => false),
   subscribe: callback => { subscribers.add(callback); return () => subscribers.delete(callback); }
 }));

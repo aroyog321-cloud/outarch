@@ -1,7 +1,7 @@
 # Redesign layer
 
 The renderer historically accumulated a chain of full-page redesign attempts.
-Mission Control 2.19 no longer imports `experience27–30`, `redesign-v4`,
+OUTARCH 2.19 no longer imports `experience27–30`, `redesign-v4`,
 `reference-v5`, `reference-final`, `prototype2026`, or `theme-concept`. Their
 files remain as dormant implementation history, but they do not enter the Vite
 bundle or participate in the cascade. `premiumV3.css` remains below this layer

@@ -104,7 +104,7 @@
 }
 
 .memory-resume button strong {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 580;
   white-space: nowrap;
 }
@@ -121,7 +121,7 @@
 .memory-resume button > b {
   grid-column: 2;
   color: var(--muted);
-  font-size: 7px;
+  font-size: 10px;
   font-weight: 620;
   letter-spacing: .04em;
   text-transform: uppercase;

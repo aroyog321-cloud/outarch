@@ -108,12 +108,12 @@ function AddKeyForm({ status, onAdded }) {
       <input type="password" autoComplete="off" spellCheck="false" value={apiKey} onChange={event => { setApiKey(event.target.value); setProblem(""); }} placeholder="Paste a key — Gemini, OpenAI, Anthropic, NVIDIA, OpenRouter, Groq…" disabled={busy || !status?.keyProtection}/>
     </label>
     <p className="ai-keys__disclaimer">
-      <strong>Note:</strong> Mission Control does not charge any fee. Discovering and listing models uses free metadata endpoints ($0.00). While adding or verifying some models on paid provider accounts, it may cost a very little amount (a few tokens) directly from your provider. Your key is encrypted on this device.
+      <strong>Note:</strong> OUTARCH does not charge any fee. Discovering and listing models uses free metadata endpoints ($0.00). While adding or verifying some models on paid provider accounts, it may cost a very little amount (a few tokens) directly from your provider. Your key is encrypted on this device.
     </p>
     {auto && candidates && apiKey.trim() && <p className={`ai-keys__detect ${candidates.length ? "is-found" : "is-unknown"}`} role="status">
       {candidates.length === 1 && <><ModelMark family={providerFamily(candidates[0].id)} size={13}/><span><strong>{candidates[0].label}</strong> key</span></>}
       {candidates.length > 1 && <span>Could be <strong>{listPhrase(candidates.map(item => item.label))}</strong> — each is tried in turn until one accepts it.</span>}
-      {!candidates.length && apiKey.trim().length >= 16 && <span>This key's format isn't one Mission Control knows. Choose its provider below — or OpenAI-compatible with a base URL.</span>}
+      {!candidates.length && apiKey.trim().length >= 16 && <span>This key's format isn't one OUTARCH knows. Choose its provider below — or OpenAI-compatible with a base URL.</span>}
     </p>}
     <div className="ai-keys__row">
       <div className="ai-keys__field">
@@ -149,7 +149,7 @@ function AddKeyForm({ status, onAdded }) {
     <footer>
       <button type="submit" className="ai-keys__primary" disabled={busy || !apiKey.trim() || !status?.keyProtection || unrecognised}>{busy ? (checkingWith ? `Checking with ${checkingWith}…` : "Checking the key…") : "Add key"}</button>
       <p>{status?.keyProtection
-        ? "Mission Control reads the list of models this key can use — no message is sent, so nothing is charged — then encrypts the key with this computer's credential protection. It is only ever sent to its provider."
+        ? "OUTARCH reads the list of models this key can use — no message is sent, so nothing is charged — then encrypts the key with this computer's credential protection. It is only ever sent to its provider."
         : "This computer's credential protection is unavailable, so keys cannot be stored safely here."}</p>
     </footer>
   </form>;

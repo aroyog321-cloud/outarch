@@ -9,7 +9,7 @@ const e = React.createElement;
 
 const FIELDS = [
   { key: "id", label: "Session ID", hint: "letters, numbers, dots, dashes, underscores" },
-  { key: "name", label: "Display name", hint: "shown in Mission Control" },
+  { key: "name", label: "Display name", hint: "shown in OUTARCH" },
   { key: "command", label: "Command", hint: "for example: npm run dev" },
   { key: "cwd", label: "Working directory", hint: "relative to the workspace file; default ." },
   { key: "autoStart", label: "Start automatically?", hint: "yes/no; Enter defaults to yes, no registers an idle session" }

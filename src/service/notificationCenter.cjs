@@ -1,6 +1,6 @@
 "use strict";
 
-// The one place Mission Control decides how to tell you something.
+// The one place OUTARCH decides how to tell you something.
 //
 // Before this there were two notifiers and a renderer subscription, each
 // deciding alone. A single crash could arrive three times: as an attention
@@ -17,7 +17,7 @@
 //      3000 is already in use" rather than "Billing needs you". A weaker signal
 //      that arrives shortly after is recognised as part of the same incident.
 //   2. The right surface. The in-app toast always shows. A Windows toast is
-//      raised only when Mission Control is not the window you are using, and
+//      raised only when OUTARCH is not the window you are using, and
 //      only within your severity floor, quiet hours and rate limits.
 //   3. A sound, but not a nuisance. Quiet hours and the Sound setting silence
 //      it, a severity floor applies, and chimes are spaced apart so a burst
@@ -437,7 +437,7 @@ class NotificationCenter extends EventEmitter {
    */
   test() {
     const prefs = preferencesFrom(this.#getPreferences());
-    const notice = this.#normalize({ kind: "notification.test", title: "Notifications are working", body: "This is how Mission Control tells you about crashes, port conflicts and servers coming up.", dedupeKey: `test:${this.#now()}` });
+    const notice = this.#normalize({ kind: "notification.test", title: "Notifications are working", body: "This is how OUTARCH tells you about crashes, port conflicts and servers coming up.", dedupeKey: `test:${this.#now()}` });
     const shown = this.supported ? this.#showWindows(notice, { audible: prefs.sound, tone: "success" }) : false;
     const sound = prefs.sound ? APP_SOUND.success : null;
     this.#emitNotice(notice, { windows: shown, windowsReason: shown ? "test" : "unsupported", sound, soundBy: sound ? (shown ? "system" : "app") : null, focused: this.#focused(), quiet: false, test: true });
@@ -552,9 +552,9 @@ class NotificationCenter extends EventEmitter {
     }
     const project = (() => { try { return this.#getProjectName(); } catch { return null; } })();
     const title = summary ? "Several things need your attention" : notice.title;
-    const body = summary ? "More notifications arrived in the last minute. Open Mission Control to see them all." : notice.body;
+    const body = summary ? "More notifications arrived in the last minute. Open OUTARCH to see them all." : notice.body;
     const primary = summary ? null : notice.actions.find(action => WINDOWS_ACTIONS.has(action.id)) || null;
-    const attribution = project ? `Mission Control · ${clip(project, 40)}` : "Mission Control";
+    const attribution = project ? `OUTARCH · ${clip(project, 40)}` : "OUTARCH";
     const options = { title, body, silent: !audible, urgency: tone === "critical" ? "critical" : "normal" };
     if (this.#platform === "win32") {
       options.toastXml = buildToastXml({ title, body, attribution, actionLabel: primary?.label || null, audio: audible ? WINDOWS_SOUND[tone] : null });

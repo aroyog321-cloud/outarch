@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Mission Control — per-screen redesign pass
+   OUTARCH — per-screen redesign pass
 
    Structural fixes the audit called out: bounded dialog scrolling, a sticky
    Recipe Creator save action, a persistent Settings category rail, and a
@@ -109,17 +109,21 @@
 
 /* ------------------------------------------- creator: how should it start? */
 
+/* A field like the name above it, not a second kicker: the label reads in the
+   same voice as "Recipe name", sits a clear step below the focused input, and
+   the options are one row of equal choices with a radio mark, so the current
+   strategy is read from the mark rather than from a glow. */
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip > span {
   display: block;
-  color: var(--mc-accent);
-  font-size: 9px;
-  font-weight: 780;
-  letter-spacing: .14em;
-  text-transform: uppercase;
   margin-bottom: 8px;
+  color: var(--mc-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip > div {
   display: grid;
@@ -128,12 +132,14 @@
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 10px;
   min-height: 66px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 11px 12px;
+  align-items: start;
+  align-content: start;
+  padding: 12px 12px 11px;
   background: var(--mc-surface-2);
   border: 1px solid var(--mc-border);
   border-radius: var(--mc-radius-sm);
@@ -141,8 +147,20 @@
   cursor: pointer;
   transition: background-color var(--mc-motion-fast), border-color var(--mc-motion-fast), box-shadow var(--mc-motion-fast), transform var(--mc-motion-fast);
 }
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button::before {
+  content: "";
+  grid-row: 1 / span 2;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--mc-border-strong);
+  border-radius: 50%;
+  transition: border-color var(--mc-motion-fast), background-color var(--mc-motion-fast);
+}
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button strong {
   display: block;
+  grid-column: 2;
   font-size: 11.5px;
   font-weight: 600;
   color: var(--mc-text-soft);
@@ -150,6 +168,7 @@
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button small {
   display: block;
+  grid-column: 2;
   margin-top: 5px;
   color: var(--mc-text-dim);
   font-size: 10px;
@@ -164,21 +183,20 @@
   color: var(--mc-text);
 }
 
-/* Selected state: prominently highlighted with glowing accent border, pill indicator, and crisp text */
+/* Selected: an accent border and a filled radio mark. The old state stacked
+   a thicker border, a ring, a glow and a partial bar across the top edge. */
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button.is-current {
-  background: color-mix(in srgb, var(--mc-accent) 14%, var(--mc-surface-2)) !important;
-  border: 1.5px solid var(--mc-accent) !important;
-  box-shadow: 0 0 0 1px var(--mc-accent), 0 4px 16px color-mix(in srgb, var(--mc-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--mc-accent) 9%, var(--mc-surface-2));
+  border-color: var(--mc-accent);
+  box-shadow: none;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button.is-current::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 10px;
-  right: 10px;
-  height: 2px;
-  background: var(--mc-accent);
-  border-radius: 99px;
+  border-color: var(--mc-accent);
+  background: radial-gradient(circle, var(--mc-accent) 0 3px, transparent 3.5px);
+}
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip button:focus-visible {
+  outline: none;
+  box-shadow: var(--mc-focus-ring);
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button.is-current strong {
   color: var(--mc-text) !important;
@@ -326,7 +344,7 @@
 .recipes-dialog.recipes-dialog-v2 .recipe-discard-guard .btn-danger {
   min-height: 34px;
   padding: 0 16px;
-  color: var(--mc-text-ink) !important;
+  color: var(--mc-void) !important;
   background: var(--mc-danger) !important;
   border: 1px solid var(--mc-danger) !important;
   border-radius: var(--mc-radius-sm);
@@ -380,8 +398,8 @@
   min-width: 0;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-builder__intro > div > span {
-  color: var(--mc-accent);
-  font-size: 9px;
+  color: var(--mc-accent-strong);
+  font-size: 10px;
   font-weight: 780;
   letter-spacing: .16em;
 }
@@ -460,13 +478,18 @@
    reorder arrows wrapped onto their own line under each row.
    ======================================================================== */
 
+.recipes-dialog.recipes-dialog-v2 .recipe-simple-workers {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mc-hairline);
+}
 .recipes-dialog.recipes-dialog-v2 .recipe-simple-workers > header {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 4px 12px;
-  margin-bottom: 9px;
+  margin-bottom: 10px;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-simple-workers > header > div {
   display: grid;
@@ -474,8 +497,8 @@
   min-width: 0;
 }
 .recipes-dialog.recipes-dialog-v2 .recipe-simple-workers > header span {
-  color: var(--mc-accent);
-  font-size: 9px;
+  color: var(--mc-accent-strong);
+  font-size: 10px;
   font-weight: 780;
   letter-spacing: .14em;
 }
@@ -555,7 +578,7 @@
   width: 20px;
   height: 20px;
   place-items: center;
-  color: var(--mc-accent);
+  color: var(--mc-text);
   background: var(--mc-accent-soft);
   border-radius: var(--mc-radius-xs);
   font: 700 10px/1 var(--mc-font-mono);
@@ -1040,7 +1063,7 @@
   flex-direction: column;
   min-height: 0;
   background: var(--mc-canvas) !important;
-  padding: 0 26px 34px !important;
+  padding: 0 26px 0 !important;
 }
 #root#root .shell .mc-ref-groundstation :where(button, [role="row"], input) {
   transition:
@@ -1197,7 +1220,7 @@
   letter-spacing: -.025em; font-variant-numeric: tabular-nums;
 }
 #root#root .shell .mc-gs-counts b small { color: var(--mc-text-dim); font-size: 12px; font-weight: 500; letter-spacing: 0; }
-#root#root .shell .mc-gs-counts span { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-text-muted); }
+#root#root .shell .mc-gs-counts span { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--mc-text-muted); }
 #root#root .shell .mc-gs-counts button:first-child b { color: var(--mc-ok); }
 #root#root .shell .mc-gs-counts button:nth-child(3) b { color: var(--mc-ai-strong); }
 #root#root .shell .mc-gs-counts .mc-gs-needs.has-attention b { color: var(--mc-warning); }
@@ -1260,9 +1283,9 @@
   color: var(--mc-text-ink);
   background: var(--mc-ai);
   border-radius: 4px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: .06em;
+  letter-spacing: .05em;
 }
 
 /* ------------------------------------------------------ attention inbox */
@@ -1434,28 +1457,53 @@
 #root#root .shell .mc-gs-chips .chip-failed.is-active b { color: var(--mc-danger); }
 #root#root .shell .mc-gs-chips .chip-review.is-active b { color: var(--mc-warning); }
 
+/* The field is the frame; the input inside it is bare. The route's focus rule
+   gives every focused input its own rounded ring, so a clicked search drew a
+   second box inside the first. The frame carries the focus state instead, and
+   it matches the state chips beside it: same height, surface and radius. */
 #root#root .shell .mc-gs-search {
   display: inline-flex; align-items: center; gap: 8px;
-  min-width: 224px; max-width: 340px;
-  padding: 0 11px;
+  flex: 0 1 300px; min-width: 200px; max-width: 340px;
+  box-sizing: border-box; height: 34px;
+  padding: 0 5px 0 11px;
   background: color-mix(in srgb, var(--mc-void) 55%, transparent);
   border: 1px solid var(--mc-hairline);
   border-radius: var(--mc-radius-sm);
+  cursor: text;
+  transition: border-color var(--mc-motion-fast), box-shadow var(--mc-motion-fast);
 }
+#root#root .shell .mc-gs-search:hover { border-color: var(--mc-border); }
 #root#root .shell .mc-gs-search:focus-within { border-color: var(--mc-accent-line); box-shadow: 0 0 0 3px var(--mc-accent-soft); }
-#root#root .shell .mc-gs-search .icon { color: var(--mc-text-dim); flex: 0 0 auto; }
+#root#root .shell .mc-gs-search .icon { color: var(--mc-text-dim); flex: 0 0 auto; transition: color var(--mc-motion-fast); }
+#root#root .shell .mc-gs-search:focus-within .icon { color: var(--mc-accent); }
 #root#root .shell .mc-gs-search input {
-  min-height: 30px; width: 100%;
+  flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; min-height: 0;
+  padding: 0;
   color: var(--mc-text); background: transparent; border: 0; outline: 0;
-  font-size: 12px;
+  font-size: 12.5px;
 }
+#root#root .shell .mc-gs-search input:focus-visible { box-shadow: none; border-radius: 0; }
 #root#root .shell .mc-gs-search input::placeholder { color: var(--mc-text-dim); }
 #root#root .shell .mc-gs-search input::-webkit-search-cancel-button { display: none; }
-#root#root .shell .mc-gs-search > button {
-  color: var(--mc-text-dim); background: transparent; border: 0;
-  font-size: 15px; line-height: 1; cursor: pointer;
+#root#root .shell .mc-gs-search > kbd {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  color: var(--mc-text-dim);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-hairline);
+  border-radius: var(--mc-radius-xs);
+  font: 600 10px/1.5 var(--mc-font-mono);
+  white-space: nowrap;
 }
-#root#root .shell .mc-gs-search > button:hover { color: var(--mc-text); }
+#root#root .shell .mc-gs-search:focus-within > kbd { visibility: hidden; }
+#root#root .shell .mc-gs-search > button {
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 24px; height: 24px; min-height: 0; padding: 0;
+  color: var(--mc-text-dim); background: transparent; border: 0;
+  border-radius: var(--mc-radius-xs);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+#root#root .shell .mc-gs-search > button:hover { color: var(--mc-text); background: var(--mc-surface-2); }
 
 /* One raised table rather than a stack of bordered cards: the eye follows a
    single left edge down the manifest instead of re-reading a box per row. */
@@ -1533,7 +1581,7 @@
   border: 1px solid var(--mc-hairline);
   border-radius: var(--mc-radius-pill);
   font-family: var(--mc-font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 9.5px; font-weight: 600; letter-spacing: .01em;
+  font-size: 10px; font-weight: 600; letter-spacing: .01em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1758,6 +1806,11 @@
   border-radius: calc(var(--mc-radius-md) + 2px);
   box-shadow: var(--mc-raise-2);
 }
+/* The inspector is a height-capped flex column that scrolls, but its sections
+   kept the default shrink: when the content outgrew the cap the facts table was
+   crushed instead - half a row at 1280px, nothing at all in the 1024px drawer.
+   Sections keep their height and the panel scrolls. */
+#root#root .shell .mc-gs-inspector > * { flex-shrink: 0; }
 @keyframes mc-gs-inspector-enter {
   from { opacity: 0; transform: translateX(8px); }
   to { opacity: 1; transform: translateX(0); }
@@ -1793,7 +1846,7 @@
   border: 1px solid var(--mc-hairline);
   border-radius: var(--mc-radius-sm);
 }
-#root#root .shell .mc-gs-inspector-now span { display: block; margin-bottom: 3px; color: var(--mc-text-dim); font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+#root#root .shell .mc-gs-inspector-now span { display: block; margin-bottom: 3px; color: var(--mc-text-dim); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
 #root#root .shell .mc-gs-inspector-now p { margin: 0; color: var(--mc-text-soft); font-size: 11.5px; line-height: 1.45; }
 #root#root .shell .mc-gs-inspector-evidence { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 #root#root .shell .mc-gs-inspector-evidence small { color: var(--mc-text-dim); font-size: 9px; font-weight: 600; letter-spacing: .1em; }
@@ -1807,7 +1860,7 @@
   border-radius: var(--mc-radius-sm);
 }
 #root#root .shell .mc-gs-inspector-facts > div { padding: 6px 9px; background: var(--mc-surface); min-height: 38px; display: flex; flex-direction: column; justify-content: center; }
-#root#root .shell .mc-gs-inspector-facts dt { color: var(--mc-text-dim); font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1.1; }
+#root#root .shell .mc-gs-inspector-facts dt { color: var(--mc-text-dim); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1.1; }
 #root#root .shell .mc-gs-inspector-facts dd {
   margin: 2px 0 0; overflow: hidden;
   color: var(--mc-text-soft); font-size: 11.5px; line-height: 1.25;
@@ -1816,7 +1869,7 @@
 }
 #root#root .shell .mc-gs-inspector-events { display: flex; flex-direction: column; gap: 4px; }
 #root#root .shell .mc-gs-inspector-events article { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 1px 0; }
-#root#root .shell .mc-gs-inspector-events time { color: var(--mc-text-dim); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+#root#root .shell .mc-gs-inspector-events time { color: var(--mc-text-dim); font-size: 10px; font-variant-numeric: tabular-nums; }
 #root#root .shell .mc-gs-inspector-events span { overflow: hidden; color: var(--mc-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 #root#root .shell .mc-gs-inspector-events p { margin: 0; color: var(--mc-text-dim); font-size: 11px; }
 #root#root .shell .mc-gs-inspector > footer { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; padding-top: 6px; }
@@ -1850,14 +1903,14 @@
 #root#root .shell .mc-gs-inspector-ai:hover { color: var(--mc-text); border-color: var(--mc-border-strong); background: var(--mc-surface-2); }
 #root#root .shell .mc-gs-inspector-ai > span {
   display: grid; place-items: center; width: 18px; height: 16px; flex: 0 0 auto;
-  color: var(--mc-ai); background: var(--mc-ai-soft);
-  border-radius: var(--mc-radius-2xs); font: 700 9px var(--mc-font-mono);
+  color: var(--mc-ai-strong); background: var(--mc-ai-soft);
+  border-radius: var(--mc-radius-2xs); font: 700 10px var(--mc-font-mono);
 }
 
 /* ---------------------------------------------------------- narrow scale */
 
 @media (max-width: 900px) {
-  #root#root .shell .mc-ref-groundstation { padding: 0 16px 26px !important; }
+  #root#root .shell .mc-ref-groundstation { padding: 0 16px 0 !important; }
   #root#root .shell .mc-gs-statusbar { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 -16px 16px; padding: 12px 16px; }
   #root#root .shell .mc-gs-counts { flex-wrap: wrap; }
   #root#root .shell .mc-ref-manifest-row {
@@ -2438,6 +2491,7 @@
   min-height: 72px;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
   gap: 4px;
   padding: 14px 18px;
   border-right: 1px solid var(--mc-border);
@@ -2446,13 +2500,17 @@
 .history-chapters > header > div {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 3px;
+  width: 100%;
 }
 .history-chapters > header .section-kicker {
   color: var(--mc-accent);
   font-size: 8.5px;
   font-weight: 780;
   letter-spacing: .12em;
+  padding-right: 0;
+  border-right: 0;
 }
 .history-chapters > header strong {
   color: var(--mc-text);
@@ -2477,14 +2535,15 @@
   min-width: 190px;
   flex: 1 0 190px;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   color: var(--mc-text);
   text-align: left;
   background: transparent;
   border: 0;
   border-left: 1px solid var(--mc-border);
   cursor: pointer;
+  box-shadow: none;
   transition: all var(--mc-motion-fast);
 }
 .history-chapters > div > button:hover {
@@ -2493,7 +2552,7 @@
 .history-chapters button > i {
   width: 8px;
   height: 8px;
-  flex: 0 0 auto;
+  flex: 0 0 8px;
   background: var(--mc-ok);
   border-radius: 50%;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-ok) 18%, transparent);
@@ -2510,6 +2569,7 @@
 .history-chapters button.has-risk,
 .history-chapters button.is-unresolved {
   background: color-mix(in srgb, var(--mc-danger) 7%, transparent);
+  border-left-color: color-mix(in srgb, var(--mc-danger) 40%, var(--mc-border));
 }
 .history-chapters button.has-risk:hover,
 .history-chapters button.is-unresolved:hover {
@@ -2517,6 +2577,7 @@
 }
 .history-chapters button.is-active {
   background: color-mix(in srgb, var(--mc-accent) 6%, transparent);
+  border-left-color: color-mix(in srgb, var(--mc-accent) 40%, var(--mc-border));
 }
 .history-chapters button.is-active:hover {
   background: color-mix(in srgb, var(--mc-accent) 10%, transparent);
@@ -2758,7 +2819,7 @@
   border-radius: var(--mc-radius-md);
 }
 .history-actors > span {
-  color: var(--mc-accent);
+  color: var(--mc-accent-strong);
   font-size: 8.5px;
   font-weight: 780;
   letter-spacing: .12em;
@@ -2789,7 +2850,7 @@
   box-shadow: 0 0 0 1px var(--mc-accent);
 }
 .history-actors .history-actors__more {
-  color: var(--mc-accent);
+  color: var(--mc-accent-strong);
   background: var(--mc-accent-soft);
   border-color: color-mix(in srgb, var(--mc-accent) 25%, transparent);
   font-weight: 600;
@@ -2959,9 +3020,14 @@
    rendered its name as a single letter. A name has a floor and the badges are
    what gets clipped — a row that cannot say which worker it is has stopped
    being a row. */
-#root#root .shell .mc-gs-name-line { overflow: hidden; }
+/* Shrinking the badges cut them mid-word ("unconf", "compl"), which reads as a
+   rendering fault. The line wraps instead and is one line tall: a badge that
+   does not fit whole moves to the hidden second line and is dropped entire.
+   The name keeps its natural width first, and the inspector still lists every
+   badge. */
+#root#root .shell .mc-gs-name-line { flex-wrap: wrap; align-content: flex-start; row-gap: 8px; max-height: 20px; overflow: hidden; }
 #root#root .shell .mc-gs-name-line strong { min-width: 9ch; flex: 1 1 auto; }
-#root#root .shell .mc-gs-name-line .mc-gs-evidence { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+#root#root .shell .mc-gs-name-line .mc-gs-evidence { flex: 0 0 auto; }
 
 /* ================================================= Integration Diagnostics */
 #root#root .shell .integration-diagnostic,
@@ -3639,6 +3705,11 @@
 .recipes-dialog.recipes-dialog-v2 .recipe-builder {
   gap: 12px;
 }
+/* The builder is a flex column inside a scroll container; its bands keep
+   their height so a short dialog scrolls instead of overlapping them. */
+.recipes-dialog.recipes-dialog-v2 .recipe-builder > * {
+  flex-shrink: 0;
+}
 
 .recipes-dialog.recipes-dialog-v2 .recipe-builder__actions {
   margin-top: 4px;
@@ -3681,11 +3752,11 @@
   border-color: var(--mc-border-strong);
 }
 .recipes-dialog.recipes-dialog-v2 :is(.recipe-ai-help, .recipe-ai-design) > span:first-child {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   color: var(--mc-ai-strong);
   background: color-mix(in srgb, var(--mc-ai) 20%, transparent);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button {

@@ -39,7 +39,7 @@ test("trust boundaries use native disclosure and replace repeated authority pros
   assert.doesNotMatch(read("MissionAIScreen.jsx"), /<TrustBoundary/);
   assert.match(read("AssistantChat.jsx"), /aria-label="Approve what the assistant wants to do"/);
   assert.match(read("IntegrationsView.jsx"), /<TrustBoundary/);
-  assert.match(read("PluginPlatform.jsx"), /Mission Control renders every contribution/);
+  assert.match(read("PluginPlatform.jsx"), /OUTARCH renders every contribution/);
 });
 
 test("Needs You sources share one normalized decision item grammar", () => {

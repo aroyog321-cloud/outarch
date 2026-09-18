@@ -1,4 +1,4 @@
-/* Mission Control premium shell v3.
+/* OUTARCH premium shell v3.
    Loaded last to replace the legacy dual-rail composition without disturbing
    xterm, PTY lifecycle, dialogs, and feature-specific behavioral contracts. */
 
@@ -468,8 +468,11 @@ html body #root .shell > .main-area > .experience {
 .terminal-size-control input[type="range"] { accent-color: var(--mc-accent); }
 .settings-footer { padding: 16px 0 !important; }
 
-/* Mission AI dedicated route. */
-.view-mission-ai { overflow: hidden !important; }
+/* Mission AI dedicated route. The conversation scrolls inside itself, so the
+   route never does. The selector matches the frame rule that makes every route
+   scrollable, plus the route class, so it wins in any load order; without that
+   the route kept an empty, full-height scrollbar gutter beside the chat. */
+html body #root .shell > .main-area > .experience.view-mission-ai { overflow: hidden !important; scrollbar-gutter: auto; }
 .view-mission-ai > * { height: 100%; }
 .mission-ai-screen {
   display: grid;

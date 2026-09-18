@@ -149,8 +149,10 @@ test("workspace CSS honours the drag ratio and enforces a minimum pane size", ()
   assert.match(css, /minmax\(var\(--pane-min-h\), var\(--row-ratio\)\)/);
   // 3x2 keeps its first column resizable; the other two share the remainder.
   assert.match(css, /layout-grid-3x2[\s\S]*repeat\(2, minmax\(var\(--pane-min-w\), 1fr\)\)/);
-  // One deliberate narrow-width fallback, not three competing ones.
-  assert.match(css, /@media \(max-width: 1100px\)[\s\S]*grid-auto-rows: minmax\(var\(--pane-min-h\), 1fr\)/);
+  // Narrow fallbacks are measured on the stage, never the viewport: a viewport
+  // rule stacked a chosen 2x2 on a 1024px window while the switcher said 2x2.
+  assert.doesNotMatch(css, /@media \(max-width: 1100px\)/);
+  assert.match(css, /@container workspace-stage \(max-width: 860px\) \{\s*\.shell \.view-workspace \.terminal-grid\.layout-grid-3x2:not\(\.has-expanded\):not\(\.is-mosaic\)[\s\S]*grid-auto-rows: minmax\(var\(--pane-min-h\), 1fr\)/);
 });
 
 test("main.jsx loads the authoritative redesign layer last", () => {
@@ -189,9 +191,15 @@ test("terminal overflow menu exposes every required action including reconfigure
   const src = read("TerminalPane.jsx");
   for (const action of [
     "Focus terminal", "Find in output", "Copy selection", "Clear display",
-    "Move to another pane", "Pop out terminal", "Rename", "Reconfigure worker",
+    "Move to another pane", "Rename", "Reconfigure worker",
     "Start with workspace", "Duplicate worker", "Restart worker", "Delete terminal"
   ]) assert.ok(src.includes(action), `overflow menu is missing "${action}"`);
+
+  // Pop out moved to a header control on 2026-09-15, beside maximise, and left
+  // the menu so it is offered once.
+  assert.match(src, /className="icon-button terminal-pane__popout"/);
+  const menuLines = src.split("\n").filter(line => line.includes("<DropdownMenu.Item"));
+  assert.ok(!menuLines.some(line => line.includes("Pop out terminal")), "pop out must not also be a menu entry");
 
   // Start and stop left this menu on 2026-09-12 for a control on the header,
   // so it no longer carries a verb whose own label has to be read to learn

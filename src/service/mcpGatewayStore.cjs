@@ -126,7 +126,7 @@ class McpGatewayStore {
     const preferences = normalizePreferences({ ...current.preferences, ...value });
     const credential = current.credential;
     if (preferences.enabled && !this.protectionStatus().available) {
-      throw new Error("OS credential encryption is unavailable; Mission Control will not store a plaintext MCP access token");
+      throw new Error("OS credential encryption is unavailable; OUTARCH will not store a plaintext MCP access token");
     }
     if (preferences.enabled && !credential) {
       throw new Error("Create and copy an MCP access token before enabling the gateway");
@@ -143,7 +143,7 @@ class McpGatewayStore {
 
   rotateToken() {
     const protection = this.protectionStatus();
-    if (!protection.available) throw new Error("OS credential encryption is unavailable; Mission Control will not store a plaintext MCP access token");
+    if (!protection.available) throw new Error("OS credential encryption is unavailable; OUTARCH will not store a plaintext MCP access token");
     const current = this.#readDocument();
     const token = this.#newToken();
     this.#writeDocument({
@@ -199,7 +199,7 @@ class McpGatewayStore {
 
   #encrypt(value) {
     const protection = this.protectionStatus();
-    if (!protection.available) throw new Error("OS credential encryption is unavailable; Mission Control will not store a plaintext MCP access token");
+    if (!protection.available) throw new Error("OS credential encryption is unavailable; OUTARCH will not store a plaintext MCP access token");
     const encrypted = this.safeStorage.encryptString(value);
     if (!Buffer.isBuffer(encrypted) || !encrypted.length) throw new Error("OS credential encryption returned no data");
     return encrypted.toString("base64");

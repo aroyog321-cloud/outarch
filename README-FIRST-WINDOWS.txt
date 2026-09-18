@@ -1,16 +1,20 @@
-MISSION CONTROL GROUNDSTATION — WINDOWS 11
-==========================================
+OUTARCH — WINDOWS 11
+====================
+
+OUTARCH is the new name of Mission Control. Your projects, keys and
+layouts are carried over automatically the first time OUTARCH opens.
 
 1. Extract the entire ZIP before running it.
 2. Install Node.js 22 LTS if it is not already installed.
-3. Double-click OPEN_MISSION_CONTROL_WINDOWS.cmd.
+3. Double-click OPEN_OUTARCH_WINDOWS.cmd.
 
 The launcher installs the Windows desktop dependencies on first use, builds the
-current renderer, and opens the real Electron Groundstation.
+renderer when it has changed, and opens OUTARCH. If OUTARCH is already open,
+its window is brought to the front instead of starting a second copy.
 
 OPTIONAL RELEASE CHECK
 ----------------------
-Double-click VERIFY_MISSION_CONTROL_WINDOWS.cmd to rebuild the renderer and run
+Double-click VERIFY_OUTARCH_WINDOWS.cmd to rebuild the renderer and run
 native CMD and PowerShell ConPTY smoke checks on this Windows machine.
 
 IMPORTANT
@@ -38,15 +42,15 @@ WHERE THE LATEST VISIBLE CHANGES ARE
 - Workspace Recipes and Mission Graph remain contextual in the toolbar.
 - VS Code Bridge, Mission AI, and Secure MCP Gateway remain in Settings.
 
-Mission Control intentionally does not fabricate demo missions, approvals,
+OUTARCH intentionally does not fabricate demo missions, approvals,
 workers, or progress. A feature that depends on real engine state appears after
 you create or connect that state.
 
 OPTIONAL PROJECT
 ----------------
-Drag a termctl.config.json path onto OPEN_MISSION_CONTROL_WINDOWS.cmd, or run:
+Drag a termctl.config.json path onto OPEN_OUTARCH_WINDOWS.cmd, or run:
 
-  OPEN_MISSION_CONTROL_WINDOWS.cmd --config D:\Projects\app\termctl.config.json
+  OPEN_OUTARCH_WINDOWS.cmd --config D:\Projects\app\termctl.config.json
 
-Without --config, Mission Control opens termctl.config.json in this folder, or
+Without --config, OUTARCH opens termctl.config.json in this folder, or
 the safe one-shell onboarding workspace if that file does not exist.

@@ -1,4 +1,4 @@
-// Renders the Mission Control browser tile on the canvas, in the normal packed
+// Renders the OUTARCH browser tile on the canvas, in the normal packed
 // canvas and inside focus mode, and reports the rectangle the renderer reserves
 // for the native view. The view itself belongs to the real main process, so
 // what is verified here is the chrome, the packing, and the reported bounds.

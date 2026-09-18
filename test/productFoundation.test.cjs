@@ -19,7 +19,7 @@ test("Groundstation exposes baseline screen-reader and keyboard navigation seman
   assert.match(app, /className="skip-link" href="#main-content"/);
   assert.match(app, /id="main-content" tabIndex="-1"/);
   assert.match(app, /aria-current=\{view === id \? "page"/);
-  assert.match(app, /<nav className="top-navigation" aria-label="Mission Control navigation">/);
+  assert.match(app, /<nav className="top-navigation" aria-label="OUTARCH navigation">/);
   assert.match(app, /<aside className="app-sidebar" aria-label="Application sidebar">/);
   // A toast is not a dialog: it traps no focus and labels nothing, so claiming
   // alertdialog told assistive tech to expect one, and made every surface that

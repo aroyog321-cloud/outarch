@@ -25,11 +25,11 @@ const VIEW_LABELS = {
 export default function StatusBar({ state, workspace, sessions, activity, health, view, pendingCount = 0, onHelp, onReviewNeeds }) {
   const last = activity.at(-1);
   const tone = health?.tone === "danger" ? "is-danger" : health?.tone === "warning" ? "is-warning" : "";
-  return <header className="mission-status-bar status-bar-premium instrument-tape" aria-label="Mission Control status">
+  return <header className="mission-status-bar status-bar-premium instrument-tape" aria-label="OUTARCH status">
     <div className="status-bar-premium__left">
       <span className="status-bar-premium__project" title={workspace?.directory || workspace?.path || ""}><i className={`status-bar-premium__dot ${tone}`}/>{workspace?.name || "No project"}</span>
       <span className={`status-bar-premium__indicator is-connected ${tone}`}><i/>{health?.label || "Engine ready"}</span>
-      <span className="status-bar-premium__crumb"><b>{VIEW_LABELS[view] || "Mission Control"}</b></span>
+      <span className="status-bar-premium__crumb"><b>{VIEW_LABELS[view] || "OUTARCH"}</b></span>
     </div>
     <div className="status-bar-premium__right">
       <span className="status-bar-premium__meta status-bar-pill status-bar-pill--protocol">Protocol v{state?.contractVersion || "—"}</span>

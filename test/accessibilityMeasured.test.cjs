@@ -94,8 +94,11 @@ test("T137 - the nav's current destination and the attention badge are readable 
   // destination a reader most needs measured 1.38:1 against its own background.
   assert.match(base, /\.top-navigation button\.is-current \{\s*\n\s*color: var\(--mc-text\) !important;/);
   assert.doesNotMatch(base, /\.top-navigation button\.is-current \{[\s\S]{0,120}color: #fff/);
-  // White on the danger fill measured 3.03:1 for 9.5px bold text.
-  assert.match(base, /color: var\(--mc-text-ink\) !important;\s*\n\s*background: var\(--mc-danger\) !important;/);
+  // White on the danger fill measured 3.03:1 for 9.5px bold text, and the ink
+  // token is white in the dark palette, so "ink on danger" was the same 2.98:1.
+  // The count sits on a deeper mix of the danger red instead (5.3:1).
+  assert.match(base, /color: var\(--mc-text\) !important;\s*\n\s*background: color-mix\(in srgb, var\(--mc-danger\) 72%, var\(--mc-void\)\) !important;/);
+  assert.doesNotMatch(base, /top-navigation button[^{]*b \{[^}]*background: var\(--mc-danger\) !important/);
 });
 
 test("T136 - `.sr-only` is defined, and clips rather than hiding", () => {

@@ -6,7 +6,7 @@ import { confirmedRequest, missionApi } from "./missionApi.js";
 
    Activated with Ctrl+Shift+B (Cmd+Shift+B on mac).
 
-   Broadcast is the only action in Mission Control that multiplies a mistake by
+   Broadcast is the only action in OUTARCH that multiplies a mistake by
    the number of workers, so the flow is deliberately slower than typing into a
    single terminal:
 

@@ -124,9 +124,9 @@
 .vscode-setup-steps span { display: grid; min-width: 0; gap: 2px; }
 .vscode-setup-steps strong { color: var(--mc-text-soft); }
 .vscode-setup-steps small { color: var(--mc-text-dim); }
-.vscode-setup-steps .is-ready b { color: var(--mc-text-ink); background: var(--mc-ok); border-color: var(--mc-ok); }
+.vscode-setup-steps .is-ready b { color: var(--mc-void); background: var(--mc-ok); border-color: var(--mc-ok); }
 .vscode-setup-steps .is-active { border-color: color-mix(in srgb, var(--mc-warning) 45%, var(--line)); }
-.vscode-setup-steps .is-active b { color: var(--mc-text-ink); background: var(--mc-warning); border-color: var(--mc-warning); }
+.vscode-setup-steps .is-active b { color: var(--mc-void); background: var(--mc-warning); border-color: var(--mc-warning); }
 
 /* One column. The readouts used to sit beside a 250px rail holding the trust
    callout; at that width the callout wrapped one character per line and grew

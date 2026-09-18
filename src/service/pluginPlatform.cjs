@@ -9,6 +9,12 @@ const PLUGIN_APPROVAL_TTL_MS = 15 * 60 * 1000;
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function safeReason(value) { return redactText(value, { maxLength: 500 }).value.trim() || "No reason provided"; }
 
+function automationCapable(engine, operation) {
+  if (operation === "test") return typeof engine?.testAutomation === "function";
+  if (operation === "run") return typeof engine?.runAutomation === "function";
+  return false;
+}
+
 class PermissionedPluginPlatform extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -84,17 +90,30 @@ class PermissionedPluginPlatform extends EventEmitter {
     const actionId = String(value.actionId || "");
     const definition = plugin.manifest.actions.find(item => item.id === actionId);
     if (!definition) throw new Error("Plugin action is not declared in its manifest");
-    const permission = definition.type === "worker" ? "worker.lifecycle.request" : "recipe.run.request";
+    const permission = definition.type === "worker"
+      ? "worker.lifecycle.request"
+      : definition.type === "recipe"
+      ? "recipe.run.request"
+      : "automation.run.request";
     if (!plugin.grantedPermissions.includes(permission)) throw new Error(`Plugin permission required: ${permission}`);
-    const operation = String(value.operation || "");
+    // An action that declares a single operation needs no choice.
+    const operation = String(value.operation || (definition.operations.length === 1 ? definition.operations[0] : ""));
     if (!definition.operations.includes(operation)) throw new Error("Plugin action operation is not declared");
     const engine = this.getEngineApi();
     const target = String(value.target || "").slice(0, 64);
     let targetName;
     if (definition.type === "worker") {
       const worker = engine.getSnapshot(target); if (!worker) throw new Error("Plugin worker target was not found"); targetName = worker.name;
-    } else {
+    } else if (definition.type === "recipe") {
       const recipe = engine.listRecipes().find(item => item.id === target); if (!recipe) throw new Error("Plugin recipe target was not found"); targetName = recipe.name;
+    } else if (definition.type === "automation") {
+      // EngineAPI lists workflows as `definitions`; an array is accepted from simpler hosts.
+      const listed = typeof engine.listAutomations === "function" ? engine.listAutomations() : null;
+      const workflows = Array.isArray(listed) ? listed : Array.isArray(listed?.definitions) ? listed.definitions : [];
+      const automation = workflows.find(item => item.id === target);
+      if (!automation) throw new Error("Plugin automation target was not found");
+      if (!automationCapable(engine, operation)) throw new Error(`This version cannot ${operation} an automation workflow on a plugin's request`);
+      targetName = automation.name || automation.id;
     }
     const approval = { id: `plugin-approval-${this.randomUUID()}`, pluginId: plugin.manifest.id, pluginName: plugin.manifest.name, actionId, actionLabel: definition.label, type: definition.type, operation, target, targetName, reason: safeReason(value.reason), state: "pending", createdAt: this.now(), expiresAt: this.now() + PLUGIN_APPROVAL_TTL_MS };
     this.store.setApprovals([...this.store.approvals(), approval].slice(-100));
@@ -112,7 +131,11 @@ class PermissionedPluginPlatform extends EventEmitter {
     if (decision === "deny") { approval.state = "denied"; approval.resolvedAt = this.now(); this.store.setApprovals(approvals); this.#audit({ kind: "approval", outcome: "denied", pluginId: approval.pluginId, capability: approval.operation, target: approval.target }); this.#emitStatus(); return clone(approval); }
     const plugin = this.#authorized(approval.pluginId);
     const definition = plugin.manifest.actions.find(item => item.id === approval.actionId);
-    const permission = approval.type === "worker" ? "worker.lifecycle.request" : "recipe.run.request";
+    const permission = approval.type === "worker"
+      ? "worker.lifecycle.request"
+      : approval.type === "recipe"
+      ? "recipe.run.request"
+      : "automation.run.request";
     if (!definition?.operations.includes(approval.operation) || !plugin.grantedPermissions.includes(permission)) throw new Error("Plugin action authority was revoked before approval");
     approval.state = "executing"; approval.resolvedAt = this.now(); this.store.setApprovals(approvals); this.#emitStatus();
     try { approval.result = await this.#execute(approval); approval.state = "approved"; }
@@ -123,7 +146,30 @@ class PermissionedPluginPlatform extends EventEmitter {
   dispose() { this.removeAllListeners(); return true; }
 
   #authorized(id) { const plugin = this.store.plugins().find(item => item.manifest.id === String(id)); if (!plugin) throw new Error("Plugin is not installed"); if (!plugin.enabled) throw new Error("Plugin is disabled"); return plugin; }
-  async #execute(approval) { const engine = this.getEngineApi(); let result; if (approval.type === "worker") { const method = approval.operation === "stop" ? "kill" : approval.operation; result = engine[method](approval.target); if (result && typeof result.then === "function") result = await result; } else if (approval.operation === "cancel") result = engine.cancelRecipe(approval.target); else result = engine.runRecipe(approval.target, { recover: approval.operation === "recover" }); if (!result?.ok) throw new Error(result?.error || "EngineAPI rejected the approved plugin action"); return clone(result); }
+  async #execute(approval) {
+    const engine = this.getEngineApi();
+    let result;
+    if (approval.type === "worker") {
+      const method = approval.operation === "stop" ? "kill" : approval.operation;
+      result = engine[method](approval.target);
+    } else if (approval.type === "recipe") {
+      if (approval.operation === "cancel") result = engine.cancelRecipe(approval.target);
+      else if (approval.operation === "pause") result = typeof engine.pauseRecipe === "function" ? engine.pauseRecipe(approval.target) : { ok: false, error: "Pausing a recipe is not available" };
+      else if (approval.operation === "resume") result = typeof engine.resumeRecipe === "function" ? engine.resumeRecipe(approval.target) : { ok: false, error: "Resuming a recipe is not available" };
+      else result = engine.runRecipe(approval.target, { recover: approval.operation === "recover" });
+    } else if (approval.type === "automation") {
+      // A dry run is a test; a run is never quietly downgraded to one, and
+      // nothing is reported as done that the engine did not do.
+      if (!automationCapable(engine, approval.operation)) result = { ok: false, error: `This version cannot ${approval.operation} an automation workflow on a plugin's request` };
+      else if (approval.operation === "test") result = engine.testAutomation(approval.target);
+      else result = engine.runAutomation(approval.target);
+    } else {
+      result = { ok: false, error: `Unsupported plugin action type: ${approval.type}` };
+    }
+    if (result && typeof result.then === "function") result = await result;
+    if (!result?.ok) throw new Error(result?.error || "EngineAPI rejected the approved plugin action");
+    return clone(result);
+  }
   #expire() { const now = this.now(); const approvals = this.store.approvals(); let changed = false; for (const item of approvals) if (item.state === "pending" && item.expiresAt <= now) { item.state = "expired"; item.resolvedAt = now; changed = true; this.#audit({ kind: "approval", outcome: "expired", pluginId: item.pluginId, capability: item.operation, target: item.target }); } if (changed) this.store.setApprovals(approvals); }
   #audit(record) { try { this.store.appendAudit({ ...record, id: `plugin-audit-${this.randomUUID()}`, at: this.now() }); } catch {} }
   #emitStatus() { const status = this.status(); for (const listener of this.rawListeners("status")) try { listener(status); } catch {} }

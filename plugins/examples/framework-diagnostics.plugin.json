@@ -3,7 +3,7 @@
   "id": "dev.mission-control.framework-diagnostics",
   "name": "Framework Diagnostics",
   "version": "1.0.0",
-  "publisher": "Mission Control examples",
+  "publisher": "OUTARCH examples",
   "description": "Reads bounded project context and attention records without source-code or filesystem access.",
   "permissions": ["context.read", "attention.read", "events.read"],
   "surfaces": ["settings.summary", "context.resource", "health.status"],

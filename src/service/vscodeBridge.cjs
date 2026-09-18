@@ -254,7 +254,7 @@ class VSCodeBridge extends EventEmitter {
 
   async createManagedTerminal(params = {}) {
     const workspace = this.#workspace();
-    const name = boundedText(params.name, 80) || "Mission Control";
+    const name = boundedText(params.name, 80) || "OUTARCH";
     const requestedCwd = typeof params.cwd === "string" ? params.cwd.trim() : ".";
     const cwd = !requestedCwd || requestedCwd === "."
       ? "."

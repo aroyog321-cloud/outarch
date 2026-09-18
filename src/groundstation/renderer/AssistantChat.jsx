@@ -22,6 +22,37 @@ function ActivityIcon({ state }) {
 
 const STATE_WORDS = { running: "in progress", done: "done", failed: "failed", waiting: "waiting for approval", declined: "not run" };
 
+/* A command the assistant ran in its own terminal. That terminal never
+   appears in the workspace, so this is where its output is read: live while
+   the command runs, left open when it fails, folded away when it succeeds. */
+function CommandOutput({ item }) {
+  const running = item.state === "running";
+  const outputRef = React.useRef(null);
+  const stickRef = React.useRef(true);
+
+  React.useLayoutEffect(() => {
+    const node = outputRef.current;
+    if (node && stickRef.current) node.scrollTop = node.scrollHeight;
+  }, [item.output]);
+
+  const status = running ? "Running" : Number.isInteger(item.exitCode) ? `Exit ${item.exitCode}` : item.state === "failed" ? "Not finished" : "Done";
+  return <details className={`ai-run is-${item.state}`} open={running || item.state === "failed"}>
+    <summary>
+      <svg className="ai-run__chevron" width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      <span>Output</span>
+      <span className="ai-run__status">{status}</span>
+    </summary>
+    <pre
+      ref={outputRef}
+      className="ai-run__output"
+      tabIndex={0}
+      role="group"
+      aria-label="Command output"
+      onScroll={event => { const node = event.currentTarget; stickRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 24; }}
+    ><span className="ai-run__prompt">$ {item.command}</span>{"\n"}{item.output || (running ? "" : "No output")}</pre>
+  </details>;
+}
+
 function Activity({ items }) {
   if (!items?.length) return null;
   return <ul className="ai-activity" aria-label="What the assistant did">
@@ -30,6 +61,7 @@ function Activity({ items }) {
       <span className="ai-activity__label">{item.label}</span>
       <span className="sr-only">, {STATE_WORDS[item.state] || item.state}</span>
       {item.state === "failed" && item.detail && <span className="ai-activity__detail">{item.detail}</span>}
+      {item.command && ["running", "done", "failed"].includes(item.state) && <CommandOutput item={item}/>}
     </li>)}
   </ul>;
 }
@@ -159,6 +191,11 @@ export function AssistantComposer({ conversation, disabled = false, disabledReas
       />
       {toolbar ? <div className="ai-composer__bar"><div className="ai-composer__tools">{toolbar}</div>{action}</div> : action}
     </div>
-    {!compact && <p className="ai-composer__hint"><kbd>Enter</kbd> to send · <kbd>Shift</kbd> <kbd>Enter</kbd> for a new line · {conversation.autoApprove ? "Acting without asking in this chat" : "Anything that changes your project asks first"}</p>}
+    {/* The keys on one side, and on the other what the assistant may do
+        without asking — the one line under the box that changes meaning. */}
+    {!compact && <div className="ai-composer__hint">
+      <span className="ai-composer__keys"><kbd>Enter</kbd> to send · <kbd>Shift</kbd> <kbd>Enter</kbd> for a new line</span>
+      <span className={`ai-composer__mode ${conversation.autoApprove ? "is-auto" : ""}`}>{conversation.autoApprove ? "Acting without asking in this chat" : "Anything that changes your project asks first"}</span>
+    </div>}
   </div>;
 }

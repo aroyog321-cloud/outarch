@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Mission Control — cockpit density layer
+   OUTARCH — cockpit density layer
 
    The redesign files before this one settled *geometry*: one shell grid, one
    token system, one terminal canvas. What they left untouched is the reading
@@ -165,8 +165,8 @@
   padding-right: var(--mc-space-2);
   border-right: 1px solid var(--mc-hairline);
   color: var(--mc-text-dim) !important;
-  font: 650 9.5px/1.4 var(--mc-font-mono) !important;
-  letter-spacing: .1em !important;
+  font: 650 10.5px/1.4 var(--mc-font-mono) !important;
+  letter-spacing: .09em !important;
 }
 
 /* The description is real context, so it is kept — demoted to one muted line
@@ -251,7 +251,7 @@
   order: 0;
   flex: 0 0 auto;
   color: var(--mc-text-dim) !important;
-  font-size: 9px !important;
+  font-size: 10px !important;
   font-weight: 650 !important;
   letter-spacing: .09em !important;
   text-transform: uppercase;
@@ -330,7 +330,7 @@
    the title. One primitive covers every occurrence. */
 
 #root#root .shell .experience :is(
-  .integration-directory, .history-chapters, .memory-briefing, .now-summary,
+  .integration-directory, .memory-briefing, .now-summary,
   .groundstation-recipes, .supervision-briefing, .integration-list-section
 ) > header {
   display: flex;
@@ -341,7 +341,7 @@
   min-height: 34px;
 }
 #root#root .shell .experience :is(
-  .integration-directory, .history-chapters, .memory-briefing, .now-summary,
+  .integration-directory, .memory-briefing, .now-summary,
   .groundstation-recipes, .supervision-briefing, .integration-list-section
 ) > header > div {
   display: flex;
@@ -353,18 +353,18 @@
   row-gap: 2px;
 }
 #root#root .shell .experience :is(
-  .integration-directory, .history-chapters, .memory-briefing, .now-summary,
+  .integration-directory, .memory-briefing, .now-summary,
   .groundstation-recipes, .supervision-briefing, .integration-list-section
 ) > header > div > .section-kicker {
   flex: 0 0 auto;
   padding-right: var(--mc-space-2);
   border-right: 1px solid var(--mc-hairline);
   color: var(--mc-text-dim) !important;
-  font: 650 9.5px/1.4 var(--mc-font-mono) !important;
-  letter-spacing: .1em !important;
+  font: 650 10.5px/1.4 var(--mc-font-mono) !important;
+  letter-spacing: .09em !important;
 }
 #root#root .shell .experience :is(
-  .integration-directory, .history-chapters, .memory-briefing, .now-summary,
+  .integration-directory, .memory-briefing, .now-summary,
   .groundstation-recipes, .supervision-briefing, .integration-list-section
 ) > header > div > strong {
   min-width: 0;
@@ -384,10 +384,12 @@
    brand mark with `!important`, which is why the shell shipped a green
    identity, a blue primary action and a violet assistant at the same time.
    Green is a *status*, so it is returned to healthy/success only. */
+/* Since OUTARCH the mark is the app icon, which brings its own tile, so the
+   button around it paints no face of its own. */
 #root#root .shell .top-brand {
-  color: var(--mc-accent-strong) !important;
-  background: var(--mc-accent-soft) !important;
-  border: 1px solid var(--mc-accent-line) !important;
+  color: inherit !important;
+  background: transparent !important;
+  border: 0 !important;
   background-image: none !important;
 }
 
@@ -580,8 +582,12 @@
    runway, retire the captions the group labels already provide, and let the
    row wrap instead of shredding every item at once. */
 
+/* The row is restated with the display: styles.css turns this deck into a
+   column below 760px, where each item's flex basis (the title's 220px) became
+   a height and the deck stood ~300px tall over the canvas. */
 #root#root .shell .view-workspace .workspace-command-deck {
   display: flex !important;
+  flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--mc-space-1) var(--mc-space-2);
@@ -941,7 +947,7 @@
   background: var(--mc-surface-3) !important;
   border: 1px solid var(--mc-hairline) !important;
   border-radius: var(--mc-radius-xs) !important;
-  font: 600 9px/1.4 var(--mc-font-mono) !important;
+  font: 600 10px/1.4 var(--mc-font-mono) !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
 }
@@ -1278,7 +1284,7 @@
   box-shadow: inset 0 0 0 1px var(--mc-accent-line) !important;
 }
 #root#root .shell .terminal-role-tag {
-  color: color-mix(in srgb, var(--terminal-role, var(--mc-accent)) 58%, var(--mc-text-muted)) !important;
+  color: color-mix(in srgb, var(--terminal-role, var(--mc-accent)) 58%, var(--mc-text)) !important;
   background: color-mix(in srgb, var(--terminal-role, var(--mc-accent)) 12%, var(--mc-surface-3)) !important;
 }
 #root#root .shell .view-workspace .terminal-drag-handle {
@@ -1375,8 +1381,8 @@
 #root#root .shell .experience .recipes-status-strip > div > span {
   flex: 0 0 auto;
   color: var(--mc-text-dim);
-  font: 650 9px/1.4 var(--mc-font-mono);
-  letter-spacing: .09em;
+  font: 650 10px/1.4 var(--mc-font-mono);
+  letter-spacing: .08em;
 }
 #root#root .shell .experience .recipes-status-strip > div > strong {
   flex: 0 0 auto;
@@ -1487,7 +1493,7 @@
   color: var(--mc-text-muted);
   background: var(--mc-surface-3);
   border-radius: var(--mc-radius-xs);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 650;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -1728,13 +1734,13 @@
 }
 #root#root .shell .experience .recipes-guide li > b {
   display: grid;
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   place-items: center;
   color: var(--mc-accent-strong);
   background: var(--mc-accent-soft);
   border-radius: var(--mc-radius-pill);
-  font: 650 9px/1 var(--mc-font-mono);
+  font: 650 10px/1 var(--mc-font-mono);
 }
 #root#root .shell .experience .recipes-guide li > span { display: grid; gap: 1px; min-width: 0; }
 #root#root .shell .experience .recipes-guide li strong { color: var(--mc-text-soft); font-size: 11px; font-weight: 620; }
@@ -1759,6 +1765,27 @@
   #root#root .shell .experience .recipe-row > :is(.recipe-row-main, .recipe-flow, footer, .recipe-run-history) { grid-area: auto; }
   #root#root .shell .experience .recipe-row > footer { justify-content: flex-end; flex-wrap: wrap; }
   #root#root .shell .experience .attention-policy { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* One recipe row needs about 920px to hold its identity, its startup chain and
+   all four actions on one line. The actions track is sized to its content, so
+   below that width the two text columns were starved instead: at a 1024px
+   window the recipe name measured 1px wide and the chain overprinted the
+   status. The library - not the window - is measured, because the guide rail
+   beside it takes a fixed share. Narrower, the actions take a full-width row
+   under the text; narrower still, everything stacks. */
+#root#root .shell .experience .recipes-library { container: recipes-library / inline-size; }
+@container recipes-library (max-width: 920px) {
+  #root#root .shell .experience .recipe-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); row-gap: var(--mc-space-2); }
+  #root#root .shell .experience .recipe-row > .recipe-row-main { grid-area: 1 / 1; }
+  #root#root .shell .experience .recipe-row > .recipe-flow { grid-area: 1 / 2; }
+  #root#root .shell .experience .recipe-row > footer { grid-area: 2 / 1 / auto / -1; flex-wrap: wrap; justify-content: flex-end; }
+  #root#root .shell .experience .recipe-row > .recipe-run-history { grid-area: 3 / 1 / auto / -1; }
+}
+@container recipes-library (max-width: 520px) {
+  #root#root .shell .experience .recipe-row { grid-template-columns: minmax(0, 1fr); }
+  #root#root .shell .experience .recipe-row > :is(.recipe-row-main, .recipe-flow, footer, .recipe-run-history) { grid-area: auto; }
+  #root#root .shell .experience .recipe-row > .recipe-run-history { order: 1; }
 }
 
 .history-hero-redesigned {
@@ -1897,7 +1924,9 @@
 }
 .command-palette [cmdk-item] {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  /* The icon sits in a bordered box wider than a fixed 22px track, so it ran
+     into the label; the track follows the box. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--mc-space-2);
   min-height: 38px;
@@ -1918,6 +1947,18 @@
   border: 1px solid var(--mc-hairline);
   border-radius: var(--mc-radius-xs);
   font: 600 9.5px/1.5 var(--mc-font-mono);
+}
+/* Group headings ("Navigate", "Application") had no rule at all and rendered
+   as body-size white text flush against the list edge, louder than the rows
+   they label. They read as section labels, aligned with the rows. */
+.command-palette [cmdk-group-heading] {
+  padding: var(--mc-space-3) var(--mc-space-2) var(--mc-space-1);
+  color: var(--mc-text-dim);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: .06em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
 /* premiumDesign.css carries a second, independent token layer — `--theme-*`,

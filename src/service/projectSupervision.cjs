@@ -36,7 +36,7 @@ function activityLabel(event) {
 
 function runningSummary(workers) {
   const active = workers.filter(worker => ["starting", "working", "running", "waiting"].includes(worker.state));
-  if (!active.length) return "No Mission Control worker is currently active.";
+  if (!active.length) return "No OUTARCH worker is currently active.";
   const working = active.filter(worker => worker.state === "working").length;
   return `${active.length} worker${active.length === 1 ? " is" : "s are"} active${working ? `; ${working} ${working === 1 ? "has" : "have"} recent progress evidence` : ""}.`;
 }
@@ -187,7 +187,7 @@ class ProjectSupervisionService {
         label: "A delivery range requires a declared scope plus comparable completion evidence.",
         confidence: "low",
         basedOn: history.slice(0, 5).map(item => item.evidenceId),
-        limitation: "Mission Control will ask Gemini for a range with assumptions; it will not invent a percentage or deadline."
+        limitation: "OUTARCH will ask Gemini for a range with assumptions; it will not invent a percentage or deadline."
       }],
       evidenceIndex: evidenceIndex.slice(0, MAX_EVIDENCE_INDEX),
       visibility: {

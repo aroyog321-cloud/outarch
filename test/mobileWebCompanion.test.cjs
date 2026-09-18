@@ -8,7 +8,7 @@ test("Mobile Web Companion returns valid HTML with embedded crypto polyfill, PWA
   const html = getMobileWebCompanionHtml();
   assert.equal(typeof html, "string");
   assert.match(html, /<!DOCTYPE html>/i);
-  assert.match(html, /Mission Control · Mobile Companion/);
+  assert.match(html, /OUTARCH · Mobile Companion/);
   assert.match(html, /PureCrypto/);
   assert.match(html, /x25519ScalarMult/);
   assert.match(html, /aesGcmEncrypt/);
@@ -25,8 +25,8 @@ test("Mobile Web Companion generates valid PWA manifest and Service Worker scrip
   const manifestRaw = getMobileManifestJson();
   assert.equal(typeof manifestRaw, "string");
   const manifest = JSON.parse(manifestRaw);
-  assert.equal(manifest.name, "Mission Control · Mobile Companion");
-  assert.equal(manifest.short_name, "MC Companion");
+  assert.equal(manifest.name, "OUTARCH · Mobile Companion");
+  assert.equal(manifest.short_name, "OUTARCH");
   assert.equal(manifest.start_url, "/mobile");
   assert.equal(manifest.display, "standalone");
   assert.ok(Array.isArray(manifest.icons) && manifest.icons.length > 0);
