@@ -24,7 +24,7 @@ function getMobileManifestJson() {
 function getMobileServiceWorkerJs() {
   return `"use strict";
 
-const CACHE_NAME = "outarch-companion-v3";
+const CACHE_NAME = "outarch-companion-v5";
 const ASSETS_TO_CACHE = [
   "/mobile",
   "/mobile/",
@@ -685,10 +685,52 @@ function getMobileWebCompanionHtml() {
     }
 
     /* Pairing Form & Hero */
-    .pair-hero { text-align: center; padding: 12px 0 16px; }
-    .pair-hero h2 { font-size: 22px; font-weight: 850; color: #fff; margin-bottom: 6px; letter-spacing: -0.02em; }
-    .pair-hero p { font-size: 13.5px; color: var(--text-muted); line-height: 1.45; }
-    .pair-form { display: flex; flex-direction: column; gap: 16px; }
+    .card.pair-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      background: rgba(14, 18, 28, 0.82);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 26px 22px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      margin-top: 4px;
+    }
+    .pair-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 4px 0 2px;
+    }
+    .pair-shield-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
+      margin-bottom: 12px;
+    }
+    .pair-hero h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+      letter-spacing: -0.02em;
+    }
+    .pair-hero p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      max-width: 380px;
+    }
     .input-group { display: flex; flex-direction: column; gap: 8px; }
     .input-group label { font-size: 11.5px; font-weight: 750; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
     .input-group input, .input-group textarea {
@@ -707,38 +749,313 @@ function getMobileWebCompanionHtml() {
       border-color: var(--primary);
       box-shadow: 0 0 18px rgba(56, 189, 248, 0.3);
     }
-    .code-input {
-      font-family: var(--font-mono) !important;
-      font-size: 30px !important;
-      font-weight: 800 !important;
-      letter-spacing: 10px !important;
-      text-align: center !important;
-      color: var(--primary) !important;
-      background: rgba(56, 189, 248, 0.05) !important;
-      border-color: rgba(56, 189, 248, 0.35) !important;
-    }
-
     .notice-box {
-      padding: 12px 14px;
-      border-radius: var(--radius-md);
-      background: rgba(56, 189, 248, 0.06);
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      font-size: 12px;
-      color: var(--text-muted);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #34d399;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 8px;
+      margin: 0 auto;
     }
     .notice-box i {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 8px var(--primary); flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      flex-shrink: 0;
+      display: inline-block;
     }
 
-    .msg { font-size: 12.5px; text-align: center; color: var(--text-muted); padding: 4px 0; }
-    .msg.error { color: var(--danger); }
-    .msg.success { color: var(--ok); }
-    .msg.info { color: var(--primary); }
+    /* 6-Digit Segmented OTP PIN Slots */
+    .pin-input-wrap {
+      position: relative;
+      margin-top: 2px;
+    }
+    .pin-slots-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      position: relative;
+      cursor: text;
+    }
+    .pin-slot {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pin-slot.is-focused {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25), 0 0 16px rgba(56, 189, 248, 0.2);
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .pin-slot.is-filled {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--primary);
+    }
+    .pin-slot.is-error {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px var(--danger-soft);
+      animation: pinShake 0.35s ease-in-out;
+    }
+    @keyframes pinShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-4px); }
+      40%, 80% { transform: translateX(4px); }
+    }
+    .pin-caret {
+      width: 2px;
+      height: 24px;
+      background: var(--primary);
+      animation: blinkCaret 1s infinite;
+      display: inline-block;
+    }
+    @keyframes blinkCaret {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .invisible-otp-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      z-index: 10;
+      cursor: text;
+      font-size: 20px;
+    }
 
-    /* Bottom Nav */
+    /* Device Card Inset */
+    .device-card-wrap {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 150ms ease;
+    }
+    .device-card-wrap:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+    .device-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .device-card-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .device-card-meta label {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 2px;
+    }
+    .device-card-meta input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      outline: none;
+      padding: 0;
+    }
+
+    /* Handshake Timeline */
+    .handshake-timeline {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .handshake-step {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .handshake-step.done {
+      color: #86efac;
+    }
+    .handshake-step.active {
+      color: var(--primary);
+    }
+    .step-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #334155;
+      flex-shrink: 0;
+    }
+    .step-dot.active {
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: pulseLive 1s infinite;
+    }
+    .step-dot.done {
+      background: var(--ok);
+      box-shadow: 0 0 6px var(--ok);
+    }
+
+    /* Authorize Button */
+    .btn-pair-primary {
+      width: 100%;
+      height: 48px;
+      font-size: 14.5px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--primary-gradient);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius-md);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+      transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-pair-primary:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 6px 26px rgba(56, 189, 248, 0.45);
+      transform: translateY(-1px);
+    }
+    .btn-pair-primary:active {
+      transform: scale(0.98);
+    }
+    .btn-pair-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .msg {
+      font-size: 12.5px;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      display: none;
+      line-height: 1.4;
+    }
+    .msg:not(:empty) {
+      display: block;
+    }
+    .msg.error {
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+    .msg.success {
+      color: #86efac;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .msg.info {
+      color: #7dd3fc;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* Desktop Navigation Tabs */
+    .desktop-nav {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+    }
+    .desktop-nav-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      transition: all 140ms ease;
+    }
+    .desktop-nav-tab svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+    }
+    .desktop-nav-tab:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .desktop-nav-tab.is-active {
+      color: #fff;
+      background: var(--surface-active);
+      border-color: var(--border-medium);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+    .desktop-nav-tab.is-active svg {
+      color: var(--primary);
+    }
+    .desktop-nav-badge {
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      background: var(--danger);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 8px var(--danger);
+    }
 
     /* Ask Mission AI */
     .ask { display: flex; flex-direction: column; gap: 12px; padding-bottom: 84px; }
@@ -901,6 +1218,287 @@ function getMobileWebCompanionHtml() {
     .feed-body { min-width: 0; flex: 1; }
     .feed-body strong { display: block; font-size: 12.5px; color: var(--text); }
     .feed-body small { display: block; font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
+
+    /* ---------------------------------------------------------------------
+       Terminals, recipes and the terminal summary sheet (2026-09-20)
+       --------------------------------------------------------------------- */
+    /* A tall summary scrolls inside the sheet instead of running off the screen. */
+    .modal-sheet { --sheet-pad-b: calc(24px + env(safe-area-inset-bottom, 20px)); max-height: 92vh; overflow-y: auto; overscroll-behavior: contain; }
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .item-row .item-info small.wrap { white-space: normal; }
+    /* Seven tabs share a phone's width: a label that wrapped pushed its icon up under the badge. */
+    .nav-tab span:not(.nav-badge) { white-space: nowrap; }
+    @media (max-width: 400px) { .nav-tab { font-size: 10px; letter-spacing: -0.01em; } }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+    .segmented button {
+      padding: 10px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text-muted);
+      font: 750 12.5px var(--font-sans);
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .segmented button:active { transform: scale(0.97); }
+    .segmented button.is-active {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--primary);
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.4);
+    }
+    .segmented b { margin-left: 6px; font-family: var(--font-mono); font-weight: 700; opacity: 0.8; }
+
+    /* A terminal in a list: the card opens its summary, its buttons act. */
+    .term-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--text-dim);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      outline: none;
+      transition: background 140ms ease, transform 120ms ease;
+    }
+    .term-card:active { background: var(--surface-hover); transform: scale(0.99); }
+    .term-card.is-running { border-left-color: var(--ok); }
+    .term-card.is-warning { border-left-color: var(--warn); }
+    .term-card.is-critical { border-left-color: var(--danger); }
+    .term-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .term-line { font-size: 12.5px; color: var(--text-muted); line-height: 1.4; overflow-wrap: anywhere; }
+    .term-line.is-alert { color: var(--warn); }
+    .term-line.is-critical { color: var(--danger); }
+    .term-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .term-open {
+      min-width: 0;
+      padding: 8px 0;
+      overflow: hidden;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      background: none;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .term-open:focus-visible, .action-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .term-actions { display: flex; flex-shrink: 0; gap: 6px; }
+
+    /* The summary sheet. */
+    .detail { display: flex; flex-direction: column; gap: 14px; }
+    .detail-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .detail-role { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+    .detail-headline { font-size: 14.5px; font-weight: 700; line-height: 1.4; color: var(--text); overflow-wrap: anywhere; }
+    .detail-now { margin-top: -8px; font-size: 12.5px; color: var(--text-muted); }
+    .fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .fact-grid > div {
+      min-width: 0;
+      padding: 10px 12px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .fact-grid > div.wide { grid-column: 1 / -1; }
+    .fact-grid small {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .fact-grid b { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+    .fact-grid b.mono { font-family: var(--font-mono); font-size: 12px; font-weight: 600; }
+    .signal-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .signal {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      overflow-wrap: anywhere;
+    }
+    .signal small { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+    .signal.running { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-border); }
+    .signal.critical { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-border); }
+    .health-note {
+      padding: 10px 12px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--text-muted);
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .health-note strong { color: var(--text); }
+    .term-cap {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .term-out {
+      margin: 0;
+      max-height: 220px;
+      padding: 12px;
+      overflow: auto;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .term-empty {
+      padding: 12px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--text-muted);
+      background: var(--surface-subtle);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .detail-actions {
+      /* Pinned under the thumb while the summary scrolls. It reaches down over the
+         sheet's own bottom padding, or the content would show beneath it. */
+      position: sticky;
+      bottom: calc(-1 * var(--sheet-pad-b));
+      z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 -20px calc(-1 * var(--sheet-pad-b));
+      padding: 14px 20px var(--sheet-pad-b);
+      background: linear-gradient(180deg, rgba(13, 18, 28, 0), #0d121c 16px);
+    }
+    .detail-actions .action-btn { flex: 1 1 0; min-height: 44px; font-size: 13px; }
+
+    /* Confirmations. */
+    .confirm { display: flex; flex-direction: column; gap: 16px; }
+    .confirm p { font-size: 13.5px; line-height: 1.5; color: var(--text-muted); }
+    .confirm p strong { color: var(--text); }
+    .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .confirm-actions .btn { padding: 13px 12px; }
+    .btn-danger { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); box-shadow: 0 4px 18px rgba(220, 38, 38, 0.35); }
+
+    /* Recipes. */
+    .recipe-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+    .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .recipe-steps { display: flex; flex-direction: column; gap: 6px; list-style: none; }
+    .recipe-steps li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      font-size: 12.5px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .recipe-steps li i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+    .recipe-steps li.is-ok i { background: var(--ok); box-shadow: 0 0 8px var(--ok-glow); }
+    .recipe-steps li.is-busy i { background: var(--warn); box-shadow: 0 0 8px var(--warn-glow); }
+    .recipe-steps li.is-bad i { background: var(--danger); box-shadow: 0 0 8px var(--danger-glow); }
+    .recipe-steps li b { min-width: 0; overflow: hidden; font-weight: 700; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+    .recipe-steps li small { max-width: 45%; margin-left: auto; overflow: hidden; font-size: 11px; color: var(--text-dim); text-overflow: ellipsis; white-space: nowrap; }
+    .recipe-fail { font-size: 12.5px; line-height: 1.4; color: var(--danger); overflow-wrap: anywhere; }
+    .recipe-actions { display: flex; gap: 8px; }
+    .recipe-actions .action-btn { flex: 1; min-height: 44px; font-size: 13px; }
+
+    /* Responsive Desktop & Tablet Web App Styles */
+    @media (min-width: 768px) {
+      body {
+        padding-bottom: 32px;
+      }
+      header {
+        padding: 14px 28px;
+        gap: 20px;
+      }
+      .desktop-nav {
+        display: flex;
+      }
+      nav.bottom-nav {
+        display: none !important;
+      }
+      main {
+        max-width: 1140px;
+        padding: 24px 24px 40px;
+        gap: 20px;
+      }
+      .telemetry-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+      .telemetry-tile {
+        padding: 18px 16px;
+      }
+      .telemetry-tile b {
+        font-size: 32px;
+      }
+      .card.pair-form {
+        max-width: 480px;
+        margin: 36px auto;
+        padding: 34px 30px;
+      }
+      .modal-overlay {
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .modal-sheet {
+        border-radius: 20px;
+        max-width: 600px;
+        margin: auto;
+        box-shadow: 0 24px 72px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+        max-height: 85vh;
+      }
+      .modal-handle {
+        display: none;
+      }
+      .ask-composer {
+        position: sticky;
+        bottom: 12px;
+        max-width: 1140px;
+        margin: 0 auto;
+        left: auto;
+        right: auto;
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -911,9 +1509,42 @@ function getMobileWebCompanionHtml() {
       <img class="brand-mark" src="/mobile/icon-192.png" alt="" width="38" height="38">
       <div class="brand-title">
         <strong id="headerTitle">OUTARCH</strong>
-        <small id="headerSubtitle">Companion</small>
+        <small id="headerSubtitle">Web Companion</small>
       </div>
     </div>
+
+    <nav class="desktop-nav" id="desktopNav" style="display:none">
+      <button class="desktop-nav-tab is-active" data-tab="overview" onclick="switchTab('overview')">
+        <svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Cockpit</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="workers" onclick="switchTab('workers')">
+        <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/></svg>
+        <span>Workers</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="needs" onclick="switchTab('needs')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Needs You</span>
+        <span class="desktop-nav-badge" id="desktopNavBadgeNeeds" style="display:none">0</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="ask" id="desktopNavTabAsk" style="display:none" onclick="switchTab('ask')">
+        <svg viewBox="0 0 24 24"><path d="M12 3c.4 4.4 4.1 8.1 8.5 8.5-4.4.4-8.1 4.1-8.5 8.5-.4-4.4-4.1-8.1-8.5-8.5C7.9 11.1 11.6 7.4 12 3Z"/></svg>
+        <span>Ask AI</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="memory" onclick="switchTab('memory')">
+        <svg viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+        <span>Memory</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="feed" onclick="switchTab('feed')">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Feed</span>
+      </button>
+      <button class="desktop-nav-tab" data-tab="settings" onclick="switchTab('settings')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
     <div class="header-actions">
       <div id="connectionStatus" class="status-badge is-offline" onclick="refreshDashboard(true)" title="Tap to refresh"><i></i><span>Offline</span></div>
       <button class="icon-btn" onclick="toggleNotificationsPrompt()" title="Alerts & Notification settings">
@@ -1406,6 +2037,18 @@ function getMobileWebCompanionHtml() {
       pollTimer: null,
       sse: null,
       workerFilter: "all",
+      // Terminals or recipes, inside the Workers tab.
+      workersView: "terminals",
+      // What this phone may do right now, as the desktop last said it.
+      caps: null,
+      // Requests in flight, by "worker:<id>" or "recipe:<id>": the buttons show it.
+      busy: {},
+      // The terminal whose summary sheet is open, and what was read from it.
+      detail: null,
+      confirming: false,
+      // The markup last painted, so an unchanged poll writes nothing.
+      lastHtml: "",
+      modalHtml: "",
       searchQuery: "",
       previousAttentionCount: 0,
       // The Ask thread lives in memory only: answers can quote terminal output,
@@ -1614,13 +2257,16 @@ function getMobileWebCompanionHtml() {
       });
 
       if (!res.ok) {
-        if (res.status === 401) {
+        const err = await res.json().catch(() => ({}));
+        const errText = String(err.error || err.message || "Request failed");
+        if (res.status === 401 || res.status === 403 || errText.toLowerCase().includes("revoked") || errText.toLowerCase().includes("unknown")) {
           localStorage.removeItem(STORAGE_KEY);
+          appState.data = null;
+          appState.error = "Device session was revoked by desktop. Please re-pair.";
           render();
           throw new Error("Session expired or device was revoked by desktop.");
         }
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Request failed");
+        throw new Error(errText);
       }
 
       const sealed = await res.json();
@@ -1669,7 +2315,7 @@ function getMobileWebCompanionHtml() {
       const cred = getStoredCredential();
       if (!cred) return;
       try {
-        const data = await sendEncryptedRequest(cred, { operation: "snapshot", includeTerminalEvidence: true });
+        const data = await sendEncryptedRequest(cred, { operation: "snapshot" });
         
         // Detect and trigger active attention alerts
         const activeAttention = (data.attention || []).filter(item => item && item.state !== "recovered" && item.state !== "resolved" && item.state !== "dismissed");
@@ -1684,6 +2330,7 @@ function getMobileWebCompanionHtml() {
         appState.previousAttentionCount = activeAttention.length;
 
         appState.data = data;
+        appState.caps = data.companion || null;
         appState.error = "";
         const statusBadge = document.getElementById("connectionStatus");
         if (statusBadge) {
@@ -1705,6 +2352,7 @@ function getMobileWebCompanionHtml() {
       }
       renderActiveTab();
       updateBadges();
+      refreshOpenDetail();
     }
 
     function updateBadges() {
@@ -1712,10 +2360,15 @@ function getMobileWebCompanionHtml() {
       const attention = (d?.attention || []).filter(item => item && item.state !== "recovered" && item.state !== "resolved" && item.state !== "dismissed");
       const attentionCount = attention.length;
       const navBadgeNeeds = document.getElementById("navBadgeNeeds");
+      const desktopNavBadgeNeeds = document.getElementById("desktopNavBadgeNeeds");
       const headerBadge = document.getElementById("headerBadge");
       if (navBadgeNeeds) {
         navBadgeNeeds.style.display = attentionCount > 0 ? "flex" : "none";
         navBadgeNeeds.innerText = String(attentionCount);
+      }
+      if (desktopNavBadgeNeeds) {
+        desktopNavBadgeNeeds.style.display = attentionCount > 0 ? "inline-flex" : "none";
+        desktopNavBadgeNeeds.innerText = String(attentionCount);
       }
       if (headerBadge) {
         headerBadge.style.display = attentionCount > 0 ? "block" : "none";
@@ -1724,7 +2377,11 @@ function getMobileWebCompanionHtml() {
 
     function switchTab(tab) {
       appState.tab = tab;
+      appState.lastHtml = "";
       document.querySelectorAll(".nav-tab").forEach(el => {
+        el.classList.toggle("is-active", el.getAttribute("data-tab") === tab);
+      });
+      document.querySelectorAll(".desktop-nav-tab").forEach(el => {
         el.classList.toggle("is-active", el.getAttribute("data-tab") === tab);
       });
       renderActiveTab();
@@ -1734,117 +2391,558 @@ function getMobileWebCompanionHtml() {
     // ---------------------------------------------------------------------------
     // Action Modals & Drawers
     // ---------------------------------------------------------------------------
-    function openActionModal(title, formHtml) {
+    // One sheet serves every dialog. A refresh of the terminal sheet repaints it
+    // in place: it keeps its scroll position and skips the write when nothing
+    // changed, so a poll cannot snap the sheet back to the top under a thumb.
+    function openActionModal(title, formHtml, options) {
+      const keepScroll = Boolean(options && options.keepScroll);
+      const sheet = document.querySelector("#actionModal .modal-sheet");
+      const scrolled = keepScroll && sheet ? sheet.scrollTop : 0;
       document.getElementById("modalTitle").innerText = title;
-      document.getElementById("modalBody").innerHTML = formHtml;
+      if (appState.modalHtml !== formHtml) {
+        document.getElementById("modalBody").innerHTML = formHtml;
+        appState.modalHtml = formHtml;
+      }
       document.getElementById("actionModal").classList.add("is-open");
+      if (sheet) sheet.scrollTop = scrolled;
     }
     function closeActionModal() {
       document.getElementById("actionModal").classList.remove("is-open");
+      appState.modalHtml = "";
+      appState.detail = null;
+      appState.confirming = false;
+    }
+    // A confirmation sheet opened from a terminal's summary goes back to it.
+    function backToDetail() {
+      appState.confirming = false;
+      if (appState.detail) showDetail();
+      else closeActionModal();
     }
 
+    // ---------------------------------------------------------------------------
+    // What a request does, in words the phone can show
+    // ---------------------------------------------------------------------------
     const WORKER_ACTIONS = ["start", "restart", "stop", "acknowledge"];
+    const ACTION_COPY = {
+      start: { title: "Start", busy: "Starting…", done: "started" },
+      restart: { title: "Restart", busy: "Restarting…", done: "restarted" },
+      stop: { title: "Stop", busy: "Stopping…", done: "stopped" },
+      acknowledge: { title: "Acknowledge", busy: "Acknowledging…", done: "acknowledged" }
+    };
+    const RECIPE_ACTIONS = ["run", "recover", "cancel"];
+    const RECIPE_COPY = {
+      run: { title: "Run", busy: "Starting…", done: "is starting" },
+      recover: { title: "Recover", busy: "Recovering…", done: "is recovering" },
+      cancel: { title: "Cancel", busy: "Cancelling…", done: "was cancelled" }
+    };
+
+    // The desktop says which requests it runs without asking. Anything it does
+    // not name waits for approval there, so an unknown answer means "waits".
+    function isAutoAction(kind, action) {
+      const caps = appState.caps;
+      return Boolean(caps && caps.autoRun && caps.autoActions && (caps.autoActions[kind] || []).indexOf(action) !== -1);
+    }
+    function canControl() {
+      return !appState.caps || appState.caps.canControl !== false;
+    }
+    function friendlyError(err) {
+      const text = String((err && err.message) || err || "The request failed");
+      if (/permission required/i.test(text)) return "This phone is not allowed to do that. Allow it on the desktop, then pair again.";
+      return text;
+    }
+
+    // Says how a request ended. The desktop answers with the outcome: it ran,
+    // it is waiting for approval there, or it failed and why.
+    function reportOutcome(res, title, name, done) {
+      const state = res && res.state;
+      if (state === "approved") {
+        SoundFx.beep("success");
+        SoundFx.vibrate([60]);
+        showToast(name + " " + done, "success");
+        appendFeedItem({ kind: "action", title: title + " · " + name, detail: "Done from this phone" });
+      } else if (state === "pending") {
+        SoundFx.beep("info");
+        showToast("Sent to your desktop. Approve “" + title.toLowerCase() + " " + name + "” there.", "warning");
+        appendFeedItem({ kind: "action", title: title + " · " + name, detail: "Waiting for approval on the desktop" });
+      } else if (state === "failed") {
+        SoundFx.beep("alert");
+        const reason = (res && res.error) || "the desktop refused it";
+        showToast("Could not " + title.toLowerCase() + " " + name + ": " + reason, "critical");
+        appendFeedItem({ kind: "alert", title: title + " failed · " + name, detail: reason });
+      } else {
+        showToast(title + " sent for " + name, "info");
+      }
+    }
+
+    // Repaints whatever shows the busy state: the list behind, and the sheet.
+    function repaintBusy() {
+      renderActiveTab();
+      if (appState.detail && !appState.confirming) showDetail();
+    }
+
+    // What restarting or stopping a terminal would disturb, from the desktop's
+    // own dependency analysis.
+    function impactNote(workerId) {
+      const w = ((appState.data && appState.data.workers) || []).find(item => item.id === workerId);
+      const impact = w && w.dependencyImpact;
+      const n = impact ? Number(impact.downstreamCount) || 0 : 0;
+      return n === 1 ? " 1 other terminal depends on it." : n > 1 ? " " + n + " other terminals depend on it." : "";
+    }
+
+    // ---------------------------------------------------------------------------
+    // Terminal requests
+    // ---------------------------------------------------------------------------
     function promptWorkerAction(workerId, action, defaultName) {
       if (!WORKER_ACTIONS.includes(action)) return;
-      const title = (action === "restart" ? "Restart " : action === "start" ? "Start " : action === "stop" ? "Stop " : "Acknowledge ") + (defaultName || workerId);
+      const name = defaultName || workerId;
+      // Starting and acknowledging change nothing that is running: one tap.
+      // Restart and stop end what is running, so they ask once, here on the
+      // phone, before anything is sent.
+      if (action === "start" || action === "acknowledge") { submitWorkerAction(workerId, action, name); return; }
+      const auto = isAutoAction("worker", action);
+      appState.confirming = true;
       const html = \`
-        <div style="display:flex;flex-direction:column;gap:16px;">
-          <p style="font-size:13px;color:var(--text-muted);">This action creates an approval request on the desktop Groundstation operator queue.</p>
-          <div class="input-group">
-            <label>Operator Reason / Note</label>
-            <input id="actionReason" type="text" placeholder="e.g. Memory spike resolution or manual restart" value="Mobile supervisor requested \${action}">
+        <div class="confirm">
+          <p>\${auto
+            ? "<strong>" + esc(name) + "</strong> " + (action === "restart" ? "restarts right away" : "stops right away") + ". Your desktop is not asked." + esc(impactNote(workerId))
+            : "Your desktop will ask you to approve this before anything happens." + esc(impactNote(workerId))}</p>
+          \${auto ? "" : \`<div class="input-group">
+            <label>Note for the desktop (optional)</label>
+            <input id="actionReason" type="text" maxlength="200" value="\${esc("Mobile: " + action)}">
+          </div>\`}
+          <div class="confirm-actions">
+            <button class="btn btn-secondary" onclick="backToDetail()">Cancel</button>
+            <button class="btn \${action === "stop" ? "btn-danger" : ""}" id="btnSubmitAction" data-id="\${esc(workerId)}" data-action="\${esc(action)}" data-name="\${esc(name)}" onclick="submitWorkerAction(this.dataset.id, this.dataset.action, this.dataset.name)">\${esc(auto ? ACTION_COPY[action].title + " now" : "Ask desktop")}</button>
           </div>
-          <button class="btn \${action === 'stop' ? 'action-btn danger' : ''}" id="btnSubmitAction" data-id="\${esc(workerId)}" data-action="\${action}" onclick="submitWorkerAction(this.dataset.id, this.dataset.action)">
-            Submit \${action.toUpperCase()} Request
-          </button>
         </div>
       \`;
-      openActionModal(title, html);
+      openActionModal(ACTION_COPY[action].title + " " + name + "?", html);
     }
 
-    async function submitWorkerAction(workerId, action) {
-      const reason = document.getElementById("actionReason")?.value || "";
-      const btn = document.getElementById("btnSubmitAction");
-      if (btn) {
-        btn.disabled = true;
-        btn.innerText = "Encrypting & Submitting…";
-      }
+    async function submitWorkerAction(workerId, action, name) {
       const cred = getStoredCredential();
       if (!cred) return;
+      const key = "worker:" + workerId;
+      if (appState.busy[key]) return;
+      const label = name || workerId;
+      const copy = ACTION_COPY[action];
+      const note = document.getElementById("actionReason");
+      const reason = (note && note.value) || "Mobile: " + action;
+      appState.busy[key] = copy.busy;
+      backToDetail();
+      repaintBusy();
       try {
-        await sendEncryptedRequest(cred, {
-          operation: "request-worker-action",
-          workerId: workerId,
-          action: action,
-          reason: reason
-        });
-        closeActionModal();
-        SoundFx.beep("success");
-        showToast("Request submitted for desktop approval!", "success");
-        appendFeedItem({ kind: "action", title: "Action Requested", detail: action + " on " + workerId });
-        refreshDashboard();
+        const res = await sendEncryptedRequest(cred, { operation: "request-worker-action", workerId: workerId, action: action, reason: reason });
+        reportOutcome(res, copy.title, label, copy.done);
       } catch (err) {
-        alert("Action request failed: " + err.message);
-        if (btn) {
-          btn.disabled = false;
-          btn.innerText = "Try Again";
-        }
+        SoundFx.beep("alert");
+        showToast(friendlyError(err), "critical");
+      } finally {
+        delete appState.busy[key];
       }
+      repaintBusy();
+      refreshDashboard();
     }
 
+    // ---------------------------------------------------------------------------
+    // Recipe requests
+    // ---------------------------------------------------------------------------
     function promptRecipeAction(recipeId, action, defaultName) {
-      if (!["run", "recover", "cancel"].includes(action)) return;
-      const title = (action === "run" ? "Run " : action === "cancel" ? "Cancel " : "Recover ") + (defaultName || recipeId);
+      if (!RECIPE_ACTIONS.includes(action)) return;
+      const d = appState.data || {};
+      const recipe = (d.recipes || []).find(item => item.id === recipeId);
+      const names = {};
+      (d.workers || []).forEach(w => { names[w.id] = w.name || w.id; });
+      const order = recipe ? (recipe.steps || []).map(step => names[step.workerId] || step.workerId) : [];
+      const name = defaultName || (recipe && recipe.name) || recipeId;
+      const auto = isAutoAction("recipe", action);
+      const what = action === "run"
+        ? "Starts " + order.length + " terminal" + (order.length === 1 ? "" : "s") + " in order: " + order.join(" → ") + "."
+        : action === "recover"
+          ? "Picks the last failed run back up where it stopped."
+          : "Stops the run that is in progress. Terminals it already started keep running.";
+      appState.confirming = true;
       const html = \`
-        <div style="display:flex;flex-direction:column;gap:16px;">
-          <p style="font-size:13px;color:var(--text-muted);">Requesting DAG recipe execution will create an approval on desktop.</p>
-          <button class="btn" id="btnSubmitRecipe" data-id="\${esc(recipeId)}" data-action="\${action}" onclick="submitRecipeAction(this.dataset.id, this.dataset.action)">
-            Confirm \${action.toUpperCase()} Workflow
-          </button>
+        <div class="confirm">
+          <p>\${esc(what)} \${esc(auto ? "It starts right away. Your desktop is not asked." : "Your desktop will ask you to approve this first.")}</p>
+          \${auto ? "" : \`<div class="input-group">
+            <label>Note for the desktop (optional)</label>
+            <input id="actionReason" type="text" maxlength="200" value="\${esc("Mobile: " + action + " " + name)}">
+          </div>\`}
+          <div class="confirm-actions">
+            <button class="btn btn-secondary" onclick="backToDetail()">Cancel</button>
+            <button class="btn \${action === "cancel" ? "btn-danger" : ""}" id="btnSubmitRecipe" data-id="\${esc(recipeId)}" data-action="\${esc(action)}" data-name="\${esc(name)}" onclick="submitRecipeAction(this.dataset.id, this.dataset.action, this.dataset.name)">\${esc(auto ? RECIPE_COPY[action].title + " now" : "Ask desktop")}</button>
+          </div>
         </div>
       \`;
-      openActionModal(title, html);
+      openActionModal(RECIPE_COPY[action].title + " " + name + "?", html);
     }
 
-    async function submitRecipeAction(recipeId, action) {
-      const btn = document.getElementById("btnSubmitRecipe");
-      if (btn) {
-        btn.disabled = true;
-        btn.innerText = "Encrypting & Submitting…";
-      }
+    async function submitRecipeAction(recipeId, action, name) {
       const cred = getStoredCredential();
       if (!cred) return;
+      const key = "recipe:" + recipeId;
+      if (appState.busy[key]) return;
+      const label = name || recipeId;
+      const copy = RECIPE_COPY[action];
+      const note = document.getElementById("actionReason");
+      const reason = (note && note.value) || "Mobile: " + action + " " + label;
+      appState.busy[key] = copy.busy;
+      closeActionModal();
+      renderActiveTab();
       try {
-        await sendEncryptedRequest(cred, {
-          operation: "request-recipe-action",
-          recipeId: recipeId,
-          action: action
-        });
-        closeActionModal();
-        SoundFx.beep("success");
-        showToast("Recipe request submitted!", "success");
-        appendFeedItem({ kind: "action", title: "Workflow Requested", detail: action + " on recipe " + recipeId });
-        refreshDashboard();
+        const res = await sendEncryptedRequest(cred, { operation: "request-recipe-action", recipeId: recipeId, action: action, reason: reason });
+        reportOutcome(res, copy.title, label, copy.done);
       } catch (err) {
-        alert("Recipe request failed: " + err.message);
-        if (btn) {
-          btn.disabled = false;
-          btn.innerText = "Try Again";
-        }
+        SoundFx.beep("alert");
+        showToast(friendlyError(err), "critical");
+      } finally {
+        delete appState.busy[key];
       }
+      renderActiveTab();
+      refreshDashboard();
+    }
+
+    // ---------------------------------------------------------------------------
+    // A terminal's summary sheet
+    // ---------------------------------------------------------------------------
+    function detailWorker() {
+      const detail = appState.detail;
+      if (!detail || !appState.data) return null;
+      return (appState.data.workers || []).find(w => w.id === detail.id) || null;
+    }
+    function showDetail() {
+      const w = detailWorker();
+      if (!w) { closeActionModal(); return; }
+      openActionModal(w.name || w.id, renderWorkerDetail(appState.data, w, appState.detail.output), { keepScroll: true });
+    }
+    function openWorkerDetail(workerId) {
+      if (!appState.data) return;
+      appState.confirming = false;
+      appState.detail = { id: workerId, output: { state: "loading", lines: [], at: 0 } };
+      appState.modalHtml = "";
+      showDetail();
+      loadDetailOutput(workerId);
+    }
+    // The summary itself comes from the dashboard's data. The terminal's last
+    // lines are a separate read, and the desktop tells the phone when it is not
+    // allowed to show them, which is not an error.
+    async function loadDetailOutput(workerId) {
+      const cred = getStoredCredential();
+      if (!cred) return;
+      const previous = appState.detail && appState.detail.id === workerId ? appState.detail.output : null;
+      let output;
+      try {
+        const res = await sendEncryptedRequest(cred, { operation: "worker", workerId: workerId });
+        const w = (res && res.worker) || {};
+        output = res && res.outputAllowed === false
+          ? { state: "off", lines: [], at: 0 }
+          : { state: "ok", lines: Array.isArray(w.recentOutput) ? w.recentOutput : [], at: w.lastOutputAt || 0 };
+      } catch (err) {
+        // A dropped poll should not wipe the lines already shown.
+        output = previous && previous.state === "ok" ? previous : { state: "error", lines: [], at: 0, message: friendlyError(err) };
+      }
+      // The sheet may have been closed, or moved to another terminal, while the read was out.
+      if (!appState.detail || appState.detail.id !== workerId) return;
+      appState.detail.output = output;
+      if (!appState.confirming) showDetail();
+    }
+    function refreshOpenDetail() {
+      if (!appState.detail || appState.confirming) return;
+      if (!detailWorker()) {
+        closeActionModal();
+        showToast("That terminal is no longer in this project", "warning");
+        return;
+      }
+      loadDetailOutput(appState.detail.id);
+    }
+    function setWorkersView(view) {
+      appState.workersView = view === "recipes" ? "recipes" : "terminals";
+      renderActiveTab();
+    }
+    function openRecipes() {
+      appState.workersView = "recipes";
+      switchTab("workers");
     }
 
     // ---------------------------------------------------------------------------
     // View Rendering Functions
     // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Terminals: how a worker reads on a phone
+    // ---------------------------------------------------------------------------
+    // One state per worker. The desktop sends "state" (running, needs-you,
+    // failed...); "status" is read as well so an older payload still shows.
+    const WORKER_STATES = {
+      running: { label: "Running", tone: "running" },
+      working: { label: "Working", tone: "running" },
+      starting: { label: "Starting", tone: "warning" },
+      waiting: { label: "Waiting", tone: "warning" },
+      "needs-you": { label: "Needs you", tone: "warning" },
+      failed: { label: "Failed", tone: "critical" },
+      completed: { label: "Finished", tone: "idle" },
+      stopped: { label: "Stopped", tone: "idle" }
+    };
+    function workerView(w) {
+      const alive = w.isAlive === true || w.status === "running";
+      let key = String(w.state || "");
+      if (!WORKER_STATES[key]) key = w.status === "failed" ? "failed" : alive ? "running" : "stopped";
+      const info = WORKER_STATES[key];
+      return { key: key, label: info.label, tone: info.tone, alive: alive };
+    }
+    function fmtDuration(ms) {
+      const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+      if (s < 60) return s + "s";
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + "m";
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + "h " + (m % 60) + "m";
+      return Math.floor(h / 24) + "d " + (h % 24) + "h";
+    }
+    function ago(ts) {
+      if (!ts) return "never";
+      const s = Math.floor((Date.now() - Number(ts)) / 1000);
+      return s < 5 ? "just now" : fmtDuration(s * 1000) + " ago";
+    }
+    // Terminal lines are text. Escape sequences and control characters that a
+    // terminal would have interpreted are dropped, not shown as boxes.
+    const ANSI_PATTERN = new RegExp(String.fromCharCode(27) + "\\\\[[0-9;?]*[ -/]*[@-~]", "g");
+    const CONTROL_PATTERN = new RegExp("[" + String.fromCharCode(0) + "-" + String.fromCharCode(8) + String.fromCharCode(11) + "-" + String.fromCharCode(31) + String.fromCharCode(127) + "]", "g");
+    function plainLine(line) {
+      return String(line == null ? "" : line).replace(ANSI_PATTERN, "").replace(CONTROL_PATTERN, "");
+    }
+
+    // The one sentence that answers "what is this doing?", built from what the
+    // desktop reported, not from the terminal's text.
+    function workerHeadline(w, view) {
+      const reason = w.attention && w.attention.required ? (w.attention.reason || "Operator review is required.") : "";
+      if (view.key === "needs-you") return "Waiting for you: " + reason;
+      if (view.key === "failed") return "Failed" + (Number.isInteger(w.exitCode) ? " with exit code " + w.exitCode : "") + ". " + (reason || "Restart it, or read the last output below.");
+      if (view.key === "starting") return "Starting up.";
+      if (view.alive) return "Running for " + fmtDuration(w.runtimeMs) + ".";
+      if (view.key === "completed") return "Finished successfully.";
+      return "Not running.";
+    }
+    function workerFacts(w, view) {
+      const facts = [];
+      facts.push(["Last output", ago(w.lastOutputAt), ""]);
+      if (!view.alive && Number.isInteger(w.exitCode)) facts.push(["Exit code", String(w.exitCode), ""]);
+      const r = w.resources;
+      if (r && r.available) {
+        if (r.cpuPercent != null && Number.isFinite(Number(r.cpuPercent))) facts.push(["CPU", Math.round(Number(r.cpuPercent)) + "%", ""]);
+        if (r.memoryMB != null && Number.isFinite(Number(r.memoryMB))) facts.push(["Memory", Math.round(Number(r.memoryMB)) + " MB", ""]);
+      }
+      const impact = w.dependencyImpact;
+      if (impact && Number(impact.recipeCount) > 0) facts.push(["In recipes", String(impact.recipeCount), ""]);
+      if (impact && Number(impact.downstreamCount) > 0) facts.push(["Others depend on it", String(impact.downstreamCount), ""]);
+      if (w.command) facts.push(["Command", w.command + (w.args && w.args.length ? " " + w.args.join(" ") : ""), "wide mono"]);
+      if (w.cwd) facts.push(["Folder", w.cwd, "wide mono"]);
+      return facts;
+    }
+    // What the desktop has seen this terminal do: tests, a build, a service
+    // coming up, a branch. Only what it actually reported is shown.
+    function workerSignals(w) {
+      const e = w.evidence || {};
+      const out = [];
+      const has = value => value != null && value !== "";
+      if (e.tests) {
+        const failed = Number(e.tests.failed) || 0;
+        if (has(e.tests.passed) || failed) out.push({ label: "Tests", value: (Number(e.tests.passed) || 0) + " passed" + (failed ? " · " + failed + " failed" : ""), tone: failed ? "critical" : "running" });
+      }
+      if (e.build) out.push({ label: "Build", value: String(e.build.phase || (Number(e.build.durationMs) ? "done in " + fmtDuration(e.build.durationMs) : "seen")), tone: e.build.phase === "failed" ? "critical" : "idle" });
+      if (e.service) {
+        const where = e.service.port ? "port " + e.service.port : e.service.origin;
+        out.push({ label: "Service", value: [where, e.service.health].filter(has).join(" · ") || "seen", tone: e.service.health === "failed" ? "critical" : e.service.health === "confirmed" ? "running" : "idle" });
+      }
+      if (e.git) out.push({ label: "Git", value: [e.git.branch, e.git.clean === true ? "clean" : Number(e.git.changedPaths) ? e.git.changedPaths + " changes" : ""].filter(has).join(" · ") || "active", tone: "idle" });
+      if (e.database) out.push({ label: "Database", value: [e.database.connection, has(e.database.migrations) ? "migrations " + e.database.migrations : ""].filter(has).join(" · ") || "seen", tone: e.database.connection === "failed" ? "critical" : "idle" });
+      if (e.container) out.push({ label: "Container", value: [e.container.state, e.container.image].filter(has).join(" · ") || "seen", tone: e.container.healthy === false ? "critical" : "idle" });
+      return out;
+    }
+
+    function noControlNote() {
+      return '<p class="msg info">This phone can watch but not control. Turn on “Control workers &amp; recipes” on the desktop, then pair this phone again.</p>';
+    }
+    // Start, or restart and stop, for one terminal. While a request is out the
+    // buttons become one disabled button that says what is happening.
+    function workerButtons(w, view) {
+      const busy = appState.busy["worker:" + w.id];
+      if (busy) return '<button class="action-btn primary" disabled>' + esc(busy) + '</button>';
+      const off = canControl() ? "" : " disabled";
+      const name = w.name || w.id;
+      const btn = (action, cls, label) => '<button class="action-btn ' + cls + '" ' + workerActionAttrs(w.id, action, name) + off + '>' + esc(label) + '</button>';
+      return view.alive ? btn("restart", "", "Restart") + btn("stop", "danger", "Stop") : btn("start", "primary", "Start");
+    }
+
+    // ---------------------------------------------------------------------------
+    // The summary sheet for one terminal
+    // ---------------------------------------------------------------------------
+    function renderWorkerDetail(d, w, output) {
+      const view = workerView(w);
+      const name = w.name || w.id;
+      // The output caption already says when it last printed.
+      const shownAbove = Boolean(output && output.state === "ok" && output.at);
+      const facts = workerFacts(w, view).filter(fact => !(shownAbove && fact[0] === "Last output"));
+      const signals = workerSignals(w);
+      const health = w.health && w.health.summary
+        ? '<div class="health-note"><strong>' + esc(w.health.label || "Health") + '.</strong> ' + esc(w.health.summary) + '</div>'
+        : "";
+      let out;
+      if (!output || output.state === "loading") out = '<div class="term-empty">Reading the terminal…</div>';
+      else if (output.state === "off") out = '<div class="term-empty">Terminal output is off for this phone. Allow “Terminal Evidence” on the desktop, then pair again to see it here.</div>';
+      else if (output.state === "error") out = '<div class="term-empty">' + esc(output.message || "Could not read the terminal.") + '</div>';
+      else {
+        const lines = (output.lines || []).map(plainLine).filter(line => line.trim());
+        out = lines.length ? '<pre class="term-out">' + esc(lines.join(NL)) + '</pre>' : '<div class="term-empty">This terminal has not printed anything yet.</div>';
+      }
+      const caption = output && output.state === "ok" && output.at ? "Last output · " + ago(output.at) : "Last output";
+      const attention = w.attention && w.attention.required;
+      const acknowledge = attention && !appState.busy["worker:" + w.id]
+        ? '<button class="action-btn warn" ' + workerActionAttrs(w.id, "acknowledge", name) + (canControl() ? "" : " disabled") + '>Acknowledge</button>'
+        : "";
+      const explain = canAsk(getStoredCredential())
+        ? '<button class="action-btn" data-name="' + esc(name) + '" onclick="explainWorker(this.dataset.name)">Explain with Mission AI</button>'
+        : "";
+      return \`
+        <div class="detail">
+          <div class="detail-head">
+            <span class="pill \${view.tone}"><i></i>\${esc(view.label)}</span>
+            <span class="detail-role">\${esc(w.role || "terminal")}</span>
+          </div>
+          <p class="detail-headline">\${esc(workerHeadline(w, view))}</p>
+          \${view.alive && w.currentActivity ? '<p class="detail-now">' + esc(w.currentActivity) + '</p>' : ""}
+          \${signals.length ? '<div class="signal-row">' + signals.map(s => '<span class="signal ' + s.tone + '"><small>' + esc(s.label) + '</small>' + esc(s.value) + '</span>').join("") + '</div>' : ""}
+          \${health}
+          <div class="term-block">
+            <small class="term-cap">\${esc(caption)}</small>
+            \${out}
+          </div>
+          <div class="fact-grid">\${facts.map(fact => '<div class="' + esc(fact[2]) + '"><small>' + esc(fact[0]) + '</small><b class="' + esc(fact[2]) + '">' + esc(fact[1]) + '</b></div>').join("")}</div>
+          \${canControl() ? "" : noControlNote()}
+          <div class="detail-actions">\${workerButtons(w, view)}\${acknowledge}\${explain}</div>
+        </div>
+      \`;
+    }
+    function explainWorker(name) {
+      closeActionModal();
+      switchTab("ask");
+      askSuggestion("Summarize " + name + ": what is it doing right now, and is anything wrong with it?");
+    }
+
+    // A terminal in a list. The whole card opens its summary; the buttons on it
+    // act without opening anything.
+    function terminalCard(w) {
+      const view = workerView(w);
+      const name = w.name || w.id;
+      const attention = w.attention && w.attention.required ? (w.attention.reason || "Operator review is required.") : "";
+      const line = attention
+        || (view.key === "failed" ? "Failed" + (Number.isInteger(w.exitCode) ? " · exit code " + w.exitCode : "")
+          : view.alive ? "Running for " + fmtDuration(w.runtimeMs)
+          : view.key === "completed" ? "Finished successfully" : "Not running");
+      const lineClass = attention ? " is-alert" : view.key === "failed" ? " is-critical" : "";
+      return \`
+        <div class="term-card is-\${view.tone}" data-id="\${esc(w.id)}" onclick="openWorkerDetail(this.dataset.id)">
+          <div class="term-top">
+            <div class="item-info">
+              <strong>\${esc(name)}</strong>
+              <small>\${esc(w.command ? w.command + (w.args && w.args.length ? " " + w.args.join(" ") : "") : "Process")}</small>
+            </div>
+            <span class="pill \${view.tone}"><i></i>\${esc(view.label)}</span>
+          </div>
+          <p class="term-line\${lineClass}">\${esc(line)}</p>
+          <div class="term-foot">
+            <button type="button" class="term-open" data-id="\${esc(w.id)}" aria-label="\${esc("Summary of " + name)}" onclick="event.stopPropagation(); openWorkerDetail(this.dataset.id)">\${esc(w.role || "terminal")} · Summary ›</button>
+            <div class="term-actions" onclick="event.stopPropagation()">\${workerButtons(w, view)}</div>
+          </div>
+        </div>
+      \`;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Recipes
+    // ---------------------------------------------------------------------------
+    const RECIPE_PHASES = {
+      running: ["Running", "running"], paused: ["Paused", "warning"], cancelling: ["Cancelling", "warning"],
+      failed: ["Failed", "critical"], completed: ["Done", "running"], cancelled: ["Cancelled", "idle"]
+    };
+    function recipeView(r) {
+      const phase = r.run ? String(r.run.phase || "") : "";
+      const info = RECIPE_PHASES[phase] || ["Ready", "idle"];
+      return { phase: phase, active: phase === "running" || phase === "paused" || phase === "cancelling", failed: phase === "failed", label: info[0], tone: info[1] };
+    }
+    function stepClass(phase) {
+      if (phase === "ready" || phase === "completed" || phase === "done") return " is-ok";
+      if (phase === "failed" || phase === "blocked") return " is-bad";
+      if (phase === "starting" || phase === "running" || phase === "waiting" || phase === "retrying") return " is-busy";
+      return "";
+    }
+    function recipeButtons(r, view) {
+      const busy = appState.busy["recipe:" + r.id];
+      if (busy) return '<button class="action-btn primary" disabled>' + esc(busy) + '</button>';
+      const off = canControl() ? "" : " disabled";
+      const attrs = action => 'data-id="' + esc(r.id) + '" data-action="' + action + '" data-name="' + esc(r.name || r.id) + '" onclick="promptRecipeAction(this.dataset.id, this.dataset.action, this.dataset.name)"';
+      if (view.active) return '<button class="action-btn danger" ' + attrs("cancel") + off + '>Cancel run</button>';
+      if (view.failed) return '<button class="action-btn primary" ' + attrs("recover") + off + '>Recover</button><button class="action-btn" ' + attrs("run") + off + '>Run again</button>';
+      return '<button class="action-btn primary" ' + attrs("run") + off + '>Run recipe</button>';
+    }
+    function renderRecipeCard(r, names) {
+      const view = recipeView(r);
+      const steps = r.steps || [];
+      const run = r.run || null;
+      const states = (run && run.stepStates) || {};
+      const failure = view.failed && run && run.failures && run.failures[0]
+        ? '<p class="recipe-fail">' + esc((names[run.failures[0].workerId] || run.failures[0].workerId || "A step") + ": " + (run.failures[0].reason || "failed")) + '</p>'
+        : "";
+      const when = run && (run.finishedAt || run.startedAt) ? " · " + (run.finishedAt ? "finished " : "started ") + ago(run.finishedAt || run.startedAt) : "";
+      return \`
+        <div class="card recipe-card">
+          <div class="recipe-head">
+            <div class="item-info">
+              <strong>\${esc(r.name || r.id)}</strong>
+              <small>\${steps.length} terminal\${steps.length === 1 ? "" : "s"}\${esc(when)}</small>
+            </div>
+            <span class="pill \${view.tone}"><i></i>\${esc(view.label)}</span>
+          </div>
+          <ol class="recipe-steps">\${steps.map(step => {
+            const after = (step.dependsOn || []).map(id => names[id] || id).join(", ");
+            return '<li class="' + stepClass(states[step.workerId] && states[step.workerId].phase).trim() + '"><i></i><b>' + esc(names[step.workerId] || step.workerId) + '</b>' + (after ? '<small>after ' + esc(after) + '</small>' : "") + '</li>';
+          }).join("")}</ol>
+          \${failure}
+          <div class="recipe-actions">\${recipeButtons(r, view)}</div>
+        </div>
+      \`;
+    }
+    function renderRecipesView(d) {
+      const recipes = d.recipes || [];
+      if (!recipes.length) {
+        return '<div class="card"><p class="msg">No recipes in this project yet. Build one under Recipes on the desktop and it will show up here, ready to run.</p></div>';
+      }
+      const names = {};
+      (d.workers || []).forEach(w => { names[w.id] = w.name || w.id; });
+      return (canControl() ? "" : noControlNote()) + '<div class="item-list">' + recipes.map(r => renderRecipeCard(r, names)).join("") + '</div>';
+    }
+
+    // ---------------------------------------------------------------------------
+    // Tabs
+    // ---------------------------------------------------------------------------
+    function attentionOf(d) {
+      return (d.attention || []).filter(item => item && item.state !== "recovered" && item.state !== "resolved" && item.state !== "dismissed");
+    }
+    // Trouble first, then what is running, then what is idle.
+    function workerRank(w) {
+      const key = workerView(w).key;
+      return key === "failed" ? 0 : key === "needs-you" ? 1 : workerView(w).alive ? 2 : 3;
+    }
+
     function renderOverviewTab(d) {
       const workers = d.workers || [];
-      const running = workers.filter(w => w.status === "running" || w.isAlive).length;
-      const attention = (d.attention || []).filter(item => item && item.state !== "recovered" && item.state !== "resolved" && item.state !== "dismissed");
+      const running = workers.filter(w => workerView(w).alive).length;
+      const attention = attentionOf(d);
       const recipes = d.recipes || [];
       const chapters = d.projectMemory?.chapters || [];
 
       const healthState = attention.length > 0 ? "needs-attention" : workers.some(w => w.health?.tone === "pressure") ? "degraded" : "healthy";
+      const spotlight = [...workers].sort((a, b) => workerRank(a) - workerRank(b)).slice(0, 4);
 
       return \`
         <div class="system-health-banner">
@@ -1868,9 +2966,9 @@ function getMobileWebCompanionHtml() {
               <b style="color:\${attention.length ? 'var(--danger)' : 'var(--text)'}">\${attention.length}</b>
               <small>Needs You</small>
             </div>
-            <div class="telemetry-tile" onclick="switchTab('workers')">
+            <div class="telemetry-tile" onclick="openRecipes()">
               <b style="color:var(--primary)">\${recipes.length}</b>
-              <small>Workflows</small>
+              <small>Recipes</small>
             </div>
             <div class="telemetry-tile" onclick="switchTab('memory')">
               <b style="color:var(--purple)">\${chapters.length}</b>
@@ -1901,26 +2999,33 @@ function getMobileWebCompanionHtml() {
         \` : ''}
 
         <div class="card">
-          <div class="card-title"><span>Active Workers Spotlight</span><span class="badge" onclick="switchTab('workers')" style="cursor:pointer">VIEW ALL</span></div>
+          <div class="card-title"><span>Terminals</span><span class="badge" onclick="switchTab('workers')" style="cursor:pointer">VIEW ALL</span></div>
           <div class="item-list">
-            \${workers.slice(0, 4).map(w => {
-              const isAlive = w.status === 'running' || w.isAlive;
-              const stateClass = w.status === 'failed' ? 'critical' : isAlive ? 'running' : 'idle';
-              return \`
-                <div class="item-row">
-                  <div class="item-info">
-                    <strong>\${esc(w.name || w.id)}</strong>
-                    <small>\${esc(w.command ? (w.command + ' ' + (w.args || []).join(' ')) : 'Worker process')}</small>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span class="pill \${stateClass}"><i></i>\${esc(isAlive ? 'Running' : w.status || 'Idle')}</span>
-                    <button class="action-btn" \${workerActionAttrs(w.id, isAlive ? 'restart' : 'start', w.name || w.id)}>\${isAlive ? 'Restart' : 'Start'}</button>
-                  </div>
-                </div>
-              \`;
-            }).join('')}
+            \${spotlight.length === 0 ? '<p class="msg">No terminals in this project yet.</p>' : spotlight.map(terminalCard).join('')}
           </div>
         </div>
+
+        \${recipes.length > 0 ? \`
+          <div class="card">
+            <div class="card-title"><span>Recipes</span><span class="badge" onclick="openRecipes()" style="cursor:pointer">VIEW ALL</span></div>
+            <div class="item-list">
+              \${recipes.slice(0, 3).map(r => {
+                const view = recipeView(r);
+                return \`
+                <div class="item-row">
+                  <div class="item-info">
+                    <strong>\${esc(r.name || r.id)}</strong>
+                    <small>\${(r.steps || []).length} terminal\${(r.steps || []).length === 1 ? '' : 's'}</small>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="pill \${view.tone}"><i></i>\${esc(view.label)}</span>
+                    \${recipeButtons(r, view)}
+                  </div>
+                </div>
+              \`; }).join('')}
+            </div>
+          </div>
+        \` : ''}
 
         <div class="card" style="display:flex;gap:10px;">
           <button class="btn btn-secondary" onclick="refreshDashboard(true)" style="flex:1;">Refresh Telemetry</button>
@@ -1930,19 +3035,30 @@ function getMobileWebCompanionHtml() {
 
     function renderWorkersTab(d) {
       const workers = d.workers || [];
+      const recipes = d.recipes || [];
       const filter = appState.workerFilter;
       const search = (appState.searchQuery || "").toLowerCase();
+      const recipesView = appState.workersView === "recipes";
+
+      const segmented = \`
+        <div class="segmented" role="tablist" aria-label="Terminals or recipes">
+          <button role="tab" aria-selected="\${!recipesView}" class="\${recipesView ? '' : 'is-active'}" onclick="setWorkersView('terminals')">Terminals<b>\${workers.length}</b></button>
+          <button role="tab" aria-selected="\${recipesView}" class="\${recipesView ? 'is-active' : ''}" onclick="setWorkersView('recipes')">Recipes<b>\${recipes.length}</b></button>
+        </div>
+      \`;
+      if (recipesView) return segmented + renderRecipesView(d);
 
       const filtered = workers.filter(w => {
-        const isAlive = w.status === 'running' || w.isAlive;
-        if (filter === "running" && !isAlive) return false;
-        if (filter === "attention" && w.status !== "failed" && !w.needsAttention && !w.attention?.required) return false;
-        if (filter === "idle" && isAlive) return false;
+        const view = workerView(w);
+        if (filter === "running" && !view.alive) return false;
+        if (filter === "attention" && view.key !== "failed" && view.key !== "needs-you" && !(w.attention && w.attention.required)) return false;
+        if (filter === "idle" && view.alive) return false;
         if (search && !(w.name || w.id).toLowerCase().includes(search) && !(w.command || "").toLowerCase().includes(search)) return false;
         return true;
-      });
+      }).sort((a, b) => workerRank(a) - workerRank(b));
 
       return \`
+        \${segmented}
         <div class="filter-bar">
           <div class="filter-chip \${filter === 'all' ? 'is-active' : ''}" onclick="setWorkerFilter('all')">All (\${workers.length})</div>
           <div class="filter-chip \${filter === 'running' ? 'is-active' : ''}" onclick="setWorkerFilter('running')">Running</div>
@@ -1952,45 +3068,23 @@ function getMobileWebCompanionHtml() {
 
         <div class="search-box">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="text" placeholder="Search workers by name or command…" value="\${esc(appState.searchQuery)}" oninput="setSearchQuery(this.value)">
+          <input type="text" placeholder="Search terminals by name or command…" value="\${esc(appState.searchQuery)}" oninput="setSearchQuery(this.value)">
         </div>
 
         <div class="card">
-          <div class="card-title"><span>Supervised Workers (\${filtered.length})</span></div>
+          <div class="card-title"><span>Terminals (\${filtered.length})</span><span class="badge">TAP FOR SUMMARY</span></div>
+          \${canControl() ? "" : noControlNote()}
           <div class="item-list">
-            \${filtered.length === 0 ? '<p class="msg">No matching workers found.</p>' : filtered.map(w => {
-              const isAlive = w.status === 'running' || w.isAlive;
-              const stateClass = w.status === 'failed' ? 'critical' : isAlive ? 'running' : 'idle';
-              return \`
-                <div class="item-row" style="flex-direction:column;align-items:stretch;gap:12px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                    <div class="item-info">
-                      <strong>\${esc(w.name || w.id)}</strong>
-                      <small>\${esc(w.command ? (w.command + ' ' + (w.args || []).join(' ')) : 'Process')}</small>
-                    </div>
-                    <span class="pill \${stateClass}"><i></i>\${esc(isAlive ? 'Running' : w.status || 'Idle')}</span>
-                  </div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px;">
-                    <span style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);">\${esc(w.role || 'worker')}</span>
-                    <div style="display:flex;gap:6px;">
-                      \${isAlive ? \`
-                        <button class="action-btn" \${workerActionAttrs(w.id, 'restart', w.name || w.id)}>Restart</button>
-                        <button class="action-btn danger" \${workerActionAttrs(w.id, 'stop', w.name || w.id)}>Stop</button>
-                      \` : \`
-                        <button class="action-btn primary" \${workerActionAttrs(w.id, 'start', w.name || w.id)}>Start Worker</button>
-                      \`}
-                    </div>
-                  </div>
-                </div>
-              \`;
-            }).join('')}
+            \${filtered.length === 0 ? '<p class="msg">No matching terminals found.</p>' : filtered.map(terminalCard).join('')}
           </div>
         </div>
       \`;
     }
 
     function renderNeedsTab(d) {
-      const attention = (d.attention || []).filter(item => item && item.state !== "recovered" && item.state !== "resolved" && item.state !== "dismissed");
+      const attention = attentionOf(d);
+      const known = {};
+      (d.workers || []).forEach(w => { known[w.id] = true; });
       return \`
         <div class="card" style="\${attention.length ? 'border-color:var(--danger-border);' : ''}">
           <div class="card-title"><span>Needs You Queue (\${attention.length})</span><span class="badge">DECISION</span></div>
@@ -2008,6 +3102,8 @@ function getMobileWebCompanionHtml() {
                 const targetId = item.workerId || item.sessionId || item.id;
                 const targetName = item.sessionName || item.name || targetId;
                 const reasonText = item.reason || item.attentionReason || 'Worker encountered an issue and requires decision';
+                const busy = appState.busy["worker:" + targetId];
+                const off = busy || !canControl() ? " disabled" : "";
                 return \`
                 <div class="item-row" style="flex-direction:column;align-items:stretch;gap:12px;">
                   <div class="item-info">
@@ -2016,8 +3112,9 @@ function getMobileWebCompanionHtml() {
                     <small style="color:var(--text-dim);margin-top:4px;">Target ID: \${esc(targetId)}</small>
                   </div>
                   <div style="display:flex;gap:8px;">
-                    <button class="action-btn primary" style="flex:1;" \${workerActionAttrs(targetId, 'restart', targetName)}>Request Restart</button>
-                    <button class="action-btn" style="flex:1;" \${workerActionAttrs(targetId, 'acknowledge', targetName)}>Acknowledge</button>
+                    <button class="action-btn primary" style="flex:1;" \${workerActionAttrs(targetId, 'restart', targetName)}\${off}>\${esc(busy || 'Restart')}</button>
+                    <button class="action-btn" style="flex:1;" \${workerActionAttrs(targetId, 'acknowledge', targetName)}\${off}>Acknowledge</button>
+                    \${known[targetId] ? '<button class="action-btn" style="flex:1;" data-id="' + esc(targetId) + '" onclick="openWorkerDetail(this.dataset.id)">Summary</button>' : ''}
                   </div>
                 </div>
               \`; }).join('')}
@@ -2085,6 +3182,15 @@ function getMobileWebCompanionHtml() {
       \`;
     }
 
+    // What the desktop lets this phone do with terminals and recipes right now.
+    function controlSummary() {
+      const caps = appState.caps;
+      if (!caps) return "Checking with the desktop…";
+      if (!caps.canControl) return "Not allowed for this phone. Turn on “Control workers & recipes” on the desktop, then pair again.";
+      return caps.autoRun
+        ? "Start, restart and recipe runs go straight through. Stop and cancel ask your desktop first."
+        : "Every request waits for your approval on the desktop.";
+    }
     function renderSettingsTab(cred) {
       const prefs = getPreferences();
       const notifStatus = "Notification" in window ? Notification.permission : "unsupported";
@@ -2114,7 +3220,13 @@ function getMobileWebCompanionHtml() {
             <div class="item-row">
               <div class="item-info">
                 <strong>Ask Mission AI</strong>
-                <small>\${canAsk(cred) ? 'Allowed — read-only answers from the desktop' : 'Not allowed for this phone. Turn it on on the desktop, then pair again.'}</small>
+                <small class="wrap">\${canAsk(cred) ? 'Allowed — read-only answers from the desktop' : 'Not allowed for this phone. Turn it on on the desktop, then pair again.'}</small>
+              </div>
+            </div>
+            <div class="item-row">
+              <div class="item-info">
+                <strong>Control from this phone</strong>
+                <small class="wrap">\${esc(controlSummary())}</small>
               </div>
             </div>
           </div>
@@ -2319,14 +3431,23 @@ function getMobileWebCompanionHtml() {
         return;
       }
       const askTab = document.getElementById("navTabAsk");
+      const desktopAskTab = document.getElementById("desktopNavTabAsk");
       if (askTab) askTab.style.display = canAsk(cred) ? "" : "none";
+      if (desktopAskTab) desktopAskTab.style.display = canAsk(cred) ? "" : "none";
+
       if (appState.tab === "ask") {
         renderAskTab(container, cred);
         return;
       }
       const d = appState.data;
       if (!d) {
-        container.innerHTML = \`<div class="card"><p class="msg">\${esc(appState.error || "Connecting to live OUTARCH…")}</p></div>\`;
+        appState.lastHtml = "";
+        container.innerHTML = \`
+          <div class="card" style="display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center;padding:24px;">
+            <p class="msg \${appState.error ? 'error' : ''}">\${esc(appState.error || "Connecting to live OUTARCH…")}</p>
+            \${appState.error ? '<button class="action-btn primary" onclick="localStorage.removeItem(STORAGE_KEY);appState.data=null;appState.error=\\'\\';render();" style="font-size:12px;padding:8px 16px;">Re-Enter Pairing Code</button>' : ''}
+          </div>
+        \`;
         return;
       }
 
@@ -2338,11 +3459,50 @@ function getMobileWebCompanionHtml() {
       else if (appState.tab === "feed") content = renderFeedTab();
       else if (appState.tab === "settings") content = renderSettingsTab(cred);
 
-      container.innerHTML = content;
+      // A poll every few seconds used to rebuild the tab each time, which dropped
+      // a tap that landed mid-rebuild and pulled focus out of the search box.
+      if (appState.lastHtml !== content) {
+        const active = document.activeElement;
+        const searching = Boolean(active && active.closest && active.closest(".search-box"));
+        appState.lastHtml = content;
+        container.innerHTML = content;
+        if (searching) {
+          const input = document.querySelector("#appContainer .search-box input");
+          if (input) {
+            input.focus();
+            try { input.setSelectionRange(input.value.length, input.value.length); } catch {}
+          }
+        }
+      }
+    }
+
+    function updatePinSlots(val) {
+      const digits = String(val || "").replace(/[^0-9]/g, "").slice(0, 6);
+      for (let i = 0; i < 6; i++) {
+        const slot = document.getElementById("slot" + i);
+        if (!slot) continue;
+        slot.className = "pin-slot";
+        if (i < digits.length) {
+          slot.innerText = digits[i];
+          slot.classList.add("is-filled");
+        } else if (i === digits.length) {
+          slot.innerHTML = '<span class="pin-caret"></span>';
+          slot.classList.add("is-focused");
+        } else {
+          slot.innerText = "";
+        }
+      }
+      if (digits.length === 6) {
+        setTimeout(() => handlePair(), 150);
+      }
     }
 
     async function renderPairForm() {
-      document.getElementById("bottomNav").style.display = "none";
+      const bNav = document.getElementById("bottomNav");
+      const dNav = document.getElementById("desktopNav");
+      if (bNav) bNav.style.display = "none";
+      if (dNav) dNav.style.display = "none";
+
       const hashParams = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
       const queryParams = new URLSearchParams(window.location.search);
       // The code arrives in a link, so only its digits are trusted.
@@ -2360,29 +3520,76 @@ function getMobileWebCompanionHtml() {
       container.innerHTML = \`
         <div class="card pair-form">
           <div class="pair-hero">
-            <h2>Pair Mobile Companion</h2>
-            <p>Connect your smartphone to monitor workers, receive real-time alerts, and resolve decisions securely over LAN.</p>
+            <div class="pair-shield-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <h2>Pair Web Companion</h2>
+            <p>Connect this browser to monitor workers, receive real-time alerts, and resolve decisions securely over LAN.</p>
           </div>
 
           <div class="notice-box">
-            <i/>
-            <span>End-to-end encrypted with X25519 & AES-256-GCM. LAN only.</span>
+            <i></i>
+            <span>X25519 &amp; AES-256-GCM Encrypted · LAN Only</span>
           </div>
 
           <div class="input-group">
-            <label>6-Digit One-Time Code</label>
-            <input id="pairCode" class="code-input" type="text" maxlength="6" inputmode="numeric" placeholder="123456" value="\${esc(defaultCode)}" autofocus>
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span>6-Digit One-Time Code</span>
+              <small style="color:var(--text-dim);font-size:11px;font-family:var(--font-mono);">Desktop &gt; Settings &gt; Mobile</small>
+            </label>
+            <div class="pin-input-wrap">
+              <div class="pin-slots-row" id="pinSlotsRow" onclick="const inp = document.getElementById('pairCode'); if (inp) { inp.focus(); }">
+                <div class="pin-slot is-focused" id="slot0"><span class="pin-caret"></span></div>
+                <div class="pin-slot" id="slot1"></div>
+                <div class="pin-slot" id="slot2"></div>
+                <div class="pin-slot" id="slot3"></div>
+                <div class="pin-slot" id="slot4"></div>
+                <div class="pin-slot" id="slot5"></div>
+                <input id="pairCode" class="invisible-otp-input" type="text" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder="" value="\${esc(defaultCode)}" oninput="updatePinSlots(this.value)" autofocus>
+              </div>
+            </div>
           </div>
 
-          <div class="input-group">
-            <label>Device Label</label>
-            <input id="pairName" type="text" value="Smartphone (\${navigator.userAgent.includes('iPhone') ? 'iPhone' : navigator.userAgent.includes('Android') ? 'Android' : 'Mobile'})">
+          <div class="device-card-wrap">
+            <div class="device-card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+            </div>
+            <div class="device-card-meta">
+              <label for="pairName">Device Label</label>
+              <input id="pairName" type="text" value="Web Companion (\${navigator.userAgent.includes('Macintosh') ? 'macOS' : navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('iPhone') ? 'iPhone' : navigator.userAgent.includes('Android') ? 'Android' : 'Browser'})">
+            </div>
           </div>
 
-          <button id="pairBtn" class="btn" onclick="handlePair()">Authorize & Connect</button>
+          <button id="pairBtn" class="btn-pair-primary" onclick="handlePair()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Authorize &amp; Connect
+          </button>
+
+          <div class="handshake-timeline" id="handshakeTimeline">
+            <div class="handshake-step active" id="hStep1">
+              <div class="step-dot active"></div>
+              <span>1. Generating ephemeral X25519 keypair…</span>
+            </div>
+            <div class="handshake-step" id="hStep2">
+              <div class="step-dot"></div>
+              <span>2. Verifying zero-knowledge HMAC proof…</span>
+            </div>
+            <div class="handshake-step" id="hStep3">
+              <div class="step-dot"></div>
+              <span>3. Establishing AES-256-GCM encrypted session…</span>
+            </div>
+          </div>
+
           <div id="pairMsg" class="msg"></div>
         </div>
       \`;
+
+      if (defaultCode) {
+        updatePinSlots(defaultCode);
+      }
 
       if (defaultCode && defaultCode.length === 6) {
         const msg = document.getElementById("pairMsg");
@@ -2395,35 +3602,90 @@ function getMobileWebCompanionHtml() {
 
     async function handlePair() {
       const code = document.getElementById("pairCode")?.value.trim() || "";
-      const name = document.getElementById("pairName")?.value.trim() || "Mobile Phone";
+      const name = document.getElementById("pairName")?.value.trim() || "Web Companion";
       const btn = document.getElementById("pairBtn");
       const msg = document.getElementById("pairMsg");
+      const timeline = document.getElementById("handshakeTimeline");
+
       if (!code || code.length !== 6) {
         if (msg) {
           msg.className = "msg error";
           msg.innerText = "Please enter the 6-digit code shown on your computer.";
         }
+        for (let i = 0; i < 6; i++) {
+          const slot = document.getElementById("slot" + i);
+          if (slot) slot.classList.add("is-error");
+        }
+        setTimeout(() => {
+          for (let i = 0; i < 6; i++) {
+            const slot = document.getElementById("slot" + i);
+            if (slot) slot.classList.remove("is-error");
+          }
+        }, 800);
         return;
       }
+
       if (btn) {
         btn.disabled = true;
-        btn.innerText = "Establishing secure link…";
+        btn.innerHTML = '<span class="pin-caret"></span> Establishing secure link…';
+      }
+      if (timeline) {
+        timeline.style.display = "flex";
       }
       if (msg) {
         msg.className = "msg info";
         msg.innerText = "Verifying cryptographic proof with desktop…";
       }
+
       try {
+        const s1 = document.getElementById("hStep1");
+        const s2 = document.getElementById("hStep2");
+        const s3 = document.getElementById("hStep3");
+        if (s1) {
+          s1.className = "handshake-step done";
+          const dot = s1.querySelector(".step-dot");
+          if (dot) dot.className = "step-dot done";
+        }
+        if (s2) {
+          s2.className = "handshake-step active";
+          const dot = s2.querySelector(".step-dot");
+          if (dot) dot.className = "step-dot active";
+        }
+
         await pairWithDesktop(code, name);
-        render();
+
+        if (s2) {
+          s2.className = "handshake-step done";
+          const dot = s2.querySelector(".step-dot");
+          if (dot) dot.className = "step-dot done";
+        }
+        if (s3) {
+          s3.className = "handshake-step done";
+          const dot = s3.querySelector(".step-dot");
+          if (dot) dot.className = "step-dot done";
+        }
+        if (btn) {
+          btn.style.background = "linear-gradient(135deg, #10b981 0%, #059669 100%)";
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Connected!';
+        }
+
+        setTimeout(() => {
+          render();
+        }, 300);
       } catch (err) {
+        if (timeline) timeline.style.display = "none";
         if (msg) {
           msg.className = "msg error";
           msg.innerText = err.message;
         }
+        for (let i = 0; i < 6; i++) {
+          const slot = document.getElementById("slot" + i);
+          if (slot) slot.classList.add("is-error");
+        }
         if (btn) {
           btn.disabled = false;
-          btn.innerText = "Authorize & Connect";
+          btn.style.background = "";
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Authorize &amp; Connect';
         }
       }
     }
@@ -2432,6 +3694,7 @@ function getMobileWebCompanionHtml() {
     // App Initialization & PWA Service Worker
     // ---------------------------------------------------------------------------
     function render() {
+      appState.lastHtml = "";
       if (appState.pollTimer) {
         clearInterval(appState.pollTimer);
         appState.pollTimer = null;
@@ -2441,15 +3704,51 @@ function getMobileWebCompanionHtml() {
         appState.sse = null;
       }
       const cred = getStoredCredential();
+      const bNav = document.getElementById("bottomNav");
+      const dNav = document.getElementById("desktopNav");
+
       if (!cred) {
+        if (bNav) bNav.style.display = "none";
+        if (dNav) dNav.style.display = "none";
         renderPairForm();
       } else {
-        document.getElementById("bottomNav").style.display = "flex";
+        if (bNav) bNav.style.display = "flex";
+        if (dNav) dNav.style.display = "flex";
         refreshDashboard();
         connectSSE();
         appState.pollTimer = setInterval(refreshDashboard, 4000);
       }
     }
+
+    // Desktop Keyboard Navigation Shortcuts
+    window.addEventListener("keydown", e => {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
+        if (e.key === "Escape") {
+          closeActionModal();
+          e.target.blur();
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        closeActionModal();
+      } else if (e.key === "1") {
+        switchTab("overview");
+      } else if (e.key === "2") {
+        switchTab("workers");
+      } else if (e.key === "3") {
+        switchTab("needs");
+      } else if (e.key === "4") {
+        switchTab("memory");
+      } else if (e.key === "5") {
+        switchTab("feed");
+      } else if (e.key === "6") {
+        const cred = getStoredCredential();
+        if (canAsk(cred)) switchTab("ask");
+        else switchTab("settings");
+      } else if (e.key === "7") {
+        switchTab("settings");
+      }
+    });
 
     // PWA Service Worker Registration
     if ("serviceWorker" in navigator) {

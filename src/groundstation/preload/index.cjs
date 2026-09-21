@@ -71,6 +71,49 @@ function setPendingBadge(count) {
   return ipcRenderer.invoke("mission-control:set-pending-badge", count);
 }
 
+// The account and the updater answer on their own channels because both work
+// before a project is open (the sign-in screen has no engine behind it). The
+// renderer learns who is signed in and what their plan allows; never a token.
+const ACCOUNT_CHANNEL = "mission-control:account";
+const ACCOUNT_EVENT_CHANNEL = "mission-control:account-event";
+const UPDATE_CHANNEL = "mission-control:update";
+const UPDATE_EVENT_CHANNEL = "mission-control:update-event";
+const accountListeners = new Set();
+const updateListeners = new Set();
+
+function listen(listeners, callback) {
+  if (typeof callback !== "function") throw new TypeError("a listener must be a function");
+  listeners.add(callback);
+  return () => listeners.delete(callback);
+}
+
+function notify(listeners, payload) {
+  for (const callback of listeners) {
+    try { callback(payload); } catch { /* one listener must not starve the rest */ }
+  }
+}
+
+ipcRenderer.on(ACCOUNT_EVENT_CHANNEL, (_event, status) => notify(accountListeners, status));
+ipcRenderer.on(UPDATE_EVENT_CHANNEL, (_event, status) => notify(updateListeners, status));
+
+const account = Object.freeze({
+  status: () => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "status" }),
+  signIn: mode => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "signIn", mode: mode === "signup" ? "signup" : "signin" }),
+  cancelSignIn: () => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "cancelSignIn" }),
+  signOut: () => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "signOut" }),
+  refresh: () => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "refresh" }),
+  openPortal: (page, query) => ipcRenderer.invoke(ACCOUNT_CHANNEL, { action: "openPortal", page: page === "pricing" ? "pricing" : "account", query: query && typeof query === "object" ? { plan: query.plan, feature: query.feature } : {} }),
+  onChange: callback => listen(accountListeners, callback)
+});
+
+const updates = Object.freeze({
+  status: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "status" }),
+  check: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "check" }),
+  download: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "download" }),
+  install: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "install" }),
+  onChange: callback => listen(updateListeners, callback)
+});
+
 ipcRenderer.on(EVENT_CHANNEL, (_event, message) => {
   if (!message || message.version !== PROTOCOL_VERSION) return;
   if (!subscribers.size) {
@@ -93,6 +136,8 @@ ipcRenderer.on(EVENT_CHANNEL, (_event, message) => {
 
 contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: PROTOCOL_VERSION,
+  account,
+  updates,
   request,
   copyText,
   openExternal,

@@ -329,6 +329,27 @@ class SecureMcpGateway extends EventEmitter {
     this.approvals = new Map();
     this.disposed = false;
     this.lastError = null;
+    // The operator's plan: "none" keeps the gateway off, "read" serves only the
+    // read scopes, "full" serves every scope the operator granted.
+    this.accessLevel = typeof options.accessLevel === "function" ? options.accessLevel : () => "full";
+  }
+
+  #planLevel() {
+    try {
+      const level = this.accessLevel();
+      return ["none", "read", "full"].includes(level) ? level : "none";
+    } catch {
+      return "none";
+    }
+  }
+
+  // The scopes the operator granted, narrowed to what their plan includes.
+  #effectiveScopes() {
+    const granted = this.store.status().scopes || [];
+    const level = this.#planLevel();
+    if (level === "none") return [];
+    if (level === "read") return granted.filter(scope => /\.read$/.test(scope));
+    return [...granted];
   }
 
   status() {
@@ -353,7 +374,8 @@ class SecureMcpGateway extends EventEmitter {
       pendingApprovalCount: pending.length,
       auditCount: stored.auditCount,
       lastError: this.lastError || stored.error || null,
-      authority: "approval-gated"
+      authority: "approval-gated",
+      planLevel: this.#planLevel()
     };
   }
 
@@ -390,6 +412,7 @@ class SecureMcpGateway extends EventEmitter {
     if (this.starting) return this.starting;
     const stored = this.store.status();
     if (!stored.enabled) return this.status();
+    if (this.#planLevel() === "none") return this.status();
     if (!stored.available) throw new Error("OS credential encryption is unavailable; the MCP gateway stays disabled");
     this.store.token();
     this.starting = new Promise((resolve, reject) => {
@@ -631,7 +654,7 @@ class SecureMcpGateway extends EventEmitter {
       this.#emitStatus();
       return clone(approval);
     }
-    const scopes = this.store.status().scopes;
+    const scopes = this.#effectiveScopes();
     if (!scopes.includes(approval.scope)) throw new Error("MCP permission was revoked before approval");
     approval.state = "executing";
     approval.resolvedAt = this.now();
@@ -659,7 +682,7 @@ class SecureMcpGateway extends EventEmitter {
     if (!isPlainObject(params)) throw new McpGatewayError(-32602, "JSON-RPC params must be an object");
     const client = this.#clientName(request, context);
     this.clients.set(client, this.now());
-    const scopes = this.store.status().scopes;
+    const scopes = this.#effectiveScopes();
     const modern = context.protocolVersion === MCP_PROTOCOL_VERSION;
 
     switch (request.method) {

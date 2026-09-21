@@ -31,8 +31,6 @@ const { McpGatewayStore } = require("../../service/mcpGatewayStore.cjs");
 const { SecureMcpGateway } = require("../../service/mcpGateway.cjs");
 const { MobileCompanionStore } = require("../../service/mobileCompanionStore.cjs");
 const { MobileCompanionGateway } = require("../../service/mobileCompanion.cjs");
-const { PluginPlatformStore } = require("../../service/pluginPlatformStore.cjs");
-const { PermissionedPluginPlatform } = require("../../service/pluginPlatform.cjs");
 const { MissionAIConversation } = require("../../service/missionAiConversation.cjs");
 const { BuiltinMissionAiCredentials } = require("../../service/missionAiBuiltinKeys.cjs");
 const { ByokStore } = require("../../service/byokStore.cjs");
@@ -50,6 +48,14 @@ const { WorkspaceBrowser } = require("./workspaceBrowser.cjs");
 const { execFile } = require("node:child_process");
 const { APP_USER_MODEL_ID, ASSETS: BRAND_ASSETS, PRODUCT_NAME } = require("../../brand/index.cjs");
 const { registerWindowsAppIdentity, resolveUserDataHome } = require("./appIdentity.cjs");
+const { cloudConfig } = require("../../service/cloudConfig.cjs");
+const { SupabaseRest } = require("../../service/supabaseRest.cjs");
+const { AccountSessionStore } = require("../../service/accountSessionStore.cjs");
+const { AccountService, isDeepLink } = require("../../service/accountService.cjs");
+const { createManagedAiFetch } = require("../../service/managedAiTransport.cjs");
+const { UpdateService } = require("../../service/updateService.cjs");
+const { UPDATE_PUBLIC_KEY } = require("../../service/updateConfig.cjs");
+const APP_VERSION = require("../../../package.json").version;
 
 // OUTARCH's own data folder and name. Both are settled before anything asks
 // Electron for a path or takes the single-instance lock, which is keyed on
@@ -91,7 +97,6 @@ let missionSupervisor = null;
 let projectSupervision = null;
 let mcpGateway = null;
 let mobileCompanion = null;
-let pluginPlatform = null;
 let workspaceIntelligence = null;
 let terminalWindowManager = null;
 let workspaceBrowser = null;
@@ -100,6 +105,12 @@ let aiAssistant = null;
 let byokStore = null;
 let notificationCenter = null;
 let cliUsageImporter = null;
+// The signed-in account and the plan it holds, and the auto-updater.
+let accountService = null;
+let updateService = null;
+let cloud = null;
+// Set when OUTARCH was started by the website handing a sign-in back.
+const launchDeepLink = process.argv.find(argument => isDeepLink(argument, "outarch")) || null;
 // What the previous session left behind, read before the engine can relaunch
 // anything. Held here so the renderer can ask for it after it connects.
 let recoveryReport = null;
@@ -537,6 +548,44 @@ function assertTrustedMainFrame(event) {
   }
 }
 
+// Every OUTARCH window hears account and update changes; neither carries a token.
+function sendToWindows(channel, payload) {
+  for (const window of [mainWindow, ...detachedTerminalWindows]) {
+    if (!window || window.isDestroyed()) continue;
+    try { window.webContents.send(channel, payload); } catch { /* the window is closing */ }
+  }
+}
+
+// outarch:// links open this app. An unpackaged build registers the Electron
+// binary with this script, so the link reaches the same app the launcher runs.
+function registerDeepLinkProtocol() {
+  if (process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) return;
+  try {
+    if (app.isPackaged) app.setAsDefaultProtocolClient("outarch");
+    else app.setAsDefaultProtocolClient("outarch", process.execPath, [path.resolve(__filename)]);
+  } catch {
+    // Without the registration the website shows a "copy link" fallback.
+  }
+}
+
+// What the plan allows, applied to the services that run in the background.
+// Called on every account change: a downgrade takes effect at once, an
+// upgrade starts whatever the operator had already turned on.
+function applyPlanToServices() {
+  if (!accountService) return;
+  const gate = accountService.entitlements();
+  const limits = gate.limits;
+  if (gate.mcpLevel() === "none") void mcpGateway?.stop().catch(() => {});
+  else void mcpGateway?.start().catch(error => { if (mcpGateway) mcpGateway.lastError = error instanceof Error ? error.message : String(error); });
+  if (!limits.mobileCompanion) void mobileCompanion?.stop().catch(() => {});
+  else void mobileCompanion?.start().catch(error => { if (mobileCompanion) mobileCompanion.lastError = error instanceof Error ? error.message : String(error); });
+  if (!limits.vscodeBridge) {
+    try { vscodeBridge?.disconnect?.("plan"); } catch { /* not connected */ }
+  }
+  // The model menu shows which of the operator's own keys the plan lets answer.
+  try { aiAssistant?.emit("change", { scope: "keys" }); } catch { /* not ready yet */ }
+}
+
 async function shutdownAndClose(window) {
   if (shutdownInProgress) return;
   shutdownInProgress = true;
@@ -586,12 +635,13 @@ async function shutdownAndClose(window) {
   shutdownComplete = true;
   rendererFailureDuringShutdown = null;
   rendererRecovery?.dispose();
+  updateService?.dispose();
+  accountService?.dispose();
   missionAi?.dispose();
   // Commands the assistant is running in its private terminal end with the app.
   aiAssistant?.dispose();
   void mcpGateway?.dispose();
   void mobileCompanion?.dispose();
-  pluginPlatform?.dispose();
   vscodeBridge?.dispose();
   // The browser view is a child of the window being torn down, so it is closed
   // before the window rather than left holding a destroyed parent.
@@ -611,7 +661,8 @@ async function start() {
   if (!holdsInstanceLock) return;
   let options;
   try {
-    const argv = process.argv.slice(app.isPackaged ? 1 : 2);
+    // A sign-in link handed over by the website is not a Groundstation option.
+    const argv = process.argv.slice(app.isPackaged ? 1 : 2).filter(argument => !isDeepLink(argument, "outarch"));
     options = parseGroundstationArgs(argv);
   } catch (error) {
     dialog.showErrorBox("OUTARCH could not start", error.message);
@@ -619,7 +670,80 @@ async function start() {
     return;
   }
 
-  engineHost = new EngineHost();
+  // The account comes first: nothing below opens a project or starts a
+  // terminal until the operator is signed in.
+  cloud = cloudConfig();
+  const supabase = new SupabaseRest({ url: cloud.supabaseUrl, key: cloud.publishableKey });
+  accountService = new AccountService({
+    rest: supabase,
+    store: new AccountSessionStore(path.join(app.getPath("userData"), "account-session.json"), { safeStorage }),
+    config: cloud,
+    openExternal: url => shell.openExternal(url)
+  });
+  let lastBuiltinProviders = "";
+  accountService.on("change", status => {
+    sendToWindows("mission-control:account-event", status);
+    applyPlanToServices();
+    // Signing in makes the built-in models reachable; read them once it does.
+    const providers = (status.builtinAiProviders || []).join(",");
+    if (status.authorized && providers !== lastBuiltinProviders) void aiAssistant?.refreshMissionModels({ force: true }).catch(() => {});
+    lastBuiltinProviders = providers;
+  });
+  // A signed-out app shows only the sign-in screen: pop-outs go back first.
+  accountService.on("signed-out", () => { void Promise.resolve(terminalWindowManager?.recallAll()).catch(() => {}); });
+  const managedAiFetch = createManagedAiFetch({ account: accountService, rest: supabase });
+  updateService = new UpdateService({
+    rest: supabase,
+    currentVersion: APP_VERSION,
+    publicKey: UPDATE_PUBLIC_KEY,
+    appRoot: path.resolve(__dirname, "../../.."),
+    workDir: path.join(app.getPath("userData"), "updates")
+  });
+  updateService.on("change", status => sendToWindows("mission-control:update-event", status));
+  updateService.on("available", status => {
+    notificationCenter?.publish({
+      kind: "update.available",
+      title: `OUTARCH ${status.available?.version || "update"} is available`,
+      body: status.canInstall ? "Update now to restart into the new version. Your terminals are stopped cleanly first." : (status.installBlockedReason || "A new version is ready."),
+      actions: status.canInstall ? [{ id: "install-update", label: "Update now" }] : [],
+      dedupeKey: `update:${status.available?.version || ""}`
+    });
+  });
+  ipcMain.handle("mission-control:account", async (event, request) => {
+    assertTrustedAppFrame(event);
+    const action = typeof request?.action === "string" ? request.action : "";
+    switch (action) {
+      case "status": return accountService.status();
+      case "signIn": await accountService.beginSignIn({ mode: request.mode === "signup" ? "signup" : "signin" }); return accountService.status();
+      case "cancelSignIn": return accountService.cancelSignIn();
+      case "signOut": return accountService.signOut();
+      case "refresh": return accountService.refresh();
+      case "openPortal": await accountService.openPortal(request.page === "pricing" ? "pricing" : "account", request.query && typeof request.query === "object" ? request.query : {}); return true;
+      default: throw new Error("Unknown account request");
+    }
+  });
+  ipcMain.handle("mission-control:update", async (event, request) => {
+    assertTrustedMainFrame(event);
+    const action = typeof request?.action === "string" ? request.action : "";
+    switch (action) {
+      case "status": return updateService.status();
+      case "check": return updateService.check();
+      case "download": return updateService.download();
+      case "install": {
+        await updateService.install({ quit: () => shutdownAndClose(mainWindow) });
+        return updateService.status();
+      }
+      default: throw new Error("Unknown update request");
+    }
+  });
+  registerDeepLinkProtocol();
+
+  engineHost = new EngineHost({
+    engineOptions: {
+      // Every way a terminal can start passes here: the plan caps how many run at once.
+      spawnGuard: ({ running }) => accountService.entitlements().checkRunTerminal(running)?.message || null
+    }
+  });
   vscodeBridge = new VSCodeBridge({
     getWorkspace: () => engineHost?.engineApi?.getWorkspace?.() || null,
     openExternal: uri => shell.openExternal(uri)
@@ -631,8 +755,11 @@ async function start() {
   projectSupervision = new ProjectSupervisionService({ missionContext });
   missionAi = new MissionAIService({
     credentialStore: new BuiltinMissionAiCredentials({
-      preferencesPath: path.join(app.getPath("userData"), "mission-ai-preferences.json")
+      preferencesPath: path.join(app.getPath("userData"), "mission-ai-preferences.json"),
+      // The keys are on OUTARCH's server; which providers it has keys for.
+      managed: { providers: () => (accountService.isAuthorized() ? accountService.status().builtinAiProviders : []) }
     }),
+    fetch: (url, init) => managedAiFetch(url, init, { surface: "mission" }),
     missionContext,
     projectSupervision
   });
@@ -641,6 +768,7 @@ async function start() {
     getEngineApi: () => engineHost?.engineApi || null
   });
   mcpGateway = new SecureMcpGateway({
+    accessLevel: () => accountService.entitlements().mcpLevel(),
     store: new McpGatewayStore(
       path.join(app.getPath("userData"), "mcp-gateway-credentials.json"),
       { safeStorage }
@@ -651,6 +779,7 @@ async function start() {
     getEngineApi: () => engineHost?.engineApi || null
   });
   mobileCompanion = new MobileCompanionGateway({
+    isAllowed: () => accountService.entitlements().limits.mobileCompanion === true,
     store: new MobileCompanionStore(
       path.join(app.getPath("userData"), "mobile-companion-credentials.json"),
       { safeStorage }
@@ -659,30 +788,6 @@ async function start() {
     getEngineApi: () => engineHost?.engineApi || null,
     // Read-only: the assistant's ask() offers the model no action tools.
     askAssistant: request => aiAssistant ? aiAssistant.ask(request) : Promise.reject(new Error("Mission AI is not available on the desktop"))
-  });
-  pluginPlatform = new PermissionedPluginPlatform({
-    store: new PluginPlatformStore(path.join(app.getPath("userData"), "plugin-platform.json")),
-    missionContext,
-    getEngineApi: () => engineHost?.engineApi || null,
-    chooseManifest: async () => {
-      const options = {
-        title: "Install an OUTARCH plugin manifest",
-        buttonLabel: "Inspect manifest",
-        properties: ["openFile"],
-        filters: [{ name: "OUTARCH plugin manifest", extensions: ["json"] }]
-      };
-      const result = mainWindow && !mainWindow.isDestroyed()
-        ? await dialog.showOpenDialog(mainWindow, options)
-        : await dialog.showOpenDialog(options);
-      if (result.canceled || !result.filePaths[0]) return null;
-      const filePath = result.filePaths[0];
-      const raw = fs.readFileSync(filePath);
-      if (raw.length > 256 * 1024) throw new Error("Plugin manifest exceeds the 256 KiB limit");
-      let manifest;
-      try { manifest = JSON.parse(raw.toString("utf8")); }
-      catch { throw new Error("Plugin manifest is not valid JSON"); }
-      return { manifest, source: path.basename(filePath) };
-    }
   });
   ipcMain.handle("mission-control:open-external", async (event, url) => {
     assertTrustedMainFrame(event);
@@ -752,6 +857,28 @@ async function start() {
       return result.canceled ? null : result.filePaths[0] || null;
     }
   });
+  // The account gate. A saved session is confirmed with Supabase first; without
+  // one the window opens on the sign-in screen and the rest of startup waits
+  // here until the website hands a session back.
+  const visualCapture = Boolean(process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR);
+  let rendererLoaded = false;
+  await accountService.restore();
+  if (launchDeepLink) await accountService.handleDeepLink(launchDeepLink);
+  if (!accountService.isAuthorized() && !visualCapture) {
+    mainWindow = createWindow({ load: false });
+    mainWindow.on("focus", () => accountService?.noteWindowFocus());
+    rendererLoaded = true;
+    void beginRendererLoad(mainWindow);
+    // Another OUTARCH (one started with --config) may receive the website's
+    // link and save the session; pick it up from disk too.
+    const fromDisk = setInterval(() => { void accountService?.reloadFromDisk().catch(() => {}); }, 3000);
+    fromDisk.unref?.();
+    const authorized = await accountService.whenAuthorized();
+    clearInterval(fromDisk);
+    if (!authorized || shutdownInProgress || shutdownComplete) return;
+  }
+  updateService.start();
+
   try {
     const startupOptions = projectCoordinator.resolveStartupOptions(options);
     // The gate. The journal is read before the engine opens, because opening it
@@ -784,7 +911,10 @@ async function start() {
     return;
   }
 
-  mainWindow = createWindow({ load: false });
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createWindow({ load: false });
+    mainWindow.on("focus", () => accountService?.noteWindowFocus());
+  }
   // Toasts are headed with the app's registered name and logo.
   if (!process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) void registerWindowsAppIdentity({ execFile, iconPath: BRAND_ASSETS.iconPng256 });
   // T033/T036 — the notifier is main-process because only the main process owns
@@ -896,6 +1026,10 @@ async function start() {
   aiAssistant = new AiAssistant({
     builtin: missionAi.credentialStore,
     byokStore,
+    // Built-in models answer through OUTARCH's AI service, which meters the plan.
+    missionFetch: managedAiFetch,
+    // The operator's own keys, up to the number the plan includes.
+    allowByokKey: keyId => accountService.entitlements().allowedByokKeyIds(byokStore.list()).has(keyId),
     getEngineApi: () => engineHost?.engineApi || null,
     localServiceRegistry: workspaceIntelligence.services,
     workspaceBrowser,
@@ -980,16 +1114,27 @@ async function start() {
     projectSupervision,
     mcpGateway,
     mobileCompanion,
-    pluginPlatform,
     notifications: notificationCenter,
-    portInspector
+    portInspector,
+    planGate: { entitlements: () => accountService.entitlements() },
+    // A keystroke into a terminal answers what its agent was asking.
+    onTerminalInput: workerId => workspaceIntelligence?.noteInput(workerId)
   });
   ipcHost.bind();
   try { await mcpGateway.start(); }
   catch (error) { mcpGateway.lastError = error instanceof Error ? error.message : String(error); }
   try { await mobileCompanion.start(); }
   catch (error) { mobileCompanion.lastError = error instanceof Error ? error.message : String(error); }
-  void beginRendererLoad(mainWindow);
+  // An answered permission question takes its notification back, so the
+  // agent's next question notifies again.
+  workspaceIntelligence.prompts.on("cleared", ({ workerId }) => {
+    try { notificationCenter?.withdrawKind(workerId, "agent.awaitingApproval"); } catch { /* best effort */ }
+  });
+  accountService.setEngineReady(true);
+  applyPlanToServices();
+  // Signed in at launch: load the app. Signed in from the sign-in screen: the
+  // renderer is already up and mounts the app when it hears engineReady.
+  if (!rendererLoaded) void beginRendererLoad(mainWindow);
 }
 
 app.whenReady().then(start).catch(async error => {
@@ -998,7 +1143,6 @@ app.whenReady().then(start).catch(async error => {
   aiAssistant?.dispose();
   await mcpGateway?.dispose();
   await mobileCompanion?.dispose();
-  pluginPlatform?.dispose();
   vscodeBridge?.dispose();
   try {
     await engineHost?.shutdown();
@@ -1010,7 +1154,10 @@ app.whenReady().then(start).catch(async error => {
 });
 
 // A second launch lands here: bring the window that is already open forward.
-app.on("second-instance", () => {
+app.on("second-instance", (_event, argv = []) => {
+  // The website handing a sign-in back arrives as a second launch.
+  const link = Array.isArray(argv) ? argv.find(argument => isDeepLink(argument, "outarch")) : null;
+  if (link) void accountService?.handleDeepLink(link);
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();

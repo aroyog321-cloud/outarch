@@ -6,7 +6,7 @@ import { confirmedRequest, missionApi } from "./missionApi.js";
 const SEVERITY_RANK = { critical: 0, warning: 1, info: 2 };
 const STATUS_RANK = { pending: 0, acting: 1, verifying: 2, acknowledged: 3, resolved: 4, expired: 5, dismissed: 6 };
 const ACTIVE_STATUSES = new Set(["pending", "acting", "verifying", "acknowledged"]);
-const CONFIRMED_SOURCES = new Set(["missionSupervisor", "mission", "mcp", "automation", "mobile", "plugin"]);
+const CONFIRMED_SOURCES = new Set(["missionSupervisor", "mission", "mcp", "automation", "mobile"]);
 
 function sortDecisions(records) {
   return [...records].sort((a, b) => {

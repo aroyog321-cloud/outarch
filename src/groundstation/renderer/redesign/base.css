@@ -650,14 +650,33 @@ html body #root .shell > .main-area > .experience { grid-row: 2; }
 #root#root .shell .app-sidebar__footer .top-search span,
 #root#root .shell .app-sidebar__footer .top-search kbd,
 #root#root .shell .app-sidebar__footer .top-ai strong { display: block !important; }
+/* One line, always: "Search commands" wrapped under its own shortcut and the
+   row read as two stacked labels. The shortcut gives up its padding first,
+   then a narrow rail ends the label with an ellipsis instead of a second line.
+   The row aligns its items to the start, which sizes each one to its text, so
+   the label is capped at its own column or it runs under the shortcut. */
 #root#root .shell .app-sidebar__footer .top-search span,
-#root#root .shell .app-sidebar__footer .top-ai strong { font-size: 11.5px; font-weight: 600; }
+#root#root .shell .app-sidebar__footer .top-ai strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 #root#root .shell .app-sidebar__footer .top-search kbd {
-  color: var(--mc-text-dim);
+  padding: 0;
+  color: color-mix(in srgb, var(--mc-text-dim) 80%, transparent);
   background: transparent;
   border: 0;
   font-size: 10px;
+  letter-spacing: -0.05em;
 }
+/* The label and its shortcut share about 135px; at 11.5px the label alone
+   needed 104 of the 98 left to it. Half a pixel of type and a tighter
+   monospace shortcut let both fit on the rail's default width. */
+#root#root .shell .app-sidebar__footer .top-search span { font-size: 11px; }
 #root#root .shell .app-sidebar__footer .top-ai > span { color: var(--mc-ai-strong); font-size: 10px; }
 
 /* Labels make desktop tooltips redundant. Keep them only for the genuinely

@@ -230,8 +230,7 @@ test("system.hello reports supported and unavailable capabilities with truthful 
     missionSupervisor: { status: () => ({}) },
     vscodeBridge: { status: () => ({ awaitingHandshake: true, connected: false, lastError: null }) },
     mcpGateway: { status: () => { throw new Error("gateway status failed"); } },
-    mobileCompanion: { status: () => ({ available: false, error: "protected storage unavailable" }) },
-    pluginPlatform: { status: () => ({ available: true, enabledCount: 0 }) }
+    mobileCompanion: { status: () => ({ available: false, error: "protected storage unavailable" }) }
   });
 
   const hello = await connection.handle(request("hello-capabilities", "system.hello"));
@@ -244,7 +243,8 @@ test("system.hello reports supported and unavailable capabilities with truthful 
   assert.equal(capabilities.mcp.state, "error");
   assert.match(capabilities.mcp.reason, /gateway status failed/);
   assert.equal(capabilities.companion.state, "unavailable");
-  assert.equal(capabilities.extensions.state, "ready");
+  // The plugin platform was removed; no capability advertises it.
+  assert.equal(capabilities.extensions, undefined);
   // T023 — broadcast is a real, approval-backed capability now.
   assert.equal(capabilities["terminal-broadcast"].support, "supported");
   assert.equal(capabilities["terminal-broadcast"].state, "ready");
@@ -854,29 +854,12 @@ test("terminal output overflow is explicit, bounded, and subscriptions clean up"
   assert.equal(exitListeners.size, 0);
 });
 
-test("permissioned plugins stay behind Protocol v1 confirmations and local approvals", async () => {
-  const calls = [];
-  const subscribers = new Set();
-  const pluginPlatform = {
-    status: () => ({ pluginCount: 1, enabledCount: 0, pendingApprovalCount: 1 }),
-    subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); },
-    list: () => [{ manifest: { id: "dev.test", name: "Test" }, enabled: false, grantedPermissions: [] }],
-    chooseAndInstall: () => { calls.push(["install"]); return { canceled: false }; },
-    configure: (id, value) => { calls.push(["configure", id, value]); return { enabled: true }; },
-    uninstall: id => { calls.push(["uninstall", id]); return { uninstalled: true }; },
-    listApprovals: () => [{ id: "approval-1", state: "pending" }],
-    resolveApproval: (id, decision) => { calls.push(["resolve", id, decision]); return { id, state: decision === "approve" ? "approved" : "denied" }; },
-    listAudit: () => []
-  };
-  const connection = createProtocolConnection(makeEngineStub(), { send: () => {}, pluginPlatform });
-  assert.equal((await connection.handle(request("status", "plugin.status"))).ok, true);
-  assert.equal((await connection.handle(request("install-no", "plugin.install"))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await confirmed(connection, "install", "plugin.install")).ok, true);
-  assert.equal((await connection.handle(request("configure-no", "plugin.configure", { pluginId: "dev.test", configuration: { enabled: true } }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await confirmed(connection, "configure", "plugin.configure", { pluginId: "dev.test", configuration: { enabled: true } })).ok, true);
-  assert.equal((await connection.handle(request("approval-no", "plugin.approval.resolve", { approvalId: "approval-1", decision: "approve" }))).error.code, "CONFIRMATION_REQUIRED");
-  assert.equal((await confirmed(connection, "approval", "plugin.approval.resolve", { approvalId: "approval-1", decision: "approve" })).ok, true);
-  assert.deepEqual(calls, [["install"], ["configure", "dev.test", { enabled: true }], ["resolve", "approval-1", "approve"]]);
+test("the removed plugin platform answers no protocol method", async () => {
+  const connection = createProtocolConnection(makeEngineStub(), { send: () => {} });
+  for (const method of ["plugin.status", "plugin.list", "plugin.install", "plugin.approval.resolve", "plugin.audit.list"]) {
+    const response = await connection.handle(request(`removed-${method}`, method));
+    assert.equal(response.ok, false, `${method} must not be served`);
+    assert.equal(response.error.code, "METHOD_NOT_FOUND");
+  }
   connection.dispose();
-  assert.equal(subscribers.size, 0);
 });

@@ -3,7 +3,7 @@
 // T005 — Failed-load reconciliation, pinned.
 //
 // MISSION_CONTROL_FAILED_LOAD_RECONCILIATION.md is the full finding. This locks
-// the resource-state contract used by Automation, Agents, MCP, Mobile, and Plugins:
+// the resource-state contract used by Automation, Agents, MCP, and Mobile:
 // a failed request keeps last-known-good data and cannot render as a successful
 // empty result or a fabricated zero count.
 
@@ -63,10 +63,9 @@ test("the degraded-data banner is one shared grammar", () => {
 test("integration resources preserve last-known-good data and expose degraded state", () => {
   const mcp = read("src/groundstation/renderer/McpGateway.jsx");
   const mobile = read("src/groundstation/renderer/MobileCompanion.jsx");
-  const plugins = read("src/groundstation/renderer/PluginPlatform.jsx");
   const agents = read("src/groundstation/renderer/AgentWorkspace.jsx");
 
-  for (const source of [mcp, mobile, plugins]) {
+  for (const source of [mcp, mobile]) {
     assert.match(source, /Promise\.allSettled\(/);
     assert.match(source, /className="integration-resource-notice" role="status"/);
     assert.match(source, /className="integration-resource-empty"/);
@@ -76,8 +75,6 @@ test("integration resources preserve last-known-good data and expose degraded st
   assert.doesNotMatch(mcp, /catch \{ setAudit\(\[\]\); \}/);
   assert.match(mobile, /devicesUpdatedAt: devicesResult\.status === "fulfilled" \? now : current\.devicesUpdatedAt/);
   assert.doesNotMatch(mobile, /mobile\.device\.list"\)\.then\(setDevices\)\.catch\(\(\) => \{\}\)/);
-  assert.match(plugins, /pluginsUpdatedAt: pluginsResult\.status === "fulfilled" \? now : current\.pluginsUpdatedAt/);
-  assert.doesNotMatch(plugins, /plugin\.list"\)\.then\(setPlugins\)\.catch\(\(\) => \{\}\)/);
   // Agent approvals only flow through the unified decision broker.
   assert.doesNotMatch(agents, /setApprovals\(\[\]\); onPendingChange/);
 });
@@ -88,7 +85,7 @@ test("integration overview and merged audit use service truth without hiding par
 
   assert.match(overview, /id === "mcp"[^\n]+value\?\.running/);
   assert.match(overview, /id === "companion"[^\n]+value\?\.running/);
-  assert.match(overview, /value\?\.pluginCount \?\? 0/);
+  assert.doesNotMatch(overview, /value\?\.pluginCount/);
   assert.doesNotMatch(overview, /value\?\.installedCount/);
   assert.match(overview, /value: current\[id\]\?\.value, error: result\.error/);
 

@@ -2,8 +2,8 @@
 
 // Phase 5 - Integrations and Mission AI (T115, T116, T118).
 //
-// T115 - Mission AI, VS Code and Automation answer the same audit question MCP,
-//        Mobile and Plugins already did, so "this bridge keeps no record" can no
+// T115 - Mission AI, VS Code and Automation answer the same audit question MCP
+//        and Mobile already did, so "this bridge keeps no record" can no
 //        longer be mistaken for "this bridge did nothing".
 // T116 - one bounded, side-effect-free self-test for every integration.
 // T118 - Mission AI's provider, credential, availability and request-error
@@ -73,8 +73,8 @@ test("T115 - the VS Code bridge records connection metadata and reports its endp
   assert.doesNotMatch(source, /this\.record\([^)]*(?:message\.text|content|payload\.body)/);
 });
 
-test("T115 - all six integrations are audited by one protocol shape and one register", () => {
-  for (const method of ["missionAi.audit.list", "vscode.audit.list", "automation.audit.list", "mcp.audit.list", "mobile.audit.list", "plugin.audit.list"]) {
+test("T115 - all five integrations are audited by one protocol shape and one register", () => {
+  for (const method of ["missionAi.audit.list", "vscode.audit.list", "automation.audit.list", "mcp.audit.list", "mobile.audit.list"]) {
     assert.ok(protocolSource.includes(`"${method}",`), `${method} is not in the protocol allowlist`);
     assert.ok(protocolSource.includes(`case "${method}"`), `${method} has no handler`);
   }
@@ -83,7 +83,7 @@ test("T115 - all six integrations are audited by one protocol shape and one regi
   assert.doesNotMatch(confirmed, /audit\.list/);
 
   const register = read("IntegrationAuditLog.jsx");
-  for (const label of ["Mission AI", "VS Code", "MCP", "Automation", "Mobile", "Plugin"]) {
+  for (const label of ["Mission AI", "VS Code", "MCP", "Automation", "Mobile"]) {
     assert.ok(register.includes(`["${label}", "`), `${label} is missing from the unified audit register`);
   }
   // A source that fails is named, never silently dropped from the total.
@@ -97,19 +97,20 @@ test("T116 - every integration has the same bounded, side-effect-free self-test"
   // Automation left the Integrations surface on 2026-09-12. Its workflows still
   // run and still raise approvals; those are decisions, and Needs You is where
   // decisions are answered, so nothing became unreachable by removing the tab.
-  for (const id of ["intelligence", "vscode", "mcp", "companion", "extensions"]) {
+  for (const id of ["intelligence", "vscode", "mcp", "companion"]) {
     assert.ok(probes.includes(`${id}: {`), `${id} has no self-test descriptor`);
   }
+  assert.ok(!probes.includes("extensions: {"), "the removed plugin platform has no self-test");
   // Each of the five facts T116 names has a reader on every descriptor.
   for (const fact of ["permissions", "endpoint", "lastSuccess", "lastError", "recovery"]) {
-    assert.equal((probes.match(new RegExp(`\\b${fact}:`, "g")) || []).length, 5, `${fact} is not read for all five integrations`);
+    assert.equal((probes.match(new RegExp(`\\b${fact}:`, "g")) || []).length, 4, `${fact} is not read for all four integrations`);
   }
 
   // Bounded: a deadline, and only status methods - nothing that mutates.
   assert.match(diagnostics, /const TIMEOUT_MS = 6000;/);
   assert.match(diagnostics, /Promise\.race\(\[/);
   const methods = [...probes.matchAll(/method: "([^"]+)"/g)].map(match => match[1]);
-  assert.equal(methods.length, 5);
+  assert.equal(methods.length, 4);
   assert.ok(methods.every(method => /\.(status|list)$/.test(method)), `a self-test calls a non-read method: ${methods.join(", ")}`);
   assert.ok(!methods.some(method => /configure|rotate|resolve|install|invite|revoke|launch|disconnect/.test(method)));
 

@@ -1,3 +1,5 @@
+import { requestUpgrade } from "./useAccount.js";
+
 export function missionApi() {
   const api = window.missionControl;
   if (!api || typeof api.request !== "function" || typeof api.subscribe !== "function") {
@@ -10,6 +12,11 @@ export function missionApi() {
       if (response?.ok === false) {
         const error = new Error(response.error?.message || "Groundstation request failed");
         error.code = response.error?.code || "REQUEST_FAILED";
+        // A request outside the plan opens the upgrade dialog wherever it came from.
+        if (error.code === "PLAN_REQUIRED") {
+          error.plan = response.error?.plan || null;
+          requestUpgrade({ ...(error.plan || {}), message: error.message });
+        }
         throw error;
       }
       return response && Object.hasOwn(response, "result") ? response.result : response;

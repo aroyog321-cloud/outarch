@@ -3,7 +3,7 @@ import { missionApi } from "./missionApi.js";
 
 /**
  * T195 - Consolidates duplicated integration event subscription and cleanup
- * logic across MCP, Mobile Companion, Plugin Platform, and overview surfaces.
+ * logic across MCP, Mobile Companion, and overview surfaces.
  * Uses typed preload boundary filters to avoid receiving unneeded traffic.
  */
 export default function useIntegrationSubscription(integrationName, onEvent) {

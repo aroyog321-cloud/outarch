@@ -22,8 +22,7 @@ export default function IntegrationAuditLog() {
       ["VS Code", "vscode.audit.list"],
       ["MCP", "mcp.audit.list"],
       ["Automation", "automation.audit.list"],
-      ["Mobile", "mobile.audit.list"],
-      ["Plugin", "plugin.audit.list"]
+      ["Mobile", "mobile.audit.list"]
     ];
     const results = await Promise.allSettled(sources.map(([, method]) => missionApi().request(method, { limit: 8 })));
     const now = Date.now();
@@ -55,7 +54,7 @@ export default function IntegrationAuditLog() {
       {records.map((record, index) => <article key={`${record.source}-${record.id || index}`}>
         <span className="status-chip tone-neutral"><i/>{record.source}</span>
         <strong>{record.kind || "activity"} · {record.outcome || "recorded"}</strong>
-        <small>{record.capability || record.target || record.client || record.pluginId || record.deviceId || record.automationId || record.model || "metadata only"}</small>
+        <small>{record.capability || record.target || record.client || record.deviceId || record.automationId || record.model || "metadata only"}</small>
         <time dateTime={record.at ? new Date(record.at).toISOString() : undefined}>{relativeTime(record.at)}</time>
       </article>)}
     </div> : sourceErrors.length ? <p>No audit records are available from the sources that responded.</p> : <p>No integration audit activity has been recorded.</p>}

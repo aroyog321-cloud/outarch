@@ -1,0 +1,693 @@
+/* ===========================================================================
+   OUTARCH — account, plan and update surfaces
+
+   The sign-in screen, the premium crown grammar (badge, lock panel, upgrade
+   dialog), Settings > Account and plan, the Updates panel, the sidebar
+   account row and the two status-tape chips.
+
+   Every class here is new, so nothing older reaches it: in-shell selectors
+   carry the shell prefix only to outrank the shell-wide button rule, and the
+   portalled dialog and the sign-in screen sit outside the shell and read the
+   root tokens. Gold is the one addition to the palette, and it means one
+   thing only: a plan feature.
+   ======================================================================== */
+
+:root {
+  --mc-premium: #e5bd62;
+  --mc-premium-strong: #f3d38a;
+  --mc-premium-ink: #1b1406;
+  --mc-premium-soft: color-mix(in srgb, var(--mc-premium) 13%, transparent);
+  --mc-premium-line: color-mix(in srgb, var(--mc-premium) 36%, transparent);
+  --mc-premium-fill: linear-gradient(180deg, var(--mc-premium-strong), var(--mc-premium));
+}
+
+/* ------------------------------------------------------------ sign-in */
+
+.account-gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr) auto;
+  overflow: auto;
+  color: var(--mc-text);
+  background:
+    radial-gradient(ellipse 55% 42% at 50% 36%, color-mix(in srgb, var(--mc-accent) 8%, transparent), transparent 72%),
+    var(--mc-void);
+  font-family: var(--mc-font-ui);
+}
+.account-gate__drag { -webkit-app-region: drag; }
+.account-gate__column {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 12px 16px 36px;
+}
+.account-gate__wordmark {
+  display: block;
+  width: min(280px, 70vw);
+  height: auto;
+  user-select: none;
+}
+.account-gate__card {
+  display: flex;
+  width: min(420px, 100%);
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  padding: 28px;
+  text-align: left;
+  background: var(--mc-surface);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-lg);
+  box-shadow: var(--mc-shadow-float);
+}
+.account-gate__card h1 {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.account-gate__card p {
+  margin: 0;
+  color: var(--mc-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.account-gate__card .account-gate__hint { color: var(--mc-text-dim); font-size: 12px; }
+.account-gate__card .account-gate__error {
+  padding: 10px 12px;
+  color: color-mix(in srgb, var(--mc-danger) 62%, var(--mc-text));
+  background: var(--mc-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--mc-danger) 34%, transparent);
+  border-radius: var(--mc-radius-sm);
+  font-size: 12.5px;
+}
+.account-gate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.account-gate__actions--stack { flex-direction: column; }
+.account-gate :is(.account-gate__primary, .account-gate__secondary, .account-gate__ghost) {
+  display: inline-flex;
+  min-height: 40px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: var(--mc-radius-sm);
+  font: 600 13px/1 var(--mc-font-ui);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.account-gate .account-gate__primary {
+  color: var(--mc-text-ink);
+  background: var(--mc-accent);
+  border: 1px solid var(--mc-accent);
+}
+.account-gate .account-gate__primary:hover:not(:disabled) { background: var(--mc-accent-strong); border-color: var(--mc-accent-strong); }
+.account-gate .account-gate__secondary {
+  color: var(--mc-text);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border);
+}
+.account-gate .account-gate__secondary:hover:not(:disabled) { background: var(--mc-surface-4); border-color: var(--mc-border-strong); }
+.account-gate .account-gate__ghost {
+  color: var(--mc-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+}
+.account-gate .account-gate__ghost:hover { color: var(--mc-text); }
+.account-gate :is(button):focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
+.account-gate :is(button):disabled { cursor: progress; opacity: 0.62; }
+.account-gate__actions:not(.account-gate__actions--stack) > .account-gate__secondary { flex: 1 1 auto; }
+.account-gate__progress {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  background: var(--mc-border-faint);
+  border-radius: 2px;
+}
+.account-gate__progress i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: var(--mc-accent-strong);
+  border-radius: inherit;
+  animation: boot-progress 1.4s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+.account-gate__checking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--mc-text-muted);
+  font-size: 13px;
+}
+.account-gate__checking .account-gate__progress { width: 148px; }
+.account-gate__checking p { margin: 0; }
+.account-gate__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  padding: 14px 16px 20px;
+  color: var(--mc-text-dim);
+  font-size: 11.5px;
+}
+.account-gate__footer span { display: inline-flex; align-items: center; gap: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .account-gate__progress i { width: 100%; opacity: 0.45; animation: none; }
+}
+
+/* ------------------------------------------------------------ crown and badge */
+
+.plan-crown { display: inline-block; flex: 0 0 auto; vertical-align: -0.125em; }
+.plan-badge {
+  display: inline-flex;
+  height: 20px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px 0 6px;
+  color: var(--mc-premium-strong);
+  background: var(--mc-premium-soft);
+  border: 1px solid var(--mc-premium-line);
+  border-radius: var(--mc-radius-pill);
+  font: 650 10.5px/1 var(--mc-font-ui);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.plan-badge--compact { width: 20px; justify-content: center; padding: 0; }
+
+/* The gold call to action: the upgrade dialog, the lock panel, Account. */
+.plan-dialog__primary,
+.plan-lock__cta,
+.shell .plan-upgrade-button {
+  display: inline-flex;
+  min-height: 34px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  color: var(--mc-premium-ink);
+  background: var(--mc-premium-fill);
+  border: 1px solid var(--mc-premium);
+  border-radius: var(--mc-radius-sm);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mc-text) 38%, transparent), 0 8px 22px -12px var(--mc-premium);
+  font: 650 12.5px/1 var(--mc-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+.plan-dialog__primary:hover:not(:disabled),
+.plan-lock__cta:hover,
+.shell .plan-upgrade-button:hover:not(:disabled) { filter: brightness(1.06); }
+.plan-dialog__primary:focus-visible,
+.plan-lock__cta:focus-visible,
+.shell .plan-upgrade-button:focus-visible { outline: 2px solid var(--mc-premium-strong); outline-offset: 2px; }
+.plan-dialog__primary:disabled,
+.shell .plan-upgrade-button:disabled { cursor: not-allowed; filter: grayscale(0.5); opacity: 0.6; }
+
+/* ------------------------------------------------------------ upgrade dialog */
+
+.plan-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: var(--mc-glass-overlay);
+  animation: plan-fade 160ms ease-out;
+}
+.plan-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 150;
+  display: grid;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  box-sizing: border-box;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 16px;
+  overflow: auto;
+  padding: 22px;
+  color: var(--mc-text);
+  background:
+    radial-gradient(ellipse 70% 55% at 0% 0%, var(--mc-premium-soft), transparent 62%),
+    var(--mc-surface);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: var(--mc-radius-lg);
+  box-shadow: var(--mc-shadow-float);
+  transform: translate(-50%, -50%);
+  font-family: var(--mc-font-ui);
+  animation: plan-rise 180ms cubic-bezier(.2, .8, .2, 1);
+}
+.plan-dialog:focus { outline: none; }
+.plan-dialog__mark,
+.plan-lock__mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: var(--mc-premium-strong);
+  background: var(--mc-premium-soft);
+  border: 1px solid var(--mc-premium-line);
+  border-radius: var(--mc-radius-md);
+}
+.plan-dialog__kicker,
+.plan-lock__kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--mc-premium-strong);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.plan-dialog__title {
+  margin: 0 0 8px;
+  color: var(--mc-text);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.plan-dialog__detail {
+  margin: 0 0 14px;
+  color: var(--mc-text-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.plan-dialog__list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  list-style: none;
+  background: color-mix(in srgb, var(--mc-surface-3) 70%, transparent);
+  border: 1px solid var(--mc-border-faint);
+  border-radius: var(--mc-radius-sm);
+}
+.plan-dialog__list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--mc-text-soft);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.plan-dialog__list svg { flex: 0 0 auto; color: var(--mc-ok); }
+.plan-dialog__current { margin: 0; color: var(--mc-text-dim); font-size: 12px; }
+.plan-dialog__current b { color: var(--mc-text); font-weight: 600; }
+.plan-dialog__footer {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mc-border-faint);
+}
+.plan-dialog__secondary {
+  min-height: 34px;
+  padding: 0 14px;
+  color: var(--mc-text-soft);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+  font: 550 12.5px/1 var(--mc-font-ui);
+  cursor: pointer;
+}
+.plan-dialog__secondary:hover { color: var(--mc-text); border-color: var(--mc-border-strong); }
+.plan-dialog__secondary:focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
+@keyframes plan-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes plan-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .plan-dialog,
+  .plan-dialog-backdrop { animation: none; }
+}
+
+/* ------------------------------------------------------------ lock panel */
+
+.plan-lock {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 var(--mc-space-4);
+  padding: 18px 20px;
+  background:
+    radial-gradient(ellipse 60% 90% at 0% 50%, var(--mc-premium-soft), transparent 70%),
+    var(--mc-surface);
+  border: 1px solid var(--mc-premium-line);
+  border-radius: var(--mc-radius-lg);
+}
+.plan-lock__copy { min-width: 0; }
+.plan-lock__copy h3 { margin: 0 0 4px; color: var(--mc-text); font-size: 15px; font-weight: 650; line-height: 1.3; }
+.plan-lock__copy p { margin: 0; color: var(--mc-text-muted); font-size: 12.5px; line-height: 1.5; }
+@media (max-width: 900px) {
+  .plan-lock { grid-template-columns: 44px minmax(0, 1fr); }
+  .plan-lock__cta { grid-column: 2; justify-self: start; }
+}
+
+/* A metered allowance: "2 of 3 left today". */
+.shell .plan-allowance {
+  display: inline-flex;
+  min-height: 0;
+  height: 26px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  color: var(--mc-premium-strong);
+  background: var(--mc-premium-soft);
+  border: 1px solid var(--mc-premium-line);
+  border-radius: var(--mc-radius-pill);
+  font: 600 11.5px/1 var(--mc-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.shell .plan-allowance.is-empty { color: var(--mc-text); border-color: var(--mc-premium); }
+.shell .plan-allowance:focus-visible { outline: 2px solid var(--mc-premium-strong); outline-offset: 2px; }
+
+/* ------------------------------------------------------------ Account panel */
+
+/* A grid, not a flex column: the hub gives every panel head a 320px flex
+   basis for its side-by-side layout, which a column would turn into height. */
+.shell .account-panel { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--mc-space-4); }
+.shell .account-identity {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.shell .account-avatar,
+.shell .top-account__mark {
+  display: grid;
+  place-items: center;
+  color: var(--mc-text);
+  background: linear-gradient(150deg, var(--mc-surface-4), var(--mc-surface-3));
+  border: 1px solid var(--mc-border-strong);
+  font-weight: 700;
+  line-height: 1;
+}
+.shell .account-avatar { width: 40px; height: 40px; border-radius: 12px; font-size: 16px; }
+.shell .account-identity__copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.shell .account-identity__copy strong { overflow: hidden; color: var(--mc-text); font-size: 14px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.shell .account-identity__copy small { overflow: hidden; color: var(--mc-text-dim); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.shell .account-plan {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--mc-surface-3) 60%, transparent);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-md);
+}
+.shell .account-plan:not(.account-plan--free) {
+  background: radial-gradient(ellipse 60% 120% at 0% 50%, var(--mc-premium-soft), transparent 70%), color-mix(in srgb, var(--mc-surface-3) 60%, transparent);
+  border-color: var(--mc-premium-line);
+}
+.shell .account-plan__mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: var(--mc-text-muted);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border);
+  border-radius: 12px;
+}
+.shell .account-plan:not(.account-plan--free) .account-plan__mark { color: var(--mc-premium-strong); background: var(--mc-premium-soft); border-color: var(--mc-premium-line); }
+.shell .account-plan__copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.shell .account-plan__copy strong { color: var(--mc-text); font-size: 15px; font-weight: 650; }
+.shell .account-plan__copy small { color: var(--mc-text-muted); font-size: 12px; }
+.shell .account-plan__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.shell .account-plan__refresh { display: inline-flex; align-items: center; gap: 6px; }
+.shell .account-limits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+.shell .account-limits > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--mc-border-faint);
+}
+.shell .account-limits dt { color: var(--mc-text-muted); font-size: 12.5px; }
+.shell .account-limits dd {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: right;
+}
+.shell .account-limits > div.is-locked dd > span { color: var(--mc-text-soft); font-weight: 550; }
+.shell .account-limits__unlock {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--mc-radius-pill);
+  cursor: pointer;
+}
+.shell .account-limits__unlock:hover .plan-badge { border-color: var(--mc-premium); }
+.shell .account-limits__unlock:focus-visible { outline: 2px solid var(--mc-premium-strong); outline-offset: 2px; }
+.shell .account-note { margin: 0; }
+@media (max-width: 900px) {
+  .shell .account-limits { grid-template-columns: minmax(0, 1fr); }
+  .shell .account-plan { grid-template-columns: 40px minmax(0, 1fr); }
+  .shell .account-plan__actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* ------------------------------------------------------------ Updates panel */
+
+.shell .update-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--mc-space-4);
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--mc-surface-3) 60%, transparent);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-md);
+}
+.shell .update-panel__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.shell .update-panel__copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.shell .update-panel__copy strong { color: var(--mc-text); font-size: 13px; font-weight: 650; }
+.shell .update-panel__copy small { color: var(--mc-text-muted); font-size: 12px; line-height: 1.45; }
+.shell .update-panel__copy .update-panel__error { color: color-mix(in srgb, var(--mc-danger) 62%, var(--mc-text)); }
+.shell .update-panel__copy .update-panel__note { color: var(--mc-text-dim); }
+.shell .update-panel__actions { flex: 0 0 auto; }
+.shell .update-panel__progress { position: relative; display: block; height: 3px; overflow: hidden; background: var(--mc-border-faint); border-radius: 3px; }
+.shell .update-panel__progress i { position: absolute; inset: 0; background: var(--mc-accent-strong); transform: scaleX(0); transform-origin: left center; transition: transform 200ms linear; }
+@media (prefers-reduced-motion: reduce) {
+  .shell .update-panel__progress i { transition: none; }
+}
+.shell .update-panel__notes summary { color: var(--mc-text-soft); font-size: 12px; cursor: pointer; }
+.shell .update-panel__notes p { margin: 6px 0 0; color: var(--mc-text-muted); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.shell .update-panel__trust { color: var(--mc-text-dim); font-size: 11.5px; }
+
+/* ------------------------------------------------------------ sidebar account row */
+
+#root#root .shell .app-sidebar__footer .top-account {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  grid-template-columns: 26px minmax(0, 1fr);
+  place-items: center start;
+  gap: 9px;
+  padding: 8px 10px 8px 8px;
+  color: var(--mc-text);
+  text-align: left;
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+#root#root .shell .app-sidebar__footer .top-account:hover { background: var(--mc-surface-3); border-color: var(--mc-border-strong); }
+#root#root .shell .app-sidebar__footer .top-account__mark { width: 26px; height: 26px; border-radius: 7px; font-size: 12.5px; }
+/* A paid plan is stated in the ink of the mark, not a solid gold tile: the
+   filled tile was the brightest object in the sidebar, louder than the
+   destination the user is actually on. */
+#root#root .shell .app-sidebar__footer .top-account:not(.top-account--free) .top-account__mark {
+  color: var(--mc-premium);
+  background: var(--mc-premium-soft);
+  border-color: var(--mc-premium-line);
+}
+/* Stretched to its column: aligned to the start, the block took the width of
+   the email, and a long address ran past the card's edge with no ellipsis. */
+#root#root .shell .app-sidebar__footer .top-account > div {
+  display: flex;
+  min-width: 0;
+  justify-self: stretch;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+#root#root .shell .app-sidebar__footer .top-account small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mc-text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+#root#root .shell .app-sidebar__footer .top-account:not(.top-account--free) small { color: color-mix(in srgb, var(--mc-premium) 62%, var(--mc-text-muted)); }
+#root#root .shell .app-sidebar__footer .top-account:not(.top-account--free) small .plan-crown { color: var(--mc-premium); }
+#root#root .shell .app-sidebar__footer .top-account strong {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--mc-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  #root#root .shell .app-sidebar__footer .top-account {
+    width: 44px;
+    min-height: 44px;
+    grid-template-columns: 1fr;
+    place-items: center;
+    margin-inline: auto;
+    padding: 0;
+  }
+  #root#root .shell .app-sidebar__footer .top-account > div { display: none; }
+}
+
+/* ------------------------------------------------------------ status tape chips */
+
+#root#root .shell .status-plan-chip,
+#root#root .shell .status-update-chip {
+  display: inline-flex;
+  min-height: 0;
+  height: 26px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--mc-radius-pill);
+  font: 600 11px/1 var(--mc-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+#root#root .shell .status-plan-chip {
+  color: var(--mc-premium-strong);
+  background: var(--mc-premium-soft);
+  border: 1px solid var(--mc-premium-line);
+}
+#root#root .shell .status-plan-chip span { color: var(--mc-text-muted); font-weight: 550; }
+#root#root .shell .status-plan-chip b { color: var(--mc-premium-strong); font-weight: 700; }
+#root#root .shell .status-plan-chip:hover { border-color: var(--mc-premium); }
+#root#root .shell .status-update-chip {
+  color: var(--mc-accent-strong);
+  background: var(--mc-accent-soft);
+  border: 1px solid var(--mc-accent-line);
+}
+#root#root .shell .status-update-chip:hover { border-color: var(--mc-accent-strong); }
+#root#root .shell :is(.status-plan-chip, .status-update-chip):focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
+/* The tape sheds by value, like its own entries: the plan is also in the
+   sidebar, so its chip leaves first; the update chip keeps its arrow. */
+@media (max-width: 1320px) {
+  #root#root .shell .status-plan-chip span { display: none; }
+}
+@media (max-width: 1240px) {
+  #root#root .shell .status-plan-chip { display: none; }
+}
+@media (max-width: 1140px) {
+  #root#root .shell .status-update-chip { width: 26px; justify-content: center; padding: 0; }
+  #root#root .shell .status-update-chip span { display: none; }
+}
+
+/* ------------------------------------------------------------ crowns in place */
+
+/* The project switcher on a plan that keeps one project: the selector
+   becomes the crown, and the click explains instead of switching. */
+#root#root .shell > .app-sidebar > .top-project.is-plan-locked > i { color: var(--mc-premium-strong); }
+#root#root .shell > .app-sidebar > .top-project.is-plan-locked:hover > i { color: var(--mc-premium-strong); background: var(--mc-premium-soft); }
+
+/* Integrations: a compact crown after the name, and a gold state line. */
+.shell .hub__rail-copy strong { display: inline-flex; align-items: center; gap: 6px; }
+.shell .hub__rail-crown { height: 18px; }
+.shell .hub__rail-crown.plan-badge--compact { width: 18px; }
+.shell .hub__rail-copy small.tone-premium { color: var(--mc-premium-strong); }
+.shell .hub-directory__row .plan-badge.hub-directory__status { justify-self: end; }
+
+/* ------------------------------------------------------------ plan notes */
+
+/* One line about a limit, with the way past it: Recipes, Keys and models. */
+.plan-note {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 var(--mc-space-4);
+  padding: 9px 10px 9px 14px;
+  color: var(--mc-text-soft);
+  background: var(--mc-premium-soft);
+  border: 1px solid var(--mc-premium-line);
+  border-radius: var(--mc-radius-md);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.plan-note > .plan-crown { color: var(--mc-premium-strong); }
+.plan-note > span { flex: 1 1 auto; min-width: 0; }
+.plan-note .plan-note__cta {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 11px;
+  color: var(--mc-premium-ink);
+  background: var(--mc-premium-fill);
+  border: 1px solid var(--mc-premium);
+  border-radius: var(--mc-radius-xs);
+  font: 650 12px/1 var(--mc-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.plan-note .plan-note__cta:hover { filter: brightness(1.06); }
+.plan-note .plan-note__cta:focus-visible { outline: 2px solid var(--mc-premium-strong); outline-offset: 2px; }
+
+/* A Mission AI reply the plan's quota stopped: gold, not an error. */
+.shell .ai-msg__error.is-plan {
+  background: var(--mc-premium-soft);
+  border-color: var(--mc-premium-line);
+}
+.shell .ai-msg__error .plan-inline-upgrade {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mc-premium-ink);
+  background: var(--mc-premium-fill);
+  border: 1px solid var(--mc-premium);
+  font-weight: 650;
+}
+
+/* A saved key the plan does not use. */
+.ai-keys__card-head strong .ai-keys__crown { margin-left: 8px; vertical-align: 1px; }

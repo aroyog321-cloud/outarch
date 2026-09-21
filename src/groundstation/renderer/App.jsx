@@ -30,7 +30,6 @@ import { MissionAISettings } from "./MissionAI.jsx";
 import MissionAIScreen from "./MissionAIScreen.jsx";
 import { McpGatewaySettings } from "./McpGateway.jsx";
 import { MobileCompanionSettings } from "./MobileCompanion.jsx";
-import { PluginPlatformSettings } from "./PluginPlatform.jsx";
 import StatusBar from "./StatusBar.jsx";
 import HelpOverlay from "./HelpOverlay.jsx";
 import TrustBoundary from "./TrustBoundary.jsx";
@@ -38,7 +37,6 @@ import { DecisionItem } from "./DecisionItem.jsx";
 import { DecisionList, decisionDeepLinkLabel, decisionSourceLabel } from "./DecisionList.jsx";
 import { DecisionSourceStrip } from "./DecisionSourceStrip.jsx";
 import { useDecisions } from "./useDecisions.js";
-import PluginContributionSlot from "./PluginContributionSlot.jsx";
 import { ToastProvider, useToast } from "./ToastSystem.jsx";
 import NotificationTray from "./NotificationTray.jsx";
 import { playNotificationSound } from "./notificationSound.js";
@@ -51,6 +49,11 @@ import { copyText } from "./clipboard.js";
 import ContextSnapshotButton from "./ContextSnapshotButton.jsx";
 import StatusChip from "./StatusChip.jsx";
 import { FilterGroup, SegmentedChoice } from "./Segmented.jsx";
+import { AccountProvider, requestUpgrade, useAccount } from "./useAccount.js";
+import { AccountBoundary } from "./AccountGate.jsx";
+import { CrownIcon, PlanLockPanel, UpgradeHost, isFeatureLocked } from "./PlanLock.jsx";
+import { AccountSettings, SidebarAccountButton, UpdatesPanel, confirmUpdate } from "./AccountSettings.jsx";
+import { planLimits, recipeTrial } from "./planRules.js";
 
 function Command({ value: _selectedValue, onValueChange: _onSelectedValueChange, ...props }) {
   return <CmdkCommand {...props}/>;
@@ -69,7 +72,7 @@ Command.Group = CmdkCommand.Group;
 // launching a saved workspace is a daily verb, not a buried dialog.
 //
 // Integrations trails the primary seven as a contextual eighth. Every
-// connected bridge (Mission AI, VS Code, MCP, Automation, Mobile, Plugins)
+// connected bridge (Mission AI, VS Code, MCP, Automation, Mobile)
 // lives there, so it must stay one click away rather than hide inside
 // Settings, but it is a place you configure, not a place you operate from.
 // AppSidebar renders it below a divider so the seven stay legible as a group.
@@ -93,7 +96,7 @@ const NAV_SHORTCUTS = { groundstation: "Alt G", workspace: "Alt W", recipes: "Al
 const NAV_ALIASES = {
   needs: ["attention","approvals","failures"],
   history: ["activity","events","memory","logs"],
-  integrations: ["mission ai","mcp","vscode","mobile","plugins","bridges"],
+  integrations: ["mission ai","mcp","vscode","mobile","bridges"],
   recipes: ["recipe","daily workspace","startup","launch","stack"],
   projects: ["workspace","switch"]
 };
@@ -124,7 +127,13 @@ const ICON_PATHS = {
   star: <><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></>,
   stop: <><rect x="6" y="6" width="12" height="12" rx="2"/></>,
   shield: <><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z"/></>,
-  selector: <><path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/></>
+  selector: <><path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/></>,
+  server: <><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></>,
+  database: <><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></>,
+  flask: <><path d="M9 3h6M10 3v6.5L4.8 18.2A1.8 1.8 0 0 0 6.3 21h11.4a1.8 1.8 0 0 0 1.5-2.8L14 9.5V3"/><path d="M7.5 15h9"/></>,
+  branch: <><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></>,
+  box: <><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></>,
+  layers: <><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></>
 };
 
 /* T152 - one icon scale, and one optical weight.
@@ -847,8 +856,6 @@ function WorkerInspector({ session, activity, favorite, onClose, onFocus, onActi
       <span className="mc-gs-kicker">RECENT EVIDENCE</span>
       {events.length ? events.map((event, index) => <article key={`${event.sequence || index}-${event.type}`}><time>{timeAgo(event.timestamp)}</time><span>{eventTitle(event)}</span></article>) : <p>No recent lifecycle evidence for this worker.</p>}
     </div>
-    <PluginContributionSlot surface="context.resource" className="mc-gs-plugin-context"/>
-    <PluginContributionSlot surface="worker.detail" className="mc-gs-plugin-worker-detail"/>
     <footer>
       <button type="button" className="mc-gs-inspector-btn--action" onClick={() => onAction(session.isAlive ? "restart" : "start", session.id)}>{session.isAlive ? "Restart" : "Start"}</button>
       <button type="button" className="primary" onClick={() => onFocus(session.id)}><Icon name="terminal" size={13}/> {session.id.startsWith("agent-") ? "Open agent" : "Open terminal"}</button>
@@ -1110,8 +1117,6 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
           onRefresh={decisions?.refresh}
         />
 
-        <PluginContributionSlot surface="cockpit.banner" className="mc-gs-plugin-cockpit-banner"/>
-
         <section className="mc-ref-section mc-gs-register mc-gs-register--operations" role="region" aria-label="Supervised workers">
           <header className="mc-ref-section-head">
             <h2>Project operations</h2>
@@ -1143,8 +1148,6 @@ function LiveGroundstationView({ sessions, workspace, activity, unseenActivity, 
             <div>{sessions.slice(0, 6).map(session => <button key={`graph-${session.id}`} onClick={() => onSelect(session.id)}><i className={manifestState(session)}/><code>{session.name}</code></button>)}{!sessions.length && <span>No configured workers</span>}</div>
           </section>
         </section>
-
-        <PluginContributionSlot surface="health.status" className="mc-gs-plugin-health"/>
 
         <SinceLastCheck events={unseenActivity} onReview={() => onNavigate("history")} onDismiss={onDismissActivity}/>
       </div>
@@ -1687,6 +1690,10 @@ function layoutFor(id) {
   return TERMINAL_LAYOUTS.find(layout => layout.id === id) || TERMINAL_LAYOUTS[0];
 }
 
+// Each automatic folder shows its role's own glyph, tinted per role in the
+// stylesheet, so the row reads at a glance without a box around every entry.
+const FOLDER_ICONS = { agent: "agents", terminal: "terminal", service: "server", container: "box", database: "database", test: "flask", git: "branch", build: "layers" };
+
 function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatus }) {
   const storageKey = `mission-control.worker-folders.v1:${workspaceKey || "default"}`;
   const [custom, setCustom] = React.useState([]);
@@ -1695,7 +1702,7 @@ function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatu
   const [members, setMembers] = React.useState([]);
   React.useEffect(() => { try { const value = JSON.parse(localStorage.getItem(storageKey) || "[]"); setCustom(Array.isArray(value) ? value.filter(group => group?.id && group?.name && Array.isArray(group.workerIds)).slice(0, 12) : []); } catch { setCustom([]); } }, [storageKey]);
   const persist = next => { setCustom(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Folder organization remains available for this session. */ } };
-  const automatic = Object.entries(sessions.reduce((groups, session) => { const role = workerProfile(session).key; (groups[role] ||= []).push(session.id); return groups; }, {})).map(([role, workerIds]) => ({ id: `auto:${role}`, name: role === "agent" ? "AI agents" : role === "terminal" ? "Shell terminals" : `${role[0].toUpperCase()}${role.slice(1)} terminals`, workerIds, automatic: true }));
+  const automatic = Object.entries(sessions.reduce((groups, session) => { const role = workerProfile(session).key; (groups[role] ||= []).push(session.id); return groups; }, {})).map(([role, workerIds]) => ({ id: `auto:${role}`, role, name: role === "agent" ? "AI agents" : role === "terminal" ? "Shell terminals" : `${role[0].toUpperCase()}${role.slice(1)} terminals`, workerIds, automatic: true }));
   const save = event => { event.preventDefault(); const label = name.trim(); if (!label || !members.length) return; const group = { id: globalThis.crypto?.randomUUID?.() || `folder-${Date.now()}`, name: label.slice(0, 40), workerIds: members }; persist([...custom, group].slice(0, 12)); setName(""); setMembers([]); setAdding(false); onSelect(group); };
   const removeGroup = group => { persist(custom.filter(item => item.id !== group.id)); if (activeId === group.id) onSelect(null); };
 
@@ -1718,8 +1725,8 @@ function WorkerFolders({ workspaceKey, sessions, activeId, onSelect, vscodeStatu
           <span className="vscode-folder-mark">⌁</span><span>VS Code Bridge</span><b>{vscodeTerminals.length}</b>
         </button>
       </div>}
-      {[...automatic, ...custom].map(group => <div className={`worker-folder-item ${activeId === group.id ? "is-current" : ""}`} key={group.id}>
-        <button className="worker-folder-select" onClick={() => onSelect(group)} title={group.workerIds.map(id => sessions.find(session => session.id === id)?.name).filter(Boolean).join(", ")}><Icon name={group.automatic ? (group.id === "auto:agent" ? "agents" : "terminal") : "projects"} size={12}/><span>{group.name}</span><b>{group.workerIds.filter(id => sessions.some(session => session.id === id)).length}</b></button>
+      {[...automatic, ...custom].map(group => <div className={`worker-folder-item ${activeId === group.id ? "is-current" : ""}`} data-role={group.automatic ? group.role : "custom"} key={group.id}>
+        <button className="worker-folder-select" onClick={() => onSelect(group)} title={group.workerIds.map(id => sessions.find(session => session.id === id)?.name).filter(Boolean).join(", ")}><Icon name={group.automatic ? FOLDER_ICONS[group.role] || "terminal" : "projects"} size={12}/><span>{group.name}</span><b>{group.workerIds.filter(id => sessions.some(session => session.id === id)).length}</b></button>
         {!group.automatic && <button type="button" className="worker-folder-delete" onClick={() => removeGroup(group)} aria-label={`Delete ${group.name}`}>×</button>}
       </div>)}
       <button className="worker-folder-add" onClick={() => { setAdding(value => !value); setMembers([]); }}><Icon name="plus" size={12}/><span>New folder</span></button>
@@ -2773,7 +2780,7 @@ function NeedsView({ decisionRecords = [], decisionsStatus = "loading", decision
       } finally { setBusyId(""); }
       return;
     }
-    // missionSupervisor / mission / mcp / automation / mobile / plugin — approve | deny
+    // missionSupervisor / mission / mcp / automation / mobile — approve | deny
     const apply = async () => {
       setBusyId(record.id);
       try {
@@ -3194,7 +3201,7 @@ function SecuritySettings({ workspace }) {
       <div><span>Interface preferences</span><strong>This device only</strong></div>
       <div><span>External requests</span><strong>Only the integrations you configure</strong></div>
     </div>
-    <p className="settings-note">Mission AI, MCP, Mobile and Plugins each declare their own boundary before they become active. Run a self-test on any of them in Integrations to see what it can currently reach.</p>
+    <p className="settings-note">Mission AI, MCP and Mobile each declare their own boundary before they become active. Run a self-test on any of them in Integrations to see what it can currently reach.</p>
   </section></div></div>;
 }
 
@@ -3215,7 +3222,7 @@ function ProjectDefaultSettings({ workspace, sessions = [], onNavigate, onConfig
   </section></div></div>;
 }
 
-function AboutSettings({ state }) {
+function AboutSettings({ state, onConfirm }) {
   return <div className="settings-view"><div className="settings-grid"><section className="settings-panel settings-panel-wide pm-card">
     <div className="settings-panel__head"><Icon name="command"/><div><h3>About</h3><p>What this build is.</p></div></div>
     <div className="about-brand"><BrandIcon large/><div><BrandWordmark/><small>Developer cockpit{PRODUCT_VERSION ? ` · version ${PRODUCT_VERSION}` : ""}</small></div></div>
@@ -3223,14 +3230,15 @@ function AboutSettings({ state }) {
       <div><span>Application</span><strong>{PRODUCT_NAME}{PRODUCT_VERSION ? ` ${PRODUCT_VERSION}` : ""}</strong></div>
       <div><span>Engine contract</span><strong>Protocol v{state?.contractVersion || "—"}</strong></div>
       <div><span>Runtime</span><strong>Local-first · engine-owned PTYs</strong></div>
-      <div><span>Updates</span><strong>Manual · Ed25519-verified signed releases (auto-update deferred)</strong></div>
+      <div><span>Updates</span><strong>Automatic · signed releases, verified before they install</strong></div>
     </div>
+    <UpdatesPanel onConfirm={onConfirm}/>
     <ResourceLinks/>
   </section></div></div>;
 }
 
 // Settings now holds only application preferences. Every connected-capability
-// panel (Mission AI, VS Code, MCP, Automation, Mobile, Plugins) lives in the
+// panel (Mission AI, VS Code, MCP, Automation, Mobile) lives in the
 // Integrations tab instead — see IntegrationHubView in IntegrationsView.jsx.
 /* T120 — the eight groups, in the order a reader looks for them: the things
    they change every day first, the things they read when something is wrong
@@ -3241,6 +3249,7 @@ function AboutSettings({ state }) {
    The order and the ids are the contract; the panels themselves are the
    existing components, regrouped rather than rewritten. */
 const SETTINGS_GROUPS = [
+  ["account", "Account & plan"],
   ["appearance", "Appearance & accessibility"],
   ["terminal", "Terminal"],
   ["notifications", "Notifications"],
@@ -3253,7 +3262,7 @@ const SETTINGS_GROUPS = [
 
 const SETTINGS_GROUP_KEY = "mission-control.settings-group.v1";
 
-function SettingsHub({ state, workspace, recovery, sessions = [], preferences, onPreference, onReset, onNavigate, onOpenIntegrations, onConfigureAutoStart }) {
+function SettingsHub({ state, workspace, recovery, sessions = [], preferences, onPreference, onReset, onNavigate, onOpenIntegrations, onConfigureAutoStart, onConfirm, focusGroup }) {
   const [group, setGroup] = React.useState(() => {
     try {
       const stored = localStorage.getItem(SETTINGS_GROUP_KEY);
@@ -3267,10 +3276,17 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
   // Integrations is a destination, not a panel: it owns a whole route, and
   // duplicating it here would be the second entry point T249 warns about.
   const choose = id => (id === "integrations" ? onOpenIntegrations() : select(id));
+  // Another surface can open a group directly (the sidebar account row opens
+  // Account & plan); the request carries a stamp so asking twice works.
+  React.useEffect(() => {
+    if (focusGroup?.id && SETTINGS_GROUPS.some(([id]) => id === focusGroup.id)) select(focusGroup.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusGroup]);
 
   // One line under each group name says what is inside it, so the rail can be
   // scanned for a setting rather than opened group by group to find one.
   const hints = {
+    account: "Plan, usage and sign-out",
     appearance: "Text size, density and motion",
     terminal: "Font, cursor and scrollback",
     notifications: "What may interrupt you",
@@ -3281,6 +3297,7 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
     about: "Version and components"
   };
   const icons = {
+    account: <><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5a7.2 7.2 0 0 1 14.4 0"/></>,
     appearance: <><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none"/></>,
     terminal: <><rect x="3.5" y="5" width="17" height="14" rx="2.2"/><path d="m7.5 10 2.5 2-2.5 2"/><path d="M12.5 14.5h4"/></>,
     notifications: <><path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5Z"/><path d="M13.7 19.5a2 2 0 0 1-3.4 0"/></>,
@@ -3309,13 +3326,14 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
     </nav>
     <div className="hub__panel">
       <h2 className="sr-only">{SETTINGS_GROUPS.find(([id]) => id === group)?.[1] || "Settings"}</h2>
+      {group === "account" && <AccountSettings onConfirm={onConfirm}/>}
       {group === "appearance" && <SettingsView preferences={preferences} onPreference={onPreference}/>}
       {group === "terminal" && <TerminalSettings preferences={preferences} onPreference={onPreference}/>}
       {group === "notifications" && <NotificationSettings/>}
       {group === "project" && <ProjectDefaultSettings workspace={workspace} sessions={sessions} onNavigate={onNavigate} onConfigureAutoStart={onConfigureAutoStart}/>}
       {group === "security" && <SecuritySettings workspace={workspace}/>}
       {group === "diagnostics" && <DiagnosticsSettings state={state} workspace={workspace} recovery={recovery}/>}
-      {group === "about" && <AboutSettings state={state}/>}
+      {group === "about" && <AboutSettings state={state} onConfirm={onConfirm}/>}
       {/* Restoring defaults is scoped to the preferences the two preference
           groups own, so it belongs with them and nowhere else. */}
       {(group === "appearance" || group === "terminal") && <SettingsResetFooter preferences={preferences} onReset={onReset}/>}
@@ -3324,21 +3342,25 @@ function SettingsHub({ state, workspace, recovery, sessions = [], preferences, o
   </div>;
 }
 
-function AppSidebar({ view, workspace, pendingCount, onNavigate, onProject, onPalette, onMissionAI }) {
+function AppSidebar({ view, workspace, pendingCount, onNavigate, onProject, onPalette, onMissionAI, onAccount }) {
+  // A plan that keeps one project open still lets the first one be chosen;
+  // once a project is open, switching wears the crown and explains itself.
+  const { status: account } = useAccount();
+  const projectLocked = Boolean(workspace?.persistent) && isFeatureLocked(account, "projectSwitching");
   // One letter: two capitals squeezed into the tile read as a code ("FI"), not
   // as the project. Array.from keeps a leading emoji or accent whole.
   const projectMark = (Array.from(String(workspace?.name || "").trim())[0] || "P").toUpperCase();
   const renderNavButton = ([id, label, icon]) => <button key={id} data-nav-id={id} data-tooltip={`${label} · ${NAV_SHORTCUTS[id] || "Open"}`} aria-label={label} aria-current={view === id ? "page" : undefined} className={view === id ? "is-current" : ""} onClick={() => onNavigate(id)} title={`${label} · ${NAV_SHORTCUTS[id]}`}><Icon name={icon} size={17}/><span>{label}</span>{id === "needs" && pendingCount > 0 && <b aria-label={`${pendingCount} items need attention`}>{pendingCount}</b>}</button>;
   return <aside className="app-sidebar" aria-label="Application sidebar">
     <div className="app-sidebar__brand"><button className="top-brand" onClick={() => onNavigate("groundstation")} aria-label="Open Groundstation"><BrandIcon/></button><div><strong><BrandWordmark/></strong><small>Developer cockpit</small></div></div>
-    <button className="top-project" data-tooltip={`Switch project · ${workspace?.name || "none"}`} onClick={onProject} aria-label={`Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true"><Icon name="selector" size={14}/></i></button>
+    <button className={`top-project${projectLocked ? " is-plan-locked" : ""}`} data-tooltip={`Switch project · ${projectLocked ? "Pro feature" : workspace?.name || "none"}`} onClick={projectLocked ? () => requestUpgrade({ feature: "projectSwitching" }) : onProject} aria-label={projectLocked ? `Project: ${workspace?.name || "none"}. Switching projects needs a paid plan.` : `Switch project. Current project: ${workspace?.name || "none"}`}><span className="top-project__mark" aria-hidden="true">{projectMark}</span><div><small>Project</small><strong>{workspace?.name || "Choose project"}</strong></div><i aria-hidden="true">{projectLocked ? <CrownIcon size={13}/> : <Icon name="selector" size={14}/>}</i></button>
     <nav className="top-navigation" aria-label="OUTARCH navigation">
       {NAVIGATION.slice(0, PRIMARY_NAV_COUNT).map(destination => renderNavButton(destination))}
       <div className="top-navigation__contextual" role="group" aria-label="Configuration">
         {NAVIGATION.slice(PRIMARY_NAV_COUNT).map(destination => renderNavButton(destination))}
       </div>
     </nav>
-    <div className="app-sidebar__footer"><button className="top-search" data-tooltip="Mission Command · Ctrl K" onClick={onPalette} aria-label="Search or run a command"><Icon name="search" size={16}/><span>Search commands</span><kbd>Ctrl+K</kbd></button><button className={`top-ai ${view === "mission-ai" ? "is-current" : ""}`} data-tooltip="Mission AI" onClick={onMissionAI} aria-label="Open Mission AI"><span><AiGlyph size={14}/></span><strong>Mission AI</strong></button><span className="app-sidebar__rail-label" aria-hidden="true">OUTARCH</span></div>
+    <div className="app-sidebar__footer"><SidebarAccountButton onOpen={onAccount}/><button className="top-search" data-tooltip="Mission Command · Ctrl K" onClick={onPalette} aria-label="Search or run a command"><Icon name="search" size={16}/><span>Search commands</span><kbd>Ctrl+K</kbd></button><button className={`top-ai ${view === "mission-ai" ? "is-current" : ""}`} data-tooltip="Mission AI" onClick={onMissionAI} aria-label="Open Mission AI"><span><AiGlyph size={14}/></span><strong>Mission AI</strong></button><span className="app-sidebar__rail-label" aria-hidden="true">OUTARCH</span></div>
   </aside>;
 }
 
@@ -3367,7 +3389,11 @@ function GroundstationApp() {
   const { state, loading, error, recovery, refresh } = useMissionState();
   const capabilityHandshake = useCapabilities();
   const { toast } = useToast();
+  const { status: account } = useAccount();
+  const accountRef = React.useRef(account);
+  accountRef.current = account;
   const [view, setView] = React.useState("groundstation");
+  const [settingsFocus, setSettingsFocus] = React.useState(null);
   const [recoveryBoot, setRecoveryBoot] = React.useState(null);
   React.useEffect(() => {
     let active = true;
@@ -3470,7 +3496,7 @@ function GroundstationApp() {
   const resolveDecision = React.useCallback(async (record, actionId) => {
     const params = { id: record.id, actionId };
     if (record.source === "mission") params.missionId = record.target?.id;
-    return ["missionSupervisor", "mission", "mcp", "automation", "mobile", "plugin"].includes(record.source)
+    return ["missionSupervisor", "mission", "mcp", "automation", "mobile"].includes(record.source)
       ? confirmedRequest("decisions.resolve", params)
       : missionApi().request("decisions.resolve", params);
   }, []);
@@ -3532,7 +3558,7 @@ function GroundstationApp() {
   React.useEffect(() => { if (view === "history" && historyCursor !== undefined && latestActivitySequence > historyCursor) markHistoryReviewed(); }, [historyCursor, latestActivitySequence, markHistoryReviewed, view]);
   React.useEffect(() => { const onKey = event => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "b") { event.preventDefault(); setBroadcastOpen(value => !value); return; } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); if (!missionAiOpen) setPaletteOpen(value => !value); } else if (event.key === "Escape") { if (document.querySelector("[data-radix-popper-content-wrapper],[role='dialog'],[role='alertdialog']")) return; if (broadcastOpen) setBroadcastOpen(false); else if (helpOpen) setHelpOpen(false); else if (paletteOpen) setPaletteOpen(false); else if (missionAiOpen) closeMissionAI(); else if (missionGraphOpen) setMissionGraphOpen(false); else if (workerFocusId) setWorkerFocusId(null); else if (expandedTerminal) setExpandedTerminal(null); else if (inspectorOpen) setInspectorOpen(false); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [broadcastOpen, closeMissionAI, expandedTerminal, helpOpen, inspectorOpen, missionAiOpen, missionGraphOpen, paletteOpen, workerFocusId]);
   React.useEffect(() => { const editable = target => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable; const onKey = event => { if (editable(event.target) || paletteOpen || missionAiOpen || missionGraphOpen) return; if (event.key === "F1" || (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey)) { event.preventDefault(); setHelpOpen(true); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [missionAiOpen, missionGraphOpen, paletteOpen]);
-  React.useEffect(() => { const onKey = event => { if (paletteOpen || missionAiOpen || missionGraphOpen || confirmation || workerDialog) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); setWorkerDialog({ mode: "create" }); return; } if (!event.altKey) return; const destination = { g: "groundstation", w: "workspace", r: "recipes", n: "needs", a: "workspace", h: "history", i: "integrations" }[event.key.toLowerCase()]; if (destination) { event.preventDefault(); if (destination === "integrations") setIntegrationSection("overview"); setView(destination); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [confirmation, missionAiOpen, missionGraphOpen, paletteOpen, workerDialog]);
+  React.useEffect(() => { const onKey = event => { if (paletteOpen || missionAiOpen || missionGraphOpen || confirmation || workerDialog) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); openCreateWorkerRef.current?.(); return; } if (!event.altKey) return; const destination = { g: "groundstation", w: "workspace", r: "recipes", n: "needs", a: "workspace", h: "history", i: "integrations" }[event.key.toLowerCase()]; if (destination) { event.preventDefault(); if (destination === "integrations") setIntegrationSection("overview"); setView(destination); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [confirmation, missionAiOpen, missionGraphOpen, paletteOpen, workerDialog]);
   React.useEffect(() => { const onKey = event => { if (view !== "workspace" || paletteOpen || missionAiOpen || missionGraphOpen || !event.altKey || !/^[1-6]$/.test(event.key)) return; const id = terminalLayout.sessionIds[Number(event.key) - 1]; if (!id || !sessions.some(session => session.id === id)) return; event.preventDefault(); setFocusedTerminal(id); setSelectedWorker(id); }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [missionAiOpen, missionGraphOpen, paletteOpen, sessions, terminalLayout.sessionIds, view]);
   // Directional pane movement and layout cycling. Alt is used throughout the
   // app for navigation, so these compose with the existing Alt 1–6 shortcuts
@@ -3581,6 +3607,20 @@ function GroundstationApp() {
   // alert takes them down with it: a toast about an error you have just
   // acknowledged is the same interruption a second time.
   const problemNoticesRef = React.useRef(new Map());
+  // An agent's permission questions still on screen, by worker. Typing into
+  // that terminal answers them, and the main process says so.
+  const promptNoticesRef = React.useRef(new Map());
+  React.useEffect(() => {
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = missionApi().subscribe(message => {
+        if (message?.type !== "agent:prompt-cleared" || !message.workerId) return;
+        for (const noticeId of promptNoticesRef.current.get(message.workerId) || []) toast.dismiss(noticeId);
+        promptNoticesRef.current.delete(message.workerId);
+      });
+    } catch { /* without the bridge there is nothing to observe */ }
+    return () => { try { unsubscribe?.(); } catch { /* already torn down */ } };
+  }, [toast]);
   const executeAction = React.useCallback(async (type, id, fields = {}) => {
     const name = sessionsRef.current.find(item => item.id === id)?.name || id;
     const words = ACTION_FEEDBACK[type] || null;
@@ -3596,6 +3636,7 @@ function GroundstationApp() {
       }
       await refresh();
     } catch (value) {
+      if (value?.code === "PLAN_REQUIRED") { pending?.cancel(); return; }
       const reason = value?.message || String(value);
       if (!pending) { setNotice(reason); return; }
       pending.fail(reason, {
@@ -3610,6 +3651,17 @@ function GroundstationApp() {
   }, [refresh, toast, setNotice]);
   const executeActionRef = React.useRef(executeAction);
   executeActionRef.current = executeAction;
+  const terminalLimit = planLimits(account)?.terminals;
+  const openCreateWorker = React.useCallback((extra = {}) => {
+    const count = sessionsRef.current.length;
+    if (terminalLimit != null && count >= terminalLimit) {
+      requestUpgrade({ feature: "terminals", amount: count + 1, message: `Your plan includes ${terminalLimit} terminal${terminalLimit === 1 ? "" : "s"}.` });
+      return;
+    }
+    setWorkerDialog({ mode: "create", ...extra });
+  }, [terminalLimit]);
+  const openCreateWorkerRef = React.useRef(openCreateWorker);
+  openCreateWorkerRef.current = openCreateWorker;
   const dispatch = React.useCallback(async (type, id, fields = {}, confirmOverride = null) => { const target = sessions.find(item => item.id === id); if (["kill", "remove"].includes(type)) { setConfirmation({ title: confirmOverride?.title || (type === "kill" ? `Stop ${target?.name || id}?` : `Remove ${target?.name || id}?`), detail: confirmOverride?.detail || (type === "kill" ? "The engine will stop this worker and its active PTY." : "The worker definition will be removed from this workspace."), recovery: type === "kill" ? "You can start this worker again later." : "Removal may require recreating the worker configuration.", confirmLabel: type === "kill" ? "Stop worker" : "Remove worker", run: () => executeAction(type, id, fields) }); return; } await executeAction(type, id, fields); }, [executeAction, sessions]);
   const executeBulk = React.useCallback(async (type, targets) => {
     if (!targets.length) return;
@@ -3658,7 +3710,22 @@ function GroundstationApp() {
     // Tolerate being used directly as an onClick handler (recipe would be the event).
     const valid = recipe && typeof recipe === "object" && typeof recipe.id === "string";
     setView("recipes");
-    setRecipesOpen({ mode: valid && (mode === "edit" || mode === "duplicate") ? mode : "create", recipe: valid ? recipe : null });
+    const resolved = valid && (mode === "edit" || mode === "duplicate") ? mode : "create";
+    const open = () => setRecipesOpen({ mode: resolved, recipe: valid ? recipe : null });
+    // The plan is checked before the builder opens, not after the recipe is
+    // written: an ended trial, or a new recipe past the plan's count, explains
+    // itself here instead of refusing the save.
+    const limits = planLimits(accountRef.current);
+    if (!limits) return open();
+    const trial = recipeTrial(accountRef.current);
+    if (trial.limited && !trial.active) return requestUpgrade({ feature: "recipeTrial" });
+    if (resolved === "edit" || limits.recipes == null) return open();
+    void missionApi().request("recipe.list").then(list => {
+      const count = Array.isArray(list) ? list.length : 0;
+      if (count >= limits.recipes) requestUpgrade({ feature: "recipes", amount: count + 1, message: `Your plan includes ${limits.recipes} recipe${limits.recipes === 1 ? "" : "s"}.` });
+      else open();
+    }).catch(open);
+    return undefined;
   }, []);
   // Generic "Recipes" affordances navigate; they do not assume you want to
   // create something. Only an explicitly creational control opens the builder.
@@ -3717,6 +3784,11 @@ function GroundstationApp() {
         if (message?.type !== "notification:activate") return;
         // A Windows toast button finishes its job here: "Open terminal" lands
         // on the terminal, not merely on the window.
+        if (message.actionId === "install-update") {
+          const updates = window.missionControl?.updates;
+          if (updates) void Promise.resolve(updates.status()).then(status => confirmUpdate({ api: updates, status, onConfirm: setConfirmation })).catch(() => {});
+          return;
+        }
         if (message.actionId === "focus-worker" && message.sessionId) {
           focusWorkerRef.current?.(message.sessionId);
           return;
@@ -3788,6 +3860,11 @@ function GroundstationApp() {
       if (actionId === "inspect-port" && data.port) return void whoHoldsPort(data.port, { id: notice.workerId, name: notice.workerName || "the worker" });
       if (actionId === "review") return setView("needs");
       if (actionId === "open-recipes") return setView("recipes");
+      if (actionId === "install-update") {
+        const updates = window.missionControl?.updates;
+        if (updates) void Promise.resolve(updates.status()).then(status => confirmUpdate({ api: updates, status, onConfirm: setConfirmation })).catch(() => {});
+        return undefined;
+      }
       return undefined;
     };
     const TOAST_TYPE = { critical: "danger", warning: "warning", success: "success", info: "info" };
@@ -3801,6 +3878,12 @@ function GroundstationApp() {
         const notice = message.notification;
         const delivery = notice.delivery || {};
         const type = TOAST_TYPE[notice.tone] || "info";
+        if (notice.workerId && notice.kind === "agent.awaitingApproval") {
+          const ids = promptNoticesRef.current.get(notice.workerId) || new Set();
+          ids.add(notice.id);
+          if (ids.size > 4) ids.delete(ids.values().next().value);
+          promptNoticesRef.current.set(notice.workerId, ids);
+        }
         if (notice.workerId && PROBLEM_KINDS.has(notice.kind)) {
           const ids = problemNoticesRef.current.get(notice.workerId) || new Set();
           ids.add(notice.id);
@@ -3813,7 +3896,10 @@ function GroundstationApp() {
           title: notice.title,
           source: notice.workerName || "",
           remember: true,
-          duration: delivery.test ? 8000 : TOAST_DURATION[notice.tone],
+          duration: delivery.test ? 8000 : notice.kind === "agent.awaitingApproval" ? 0 : TOAST_DURATION[notice.tone],
+          // The tile says what kind of notice it is: a bell for an agent waiting
+          // on an answer, a shield for a verified update.
+          icon: notice.kind === "agent.awaitingApproval" ? "bell" : notice.kind === "update.available" ? "shield" : undefined,
           // The center decided whether this rings; a Windows toast plays its
           // own sound, so the app rings only when it is the one showing it.
           sound: delivery.soundBy === "app" ? delivery.sound : null,
@@ -3892,7 +3978,9 @@ function GroundstationApp() {
     ...SECONDARY_DESTINATIONS.map(([id,label,icon]) => ({ id: `nav-${id}`, label, group: "Application", icon, aliases: NAV_ALIASES[id] || [], run: () => setView(id) })),
     ...(selectedSession ? [{ id: "context-open", label: selectedSession.id.startsWith("agent-") ? `Review ${selectedSession.name}` : `Inspect ${selectedSession.name}`, group: "Selected worker", icon: selectedSession.id.startsWith("agent-") ? "agents" : "terminal", aliases: ["focus","quick look","details","history","summary"], run: () => inspectWorker(selectedSession.id) }] : []),
     ...(selectedSession?.attentionRequired ? [{ id: "context-acknowledge", label: `Acknowledge ${selectedSession.name} alert`, group: "Selected worker", icon: "attention", run: () => dispatch("acknowledge", selectedSession.id) }] : []),
-    { id: "new-worker", label: "Add a new worker", group: "Action", icon: "plus", shortcut: "N", run: () => setWorkerDialog({ mode: "create" }) },
+    { id: "new-worker", label: "Add a new worker", group: "Action", icon: "plus", shortcut: "N", run: () => openCreateWorker() },
+    { id: "account-plan", label: "Account and plan", group: "Navigate", icon: "settings", aliases: ["plan", "subscription", "upgrade", "billing", "sign out", "logout", "pro", "ultimate"], run: () => { setSettingsFocus({ id: "account", at: Date.now() }); setView("settings"); } },
+    { id: "check-updates", label: "Check for updates", group: "Action", icon: "command", aliases: ["update", "upgrade version", "new version", "release"], run: () => { setSettingsFocus({ id: "about", at: Date.now() }); setView("settings"); void window.missionControl?.updates?.check?.(); } },
     { id: "autostart-manager", label: "Choose which terminals start with the workspace", group: "Workspace action", icon: "grid", aliases: ["autostart","auto-start","startup","boot","launch policy","on open","start with workspace"], run: () => setAutoStartManagerOpen(true) },
     { id: "mission-ai", label: "Open Mission AI", group: "Project intelligence", icon: "agents", aliases: ["gemini","what is happening","what is broken","what needs me","summary"], run: () => openMissionAI() },
     { id: "settings-mcp", label: "Open Secure MCP Gateway", group: "Integrations", icon: "command", aliases: ["claude","chatgpt","external ai","token","gateway"], run: () => { setIntegrationSection("mcp"); setView("integrations"); } },
@@ -3918,29 +4006,34 @@ function GroundstationApp() {
   if (error && !state) return <div className="boot-screen boot-error" role="alert"><BrandWordmark large className="boot-wordmark"/><h1>The workspace engine is not responding</h1><p>{error}</p><button className="primary-button" onClick={refresh}>Reconnect</button></div>;
 
   const renderView = () => {
-    if (view === "groundstation") return <LiveGroundstationView sessions={supervisedSessions} workspace={workspace} activity={activity} unseenActivity={unseenActivity} selectedId={selectedWorker} onSelect={selectWorker} onFocus={inspectWorker} onAction={dispatch} onNavigate={setView} onDismissActivity={markHistoryReviewed} onRecipes={goToRecipes} onCreateRecipe={() => openRecipeBuilder()} onLaunchRecipe={launchRecipe} onAddWorker={() => setWorkerDialog({ mode: "create" })} onAskAI={prompt => openMissionAI(prompt)} onMissionGraph={() => setMissionGraphOpen(true)} onOpenDecisionSource={openDecisionSource} decisionCount={decisions.status === "ready" ? decisions.counts.pending : undefined} decisions={decisions}/>;
+    if (view === "groundstation") return <LiveGroundstationView sessions={supervisedSessions} workspace={workspace} activity={activity} unseenActivity={unseenActivity} selectedId={selectedWorker} onSelect={selectWorker} onFocus={inspectWorker} onAction={dispatch} onNavigate={setView} onDismissActivity={markHistoryReviewed} onRecipes={goToRecipes} onCreateRecipe={() => openRecipeBuilder()} onLaunchRecipe={launchRecipe} onAddWorker={() => openCreateWorker()} onAskAI={prompt => openMissionAI(prompt)} onMissionGraph={() => setMissionGraphOpen(true)} onOpenDecisionSource={openDecisionSource} decisionCount={decisions.status === "ready" ? decisions.counts.pending : undefined} decisions={decisions}/>;
     if (view === "mission-ai") return <MissionAIScreen initialPrompt={missionAiPrompt} onConfirm={setConfirmation}/>;
-    if (view === "workspace") return <WorkspaceView needsCount={pendingCount} onReviewNeeds={() => setView("needs")} sessions={sessions} workspaceKey={recipeProjectKey} terminalLayout={terminalLayout} focusedId={focusedTerminal} expandedId={expandedTerminal} inspectorOpen={inspectorOpen} terminalPreferences={preferences} onInspector={() => setInspectorOpen(value => !value)} onFocus={setFocusedTerminal} onExpand={setExpandedTerminal} onAction={dispatch} onStartWorkspace={startWorkspace} onStopWorkspace={stopWorkspace} onRecipes={goToRecipes} onMissionGraph={() => setMissionGraphOpen(true)} onAddWorker={() => setWorkerDialog({ mode: "create" })} onReconfigure={session => setWorkerDialog({ mode: "edit", configuration: session })} onDuplicate={session => setWorkerDialog({ mode: "create", seed: { ...session, id: `${session.id}-copy`, name: `${session.name} copy` } })} onTerminalError={reportTerminalAlert} onTerminalRecovered={dismissTerminalAlert} onAskAI={prompt => openMissionAI(prompt)} onConfirm={setConfirmation}/>;
+    if (view === "workspace") return <WorkspaceView needsCount={pendingCount} onReviewNeeds={() => setView("needs")} sessions={sessions} workspaceKey={recipeProjectKey} terminalLayout={terminalLayout} focusedId={focusedTerminal} expandedId={expandedTerminal} inspectorOpen={inspectorOpen} terminalPreferences={preferences} onInspector={() => setInspectorOpen(value => !value)} onFocus={setFocusedTerminal} onExpand={setExpandedTerminal} onAction={dispatch} onStartWorkspace={startWorkspace} onStopWorkspace={stopWorkspace} onRecipes={goToRecipes} onMissionGraph={() => setMissionGraphOpen(true)} onAddWorker={() => openCreateWorker()} onReconfigure={session => setWorkerDialog({ mode: "edit", configuration: session })} onDuplicate={session => openCreateWorker({ seed: { ...session, id: `${session.id}-copy`, name: `${session.name} copy` } })} onTerminalError={reportTerminalAlert} onTerminalRecovered={dismissTerminalAlert} onAskAI={prompt => openMissionAI(prompt)} onConfirm={setConfirmation}/>;
     if (view === "recipes") return <RecipesView sessions={sessions} onManage={openRecipeBuilder} onLaunch={launchRecipe} onDelete={deleteRecipe} onRunAction={runRecipeAction} onAskAI={() => openMissionAI("Design a practical OUTARCH recipe (a repeatable workspace launch) for this project. Propose the backend, frontend, tests, Git, database, container, and agent terminals that are useful; define safe startup dependencies and readiness checks. Present the complete recipe design in Markdown and ask for my approval ('Does this recipe design look good?'). Do NOT build, start, or run any recipe or workers yet until I explicitly approve the design.")}/>;
     if (view === "needs") return <NeedsView decisionRecords={decisions.records} decisionsStatus={decisions.status} decisionSources={decisions.sources} decisionsComplete={decisions.complete} onDecisionsRefresh={decisions.refresh} onResolveDecision={resolveDecision} onAcknowledgeDecision={decisions.acknowledge} onAction={dispatch} onFocus={inspectWorker} onOpenTerminal={focusWorker} onDismissTerminalAlert={dismissTerminalAlert} onConfirm={setConfirmation} onOpenSource={openDecisionSource}/>;
     if (view === "agents") return <AgentWorkspace sessions={sessions} activity={activity} adapters={agentAdapters} loading={agentsLoading} selectedId={selectedWorker} onSelect={setSelectedWorker} onCreate={createAgent} onAction={dispatch} onOpenTerminal={focusWorker} onConfirm={setConfirmation} decisionRecords={decisions.records} onOpenDecision={openDecisionSource} onNavigate={setView} onAskAI={prompt => openMissionAI(prompt)}/>;
     if (view === "history") return <HistoryView events={activity} onFocus={inspectWorker} onAskAI={prompt => openMissionAI(prompt)} projectKey={historyProjectKey}/>;
     if (view === "integrations") return <IntegrationHubView workspace={workspace} section={integrationSection} onSection={setIntegrationSection} onAskAI={() => openMissionAI()} capabilityHandshake={capabilityHandshake}>
       {integrationSection === "intelligence" && <MissionAISettings onOpen={() => openMissionAI()} onConfirm={setConfirmation}/>}
-      {integrationSection === "vscode" && <VSCodeBridgeSettings workspace={workspace} onConfirm={setConfirmation}/>}
-      {integrationSection === "mcp" && <McpGatewaySettings workspace={workspace} onConfirm={setConfirmation}/>}
-      {integrationSection === "companion" && <MobileCompanionSettings workspace={workspace} onConfirm={setConfirmation}/>}
-      {integrationSection === "extensions" && <PluginPlatformSettings onConfirm={setConfirmation}/>}
+      {integrationSection === "vscode" && (isFeatureLocked(account, "vscodeBridge")
+        ? <PlanLockPanel feature="vscodeBridge" title="VS Code bridge" description="Bring the file you are editing, its diagnostics and your Git state into OUTARCH, and manage VS Code terminals from here."/>
+        : <VSCodeBridgeSettings workspace={workspace} onConfirm={setConfirmation}/>)}
+      {integrationSection === "mcp" && (isFeatureLocked(account, "mcp")
+        ? <PlanLockPanel feature="mcp" title="Secure MCP gateway" description="Let Claude Code, Codex and other AI tools on this computer read your workspace, workers, history and Needs You through one authenticated local gateway."/>
+        : <>{isFeatureLocked(account, "mcpActions") ? <PlanLockPanel feature="mcpActions" title="AI tools can read, not act" description="Your plan gives AI tools read-only access. Starting, stopping and typing into terminals from an AI tool, always with your approval, is part of the next plan."/> : null}<McpGatewaySettings workspace={workspace} onConfirm={setConfirmation}/></>)}
+      {integrationSection === "companion" && (isFeatureLocked(account, "mobileCompanion")
+        ? <PlanLockPanel feature="mobileCompanion" title="Mobile companion" description="Pair your phone to watch your terminals, answer approvals and ask Mission AI while you are away from your desk. Every message is encrypted end to end."/>
+        : <MobileCompanionSettings workspace={workspace} onConfirm={setConfirmation}/>)}
     </IntegrationHubView>;
     if (view === "projects") return <ProjectsView data={projects} loading={projectsLoading} onChoose={chooseProject} onOpen={openProject} onRemove={async project => { await missionApi().request("project.removeRecent", { projectId: project.id }); setProjects(await missionApi().request("projects.list")); }}/>;
-    return <SettingsHub state={state} workspace={workspace} recovery={recovery} sessions={supervisedSessions} preferences={preferences} onPreference={updatePreference} onReset={requestPreferenceReset} onNavigate={setView} onOpenIntegrations={() => { setIntegrationSection("overview"); setView("integrations"); }} onConfigureAutoStart={() => setAutoStartManagerOpen(true)}/>;
+    return <SettingsHub state={state} workspace={workspace} recovery={recovery} sessions={supervisedSessions} preferences={preferences} onPreference={updatePreference} onReset={requestPreferenceReset} onNavigate={setView} onOpenIntegrations={() => { setIntegrationSection("overview"); setView("integrations"); }} onConfigureAutoStart={() => setAutoStartManagerOpen(true)} onConfirm={setConfirmation} focusGroup={settingsFocus}/>;
   };
 
   return <div className={`shell theme-${preferences.theme} type-${preferences.typeScale} density-${preferences.density} motion-${preferences.motion} ${preferences.showCommandHints ? "show-command-hints" : "hide-command-hints"}`}>
       <a className="skip-link" href="#main-content">Skip to workspace content</a>
-      <AppSidebar view={view} workspace={workspace} pendingCount={pendingCount} onNavigate={destination => { if (destination === "integrations") setIntegrationSection("overview"); setView(destination); }} onProject={() => setView("projects")} onPalette={() => setPaletteOpen(true)} onMissionAI={() => openMissionAI()}/>
+      <AppSidebar view={view} workspace={workspace} pendingCount={pendingCount} onNavigate={destination => { if (destination === "integrations") setIntegrationSection("overview"); setView(destination); }} onProject={() => setView("projects")} onPalette={() => setPaletteOpen(true)} onMissionAI={() => openMissionAI()} onAccount={() => { setSettingsFocus({ id: "account", at: Date.now() }); setView("settings"); }}/>
       <main ref={mainContentRef} className="main-area" id="main-content" tabIndex="-1">
-        <StatusBar state={state} workspace={workspace} sessions={supervisedSessions} activity={activity} health={health} view={view} pendingCount={pendingCount} onHelp={() => setHelpOpen(true)} onReviewNeeds={() => setView("needs")}/>
+        <StatusBar state={state} workspace={workspace} sessions={supervisedSessions} activity={activity} health={health} view={view} pendingCount={pendingCount} onHelp={() => setHelpOpen(true)} onReviewNeeds={() => setView("needs")} onConfirm={setConfirmation}/>
         <div className={`experience view-${view}`} aria-live="off">
           {recoveryBoot && (
             <RecoveryReview
@@ -3960,6 +4053,7 @@ function GroundstationApp() {
       <CommandPalette open={paletteOpen} query={paletteQuery} onQuery={setPaletteQuery} items={paletteItems} onChoose={item => { item.run(); setPaletteOpen(false); setPaletteQuery(""); }} onClose={() => setPaletteOpen(false)}/>
       <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)}/>
       <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} onConfirm={async () => { const request = confirmation; setConfirmation(null); await request?.run(); }}/>
+      <UpgradeHost/>
       <WorkerQuickLook session={sessions.find(item => item.id === quickLookId)} activity={activity} onAction={dispatch} onClose={() => setQuickLookId(null)} onOpenTerminal={id => { setQuickLookId(null); focusWorker(id); }}/>
       <WorkerFocusDialog session={sessions.find(item => item.id === workerFocusId)} activity={activity} onClose={() => setWorkerFocusId(null)} onOpenTerminal={id => { setWorkerFocusId(null); focusWorker(id); }}/>
       <MissionGraph open={missionGraphOpen} sessions={sessions} onClose={() => setMissionGraphOpen(false)} onOpenTerminal={id => { setMissionGraphOpen(false); focusWorker(id); }} onOpenRecipes={() => { setMissionGraphOpen(false); goToRecipes(); }}/>
@@ -3989,5 +4083,7 @@ function GroundstationApp() {
 }
 
 export default function App() {
-  return <ToastProvider><GroundstationApp/></ToastProvider>;
+  // OUTARCH runs only for a signed-in account: the boundary shows the sign-in
+  // screen until the website hands a session back and the workspace is open.
+  return <AccountProvider><ToastProvider><AccountBoundary><GroundstationApp/></AccountBoundary></ToastProvider></AccountProvider>;
 }

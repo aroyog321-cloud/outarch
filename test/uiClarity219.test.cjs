@@ -39,7 +39,6 @@ test("trust boundaries use native disclosure and replace repeated authority pros
   assert.doesNotMatch(read("MissionAIScreen.jsx"), /<TrustBoundary/);
   assert.match(read("AssistantChat.jsx"), /aria-label="Approve what the assistant wants to do"/);
   assert.match(read("IntegrationsView.jsx"), /<TrustBoundary/);
-  assert.match(read("PluginPlatform.jsx"), /OUTARCH renders every contribution/);
 });
 
 test("Needs You sources share one normalized decision item grammar", () => {
@@ -48,11 +47,12 @@ test("Needs You sources share one normalized decision item grammar", () => {
   // Exactly one component renders decisions now — the unified DecisionList. Every
   // source is normalized upstream by the broker, not by a per-integration queue.
   assert.match(read("DecisionList.jsx"), /<DecisionItem/);
-  for (const file of ["AgentWorkspace.jsx", "MissionAI.jsx", "McpGateway.jsx", "AutomationWorkflows.jsx", "MobileCompanion.jsx", "PluginPlatform.jsx"]) {
+  for (const file of ["AgentWorkspace.jsx", "MissionAI.jsx", "McpGateway.jsx", "AutomationWorkflows.jsx", "MobileCompanion.jsx"]) {
     assert.doesNotMatch(read(file), /<DecisionItem/, `${file} must not render its own decision queue`);
   }
   const broker = fs.readFileSync(path.resolve(__dirname, "..", "src", "protocol", "decisionBroker.cjs"), "utf8");
-  for (const source of ["missionSupervisor", "mission", "mcp", "automation", "mobile", "plugin"]) assert.match(broker, new RegExp(`"${source}"`));
+  for (const source of ["missionSupervisor", "mission", "mcp", "automation", "mobile"]) assert.match(broker, new RegExp(`"${source}"`));
+  assert.doesNotMatch(broker, /"plugin"/);
   assert.doesNotMatch(decision, /bulk|select all|approve all/i);
 });
 
@@ -74,18 +74,9 @@ test("Needs You shows a completeness signal so an empty queue is never mistaken 
   assert.match(app, /queue below may be incomplete/);
 });
 
-test("plugin contribution slots render only normalized data with renderer-owned markup", () => {
-  const component = read("PluginContributionSlot.jsx");
-  const platform = fs.readFileSync(path.resolve(__dirname, "..", "src", "service", "pluginPlatformStore.cjs"), "utf8");
-  assert.match(component, /enabledContributions/);
-  assert.match(component, /plugin\.manifest\.contributions/);
-  assert.match(component, /plugin\.grantedPermissions/);
-  assert.doesNotMatch(component, /dangerouslySetInnerHTML/);
-  assert.match(platform, /PLUGIN_CONTRIBUTION_SURFACES/);
-  assert.match(platform, /Unsupported plugin contribution field/);
-  assert.match(read("App.jsx"), /surface="health\.status"/);
-  assert.match(read("App.jsx"), /surface="context\.resource"/);
-  assert.match(read("PluginPlatform.jsx"), /surface="settings\.summary"/);
+test("plugin contribution slots were removed with the plugin platform", () => {
+  assert.equal(fs.existsSync(path.resolve(__dirname, "..", "src", "service", "pluginPlatformStore.cjs")), false);
+  assert.doesNotMatch(read("App.jsx"), /surface="health\.status"|surface="context\.resource"/);
 });
 
 test("premium foundations ship fonts, real density geometry, shaped loading, and stacked notices", () => {
@@ -111,7 +102,7 @@ test("previously unused protocol surfaces are reachable without widening rendere
   assert.match(context, /request\("context\.snapshot", \{ includeOutput: false \}\)/);
   assert.match(audit, /mobile\.audit\.list/);
   assert.match(audit, /mcp\.audit\.list/);
-  assert.match(audit, /plugin\.audit\.list/);
+  assert.doesNotMatch(audit, /plugin\.audit\.list/);
 });
 
 test("desktop chrome and pending badge stay behind a bounded preload method", () => {

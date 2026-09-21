@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>OUTARCH · Mobile Companion Pairing Redesign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base: #06070a;
+      --bg-device: #0a0c12;
+      --bg-surface: #101420;
+      --bg-surface-elevated: #161b2c;
+      --bg-glass: rgba(18, 23, 38, 0.75);
+      --bg-input: rgba(0, 0, 0, 0.55);
+
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.14);
+      --border-strong: rgba(255, 255, 255, 0.25);
+      --border-glow: rgba(56, 189, 248, 0.45);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --accent-purple: #a855f7;
+      --accent-purple-glow: rgba(168, 85, 247, 0.3);
+      --accent-green: #10b981;
+      --accent-green-glow: rgba(16, 185, 129, 0.35);
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+
+      --radius-xs: 6px;
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 32px;
+      --radius-full: 9999px;
+
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-display: 'Space Grotesk', sans-serif;
+    }
+
+    [data-theme="cyberpunk"] {
+      --bg-base: #050714;
+      --bg-device: #080b20;
+      --bg-surface: #0e1438;
+      --primary: #00f0ff;
+      --primary-glow: rgba(0, 240, 255, 0.4);
+      --accent-purple: #ff007f;
+    }
+
+    [data-theme="obsidian"] {
+      --bg-base: #040406;
+      --bg-device: #07080a;
+      --bg-surface: #0c0e14;
+      --primary: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 3rem;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
+        radial-gradient(circle at 10% 30%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 90% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Top Sticky Showcase Bar */
+    .showcase-header {
+      width: 100%;
+      background: rgba(10, 12, 18, 0.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.85rem 1.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-xs);
+      background: linear-gradient(135deg, rgba(56,189,248,0.15), rgba(168,85,247,0.15));
+      border: 1px solid rgba(56,189,248,0.3);
+      color: #7dd3fc;
+      letter-spacing: 0.05em;
+    }
+
+    .brand-heading {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-tools {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .theme-dropdown {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      color: var(--text-primary);
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Main Showcase Grid */
+    .showcase-container {
+      width: 100%;
+      max-width: 1320px;
+      margin: 1.5rem auto 0;
+      padding: 0 1.25rem;
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    /* =========================================================================
+       PHONE DEVICE MOCKUP FRAME (Clean, Native-Ready Layout)
+       ========================================================================= */
+    .phone-device-wrap {
+      background: #020305;
+      border: 8px solid #1a1e2c;
+      border-radius: 48px;
+      box-shadow: 
+        0 25px 60px rgba(0,0,0,0.8),
+        0 0 0 1px rgba(255,255,255,0.1),
+        inset 0 0 16px rgba(0,0,0,0.9);
+      overflow: hidden;
+      width: 100%;
+      max-width: 440px;
+      height: 740px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      margin: 0 auto;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 28px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+    }
+    .island-camera {
+      width: 10px;
+      height: 10px;
+      background: #0d121c;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .island-sensor {
+      width: 6px;
+      height: 6px;
+      background: #090c14;
+      border-radius: 50%;
+    }
+
+    /* Status Bar */
+    .phone-status-bar {
+      height: 48px;
+      padding: 12px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      font-family: var(--font-sans);
+      z-index: 40;
+    }
+
+    .phone-time { letter-spacing: -0.02em; }
+    .phone-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Screen Body */
+    .phone-screen-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.4rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .phone-screen-body::-webkit-scrollbar { display: none; }
+
+    /* Shield Header */
+    .shield-badge-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .shield-icon-container {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
+      position: relative;
+      margin-bottom: 0.85rem;
+    }
+
+    .companion-title {
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3rem;
+    }
+
+    .companion-subtitle {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      max-width: 320px;
+    }
+
+    /* Method Tabs */
+    .pair-tab-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      margin-bottom: 1.25rem;
+      gap: 3px;
+    }
+
+    .pair-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.5rem 0.75rem;
+      border-radius: calc(var(--radius-md) - 3px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      transition: all 0.2s ease;
+    }
+
+    .pair-tab-btn:hover { color: #fff; }
+
+    .pair-tab-btn.active {
+      background: var(--bg-surface-elevated);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      border: 1px solid var(--border-medium);
+    }
+
+    /* Encrypted Notice */
+    .crypto-notice-pill {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: #34d399;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 0.45rem 0.85rem;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .crypto-notice-pill i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+
+    /* Revocation Alert Banner */
+    .revocation-recovery-banner {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.78rem;
+      color: #fecdd3;
+      display: none;
+    }
+
+    .revocation-recovery-banner.show {
+      display: flex;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =========================================================================
+       NATIVE-READY 6-DIGIT SEGMENTED PIN SLOTS
+       ========================================================================= */
+    .pin-input-container {
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .pin-header-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pin-slots-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      position: relative;
+      cursor: text;
+    }
+
+    .pin-slot {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1.5px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fff;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .pin-slot.focused {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow), 0 0 16px var(--primary-glow);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .pin-slot.filled {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .pin-slot.error {
+      border-color: var(--accent-rose);
+      box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.3);
+      animation: shake 0.3s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    .cursor-caret {
+      width: 2px;
+      height: 24px;
+      background: var(--primary);
+      animation: blinkCaret 1s infinite;
+      display: inline-block;
+    }
+
+    @keyframes blinkCaret {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Transparent real input covering the slots: invokes native mobile numeric keyboard */
+    .invisible-native-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      z-index: 10;
+      cursor: text;
+      font-size: 20px;
+    }
+
+    /* Device Label Card */
+    .device-config-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .device-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .device-info-fields {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .device-info-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+
+    .device-name-input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      width: 100%;
+      outline: none;
+    }
+
+    /* Authorize Button */
+    .btn-authorize-connect {
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.9rem 1.25rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-authorize-connect:hover {
+      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+      box-shadow: 0 6px 28px rgba(56, 189, 248, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-authorize-connect:active {
+      transform: scale(0.98);
+    }
+
+    .btn-authorize-connect.busy {
+      background: #1e293b;
+      color: #94a3b8;
+      border-color: var(--border-medium);
+      box-shadow: none;
+      cursor: wait;
+    }
+
+    /* Handshake Timeline */
+    .handshake-timeline {
+      margin-top: 1.25rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      display: none;
+    }
+
+    .handshake-step {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .handshake-step:last-child { margin-bottom: 0; }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #334155;
+    }
+    .step-dot.active {
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: pulseDot 1s infinite alternate;
+    }
+    .step-dot.done {
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+
+    @keyframes pulseDot {
+      0% { transform: scale(0.8); opacity: 0.6; }
+      100% { transform: scale(1.3); opacity: 1; }
+    }
+
+    /* QR View */
+    .qr-scanner-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .camera-viewfinder {
+      width: 240px;
+      height: 240px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle, #131b2e 0%, #080c14 100%);
+      border: 2px solid var(--primary);
+      position: relative;
+      overflow: hidden;
+      margin: 1.5rem 0;
+      box-shadow: 0 0 30px var(--primary-glow);
+    }
+
+    .scanner-laser {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      box-shadow: 0 0 14px var(--primary);
+      animation: scanLaser 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes scanLaser {
+      0% { top: 10%; }
+      100% { top: 90%; }
+    }
+
+    /* =========================================================================
+       RIGHT: SPECIFICATION & DESKTOP SYNC SIMULATOR
+       ========================================================================= */
+    .spec-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .spec-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+    }
+
+    .spec-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .audit-point-item {
+      padding: 0.85rem;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.75rem;
+      font-size: 0.84rem;
+    }
+
+    .audit-point-item strong {
+      color: #93c5fd;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .audit-point-item p {
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Desktop Integrations Tab Preview */
+    .integrations-desktop-preview {
+      background: #090c14;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-top: 0.75rem;
+    }
+
+    .desktop-tab-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .device-table-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      margin-bottom: 0.5rem;
+      transition: all 0.25s ease;
+    }
+
+    .device-table-row.revoked-state {
+      opacity: 0;
+      transform: scale(0.95);
+      height: 0;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .btn-revoke-red {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #f87171;
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--radius-xs);
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-revoke-red:hover {
+      background: rgba(244, 63, 94, 0.3);
+      color: #fff;
+    }
+
+    .sim-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-sim-trigger {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-medium);
+      color: #f1f5f9;
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.18s;
+    }
+    .btn-sim-trigger:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-strong);
+    }
+
+    .btn-sim-trigger.danger {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #f87171;
+    }
+    .btn-sim-trigger.danger:hover {
+      background: rgba(244, 63, 94, 0.25);
+      color: #fff;
+    }
+
+    @media (max-width: 960px) {
+      .showcase-container {
+        grid-template-columns: 1fr;
+      }
+      .phone-device-wrap {
+        height: 700px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation & Showcase Bar -->
+  <header class="showcase-header">
+    <div class="brand-group">
+      <span class="brand-badge">OUTARCH COMPANION</span>
+      <h1 class="brand-heading">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--primary)">
+          <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+          <path d="M12 18h.01"/>
+        </svg>
+        Mobile Companion Pairing & Clean OTP Input
+      </h1>
+    </div>
+
+    <div class="header-tools">
+      <select class="theme-dropdown" onchange="setTheme(this.value)">
+        <option value="default">🌌 Deep Space (Default)</option>
+        <option value="obsidian">🌑 Obsidian Stealth</option>
+        <option value="cyberpunk">⚡ Cyberpunk Neon</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="showcase-container">
+
+    <!-- =======================================================================
+         LEFT: CLEAN MOBILE PHONE WITH NATIVE-READY OTP INPUT
+         ======================================================================= -->
+    <div class="phone-device-wrap">
+      
+      <!-- Dynamic Island -->
+      <div class="dynamic-island">
+        <div class="island-camera"></div>
+        <div class="island-sensor"></div>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="phone-status-bar">
+        <span class="phone-time" id="livePhoneTime">09:41</span>
+        <div class="phone-icons">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20h.01M2 8.5a18.2 18.2 0 0 1 20 0M5 12a14.2 14.2 0 0 1 14 0M8.5 15.5a9.2 9.2 0 0 1 7 0"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12h-4V7a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h4z"/></svg>
+        </div>
+      </div>
+
+      <!-- Screen Body -->
+      <div class="phone-screen-body">
+
+        <!-- Shield & Branding Header -->
+        <div class="shield-badge-wrap">
+          <div class="shield-icon-container">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <h2 class="companion-title">Pair Companion</h2>
+          <p class="companion-subtitle">
+            Link your phone to monitor active workers, receive instant attention alerts, and resolve approvals.
+          </p>
+        </div>
+
+        <!-- Revocation Alert Banner (Shown if desktop revoked session) -->
+        <div class="revocation-recovery-banner" id="revocationAlertBanner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:#f87171; flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <strong>Session Revoked by Desktop</strong>
+            <p style="font-size:0.72rem; margin-top:2px;">Old credentials cleared automatically. Tap the slots below to enter a new pairing code.</p>
+          </div>
+        </div>
+
+        <!-- Segmented Method Tabs -->
+        <div class="pair-tab-switch">
+          <button class="pair-tab-btn active" id="tabCodeBtn" onclick="switchPairMethod('code')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            6-Digit PIN
+          </button>
+          <button class="pair-tab-btn" id="tabQrBtn" onclick="switchPairMethod('qr')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+            Scan QR
+          </button>
+        </div>
+
+        <!-- Zero-Knowledge Encryption Badge -->
+        <div class="crypto-notice-pill">
+          <i></i>
+          <span>X25519 & AES-256-GCM Encrypted · LAN Only</span>
+        </div>
+
+        <!-- ===================================================================
+             METHOD 1: 6-DIGIT PIN FORM (Native Mobile Keyboard Support)
+             =================================================================== -->
+        <div id="pinFormSection">
+          
+          <div class="pin-input-container">
+            <div class="pin-header-label">
+              <span>One-Time Pairing Code</span>
+              <span style="color:var(--primary); font-size:0.72rem; cursor:pointer" onclick="useSampleCode('849201')">Auto-Fill "849201"</span>
+            </div>
+
+            <!-- Segmented PIN Slots (Clicking invokes native numeric keyboard) -->
+            <div class="pin-slots-row" id="pinSlotsRow" onclick="focusNativeInput()">
+              <div class="pin-slot focused" id="slot0"><span class="cursor-caret"></span></div>
+              <div class="pin-slot" id="slot1"></div>
+              <div class="pin-slot" id="slot2"></div>
+              <div class="pin-slot" id="slot3"></div>
+              <div class="pin-slot" id="slot4"></div>
+              <div class="pin-slot" id="slot5"></div>
+
+              <!-- Native input element covering the slots with inputmode="numeric" -->
+              <input 
+                type="text" 
+                id="nativeOtpInput" 
+                class="invisible-native-input" 
+                maxlength="6" 
+                inputmode="numeric" 
+                pattern="[0-9]*" 
+                autocomplete="one-time-code" 
+                placeholder=""
+                oninput="handleNativeInput(this.value)" 
+                onfocus="updateSlotsUI()"
+              />
+            </div>
+          </div>
+
+          <!-- Device Configuration Card -->
+          <div class="device-config-card">
+            <div class="device-icon-box">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+            </div>
+            <div class="device-info-fields">
+              <div class="device-info-label">Device Label</div>
+              <input type="text" class="device-name-input" id="deviceNameInput" value="iPhone 15 Pro (Personal)" />
+            </div>
+          </div>
+
+          <!-- Authorize Button -->
+          <button class="btn-authorize-connect" id="btnConnect" onclick="executePairing()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Authorize & Connect
+          </button>
+
+          <!-- Real-Time Cryptographic Handshake Timeline -->
+          <div class="handshake-timeline" id="handshakeTimeline">
+            <div class="handshake-step" id="hStep1">
+              <div class="step-dot active"></div>
+              <span>1. Generating ephemeral X25519 keypair...</span>
+            </div>
+            <div class="handshake-step" id="hStep2">
+              <div class="step-dot"></div>
+              <span>2. Calculating HMAC-SHA256 zero-knowledge proof...</span>
+            </div>
+            <div class="handshake-step" id="hStep3">
+              <div class="step-dot"></div>
+              <span>3. Establishing AES-256-GCM encrypted session...</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ===================================================================
+             METHOD 2: QR SCANNER VIEW
+             =================================================================== -->
+        <div class="qr-scanner-view" id="qrScannerSection">
+          <p style="font-size:0.8rem; color:var(--text-secondary)">Point your camera at the QR code shown on the desktop OUTARCH Settings:</p>
+          <div class="camera-viewfinder">
+            <div class="scanner-laser"></div>
+          </div>
+          <button class="btn-authorize-connect" onclick="simulateQrDetection()" style="margin-top:0.5rem">
+            Simulate QR Code Match
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         RIGHT: LIFECYCLE AUDIT & DESKTOP INTEGRATIONS TAB SIMULATION
+         ======================================================================= -->
+    <div class="spec-column">
+      
+      <!-- Key Architecture Decisions -->
+      <div class="spec-card">
+        <h3 class="spec-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--primary)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          Native Mobile Input & Revocation Lifecycle Specs
+        </h3>
+
+        <div class="audit-point-item">
+          <strong>1. Native Mobile Numeric Keyboard (Zero Screen Clutter)</strong>
+          <p>
+            Removed artificial on-screen keypad. The 6-slot container is wired to a native <code>inputmode="numeric"</code> and <code>autocomplete="one-time-code"</code> field. On smartphones (iOS/Android), tapping any slot opens the device's native numeric pad and auto-fills codes from clipboard.
+          </p>
+        </div>
+
+        <div class="audit-point-item">
+          <strong>2. Instant Re-Pairing on Revocation (Bug Fix)</strong>
+          <p>
+            When a desktop operator revokes a mobile device, any failed request or SSE event immediately triggers <code>localStorage.removeItem()</code>. The phone client automatically resets to the 6-digit PIN screen rather than remaining trapped in a broken state.
+          </p>
+        </div>
+
+        <div class="audit-point-item">
+          <strong>3. Synchronous Device Removal from Integrations Tab (Bug Fix)</strong>
+          <p>
+            When <code>mobile.device.revoke</code> is triggered on the desktop, local React state is updated synchronously via <code>setDevices(prev => prev.filter(d => d.id !== id))</code> so the revoked device disappears immediately from the table without requiring a restart.
+          </p>
+        </div>
+      </div>
+
+      <!-- Desktop Integrations Tab Simulation -->
+      <div class="spec-card">
+        <h3 class="spec-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--primary)"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          Desktop Integrations Tab Live Sync Simulation
+        </h3>
+        <p style="font-size:0.82rem; color:var(--text-secondary)">
+          Test what happens when you click "Revoke" on the desktop:
+        </p>
+
+        <div class="integrations-desktop-preview">
+          <div class="desktop-tab-header">
+            <span style="font-weight:700; font-size:0.85rem; color:#fff">Paired Mobile Companion Devices</span>
+            <span id="activeDeviceCountBadge" style="font-family:var(--font-mono); font-size:0.75rem; background:rgba(56,189,248,0.15); color:var(--primary); padding:0.15rem 0.5rem; border-radius:999px;">1 Active Device</span>
+          </div>
+
+          <div id="deviceListRows">
+            <div class="device-table-row" id="mockRowDevice1">
+              <div>
+                <div style="font-weight:700; color:#fff">📱 iPhone 15 Pro (Personal)</div>
+                <div style="font-size:0.68rem; color:var(--text-muted)">ID: mobile-8f92a1 · Paired 12m ago · Active Now</div>
+              </div>
+              <button class="btn-revoke-red" onclick="simulateDesktopRevocation('mockRowDevice1')">Revoke Device</button>
+            </div>
+          </div>
+          
+          <div id="noDevicesMsg" style="display:none; color:var(--text-muted); font-size:0.8rem; text-align:center; padding:0.75rem;">
+            No paired mobile devices. Click "Invite Device" on desktop to generate a pairing code.
+          </div>
+        </div>
+
+        <div class="sim-bar">
+          <button class="btn-sim-trigger danger" onclick="simulateDesktopRevocation('mockRowDevice1')">
+            ⚡ Simulate Revoke from Desktop
+          </button>
+          <button class="btn-sim-trigger" onclick="resetDesktopDeviceState()">
+            ↺ Re-Add Mock Device to Desktop
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let currentPin = "";
+
+    function updateClock() {
+      const d = new Date();
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const el = document.getElementById('livePhoneTime');
+      if (el) el.innerText = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function setTheme(t) {
+      if (t === 'default') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', t);
+    }
+
+    function switchPairMethod(method) {
+      const pinSec = document.getElementById('pinFormSection');
+      const qrSec = document.getElementById('qrScannerSection');
+      const btnCode = document.getElementById('tabCodeBtn');
+      const btnQr = document.getElementById('tabQrBtn');
+
+      if (method === 'code') {
+        pinSec.style.display = 'block';
+        qrSec.style.display = 'none';
+        btnCode.className = 'pair-tab-btn active';
+        btnQr.className = 'pair-tab-btn';
+      } else {
+        pinSec.style.display = 'none';
+        qrSec.style.display = 'flex';
+        btnCode.className = 'pair-tab-btn';
+        btnQr.className = 'pair-tab-btn active';
+      }
+    }
+
+    function focusNativeInput() {
+      document.getElementById('nativeOtpInput').focus();
+    }
+
+    function handleNativeInput(val) {
+      const digits = val.replace(/[^0-9]/g, '').slice(0, 6);
+      currentPin = digits;
+      updateSlotsUI();
+      if (currentPin.length === 6) {
+        setTimeout(executePairing, 200);
+      }
+    }
+
+    function useSampleCode(code) {
+      currentPin = code;
+      document.getElementById('nativeOtpInput').value = currentPin;
+      updateSlotsUI();
+      setTimeout(executePairing, 300);
+    }
+
+    function updateSlotsUI() {
+      for (let i = 0; i < 6; i++) {
+        const slot = document.getElementById(`slot${i}`);
+        slot.className = 'pin-slot';
+        
+        if (i < currentPin.length) {
+          slot.innerText = currentPin[i];
+          slot.classList.add('filled');
+        } else if (i === currentPin.length) {
+          slot.innerHTML = '<span class="cursor-caret"></span>';
+          slot.classList.add('focused');
+        } else {
+          slot.innerText = '';
+        }
+      }
+    }
+
+    function executePairing() {
+      if (currentPin.length !== 6) {
+        alert("Please enter the complete 6-digit code.");
+        return;
+      }
+
+      const btn = document.getElementById('btnConnect');
+      const timeline = document.getElementById('handshakeTimeline');
+      btn.className = 'btn-authorize-connect busy';
+      btn.innerHTML = 'Connecting to OUTARCH...';
+      timeline.style.display = 'block';
+
+      setTimeout(() => {
+        document.getElementById('hStep1').querySelector('.step-dot').className = 'step-dot done';
+        document.getElementById('hStep2').querySelector('.step-dot').className = 'step-dot active';
+      }, 500);
+
+      setTimeout(() => {
+        document.getElementById('hStep2').querySelector('.step-dot').className = 'step-dot done';
+        document.getElementById('hStep3').querySelector('.step-dot').className = 'step-dot active';
+      }, 1000);
+
+      setTimeout(() => {
+        document.getElementById('hStep3').querySelector('.step-dot').className = 'step-dot done';
+        btn.className = 'btn-authorize-connect';
+        btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        btn.innerHTML = '✓ Paired Successfully!';
+        
+        // Hide revocation banner on successful pair
+        document.getElementById('revocationAlertBanner').classList.remove('show');
+
+        // Add to desktop table
+        resetDesktopDeviceState();
+
+        setTimeout(() => {
+          alert(`🎉 SUCCESS! Mobile Companion successfully paired with OUTARCH Groundstation.`);
+        }, 300);
+      }, 1500);
+    }
+
+    function simulateQrDetection() {
+      switchPairMethod('code');
+      useSampleCode('849201');
+    }
+
+    // SIMULATE DESKTOP REVOCATION & RECOVERY
+    function simulateDesktopRevocation(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.classList.add('revoked-state');
+        setTimeout(() => {
+          row.style.display = 'none';
+          document.getElementById('activeDeviceCountBadge').innerText = '0 Active Devices';
+          document.getElementById('noDevicesMsg').style.display = 'block';
+        }, 300);
+      }
+
+      // Show revocation recovery banner on phone client and reset PIN slots
+      const banner = document.getElementById('revocationAlertBanner');
+      banner.classList.add('show');
+
+      // Reset PIN inputs on mobile
+      currentPin = "";
+      document.getElementById('nativeOtpInput').value = "";
+      updateSlotsUI();
+
+      const btn = document.getElementById('btnConnect');
+      btn.className = 'btn-authorize-connect';
+      btn.style.background = 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)';
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Authorize & Connect';
+      document.getElementById('handshakeTimeline').style.display = 'none';
+      document.getElementById('hStep1').querySelector('.step-dot').className = 'step-dot active';
+      document.getElementById('hStep2').querySelector('.step-dot').className = 'step-dot';
+      document.getElementById('hStep3').querySelector('.step-dot').className = 'step-dot';
+
+      alert("Desktop Groundstation Revocation Triggered!\n\n1. Device was immediately removed from the Integrations Tab.\n2. Mobile Phone automatically cleared stale tokens.\n3. Mobile Phone is now ready to receive a new 6-digit code!");
+    }
+
+    function resetDesktopDeviceState() {
+      const row = document.getElementById('mockRowDevice1');
+      if (row) {
+        row.style.display = 'flex';
+        row.classList.remove('revoked-state');
+        document.getElementById('activeDeviceCountBadge').innerText = '1 Active Device';
+        document.getElementById('noDevicesMsg').style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>

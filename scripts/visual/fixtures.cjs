@@ -219,10 +219,10 @@ const FIXTURES = {
   "mobile.approval.list": () => ([]),
   // MOBILE_RUNNING=1 photographs the pairing state instead of the switched-off one.
   "mobile.status": () => process.env.MOBILE_RUNNING
-    ? { enabled: true, running: true, available: true, port: 37422, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "assistant.ask"], endpoints: ["http://192.168.1.50:37422"], deviceCount: 2, revokedDeviceCount: 1, activeClientCount: 1, pendingApprovalCount: 1, activeInvitation: { pairingId: "pair-1", code: "482913", expiresAt: Date.now() + 272000 } }
+    ? { enabled: true, running: true, available: true, port: 37422, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "actions.request", "assistant.ask"], autoRun: true, recentActions: [{ id: "a1", deviceName: "Pixel 9", type: "worker", action: "restart", targetName: "Web dev server", state: "approved", at: Date.now() - 90000 }, { id: "a2", deviceName: "Pixel 9", type: "recipe", action: "run", targetName: "Full stack", state: "approved", at: Date.now() - 600000 }, { id: "a3", deviceName: "Pixel 9", type: "worker", action: "start", targetName: "Queue worker", state: "failed", error: "already running", at: Date.now() - 3600000 }], endpoints: ["http://192.168.1.50:37422"], deviceCount: 2, revokedDeviceCount: 1, activeClientCount: 1, pendingApprovalCount: 1, activeInvitation: { pairingId: "pair-1", code: "482913", expiresAt: Date.now() + 272000 } }
     : { enabled: false, running: false, available: true, scopes: ["summary.read", "workers.read", "needs.read", "memory.read"], deviceCount: 0, revokedDeviceCount: 0, activeClientCount: 0, pendingApprovalCount: 0 },
   "mobile.device.list": () => process.env.MOBILE_RUNNING
-    ? [{ id: "mobile-1", name: "Pixel 9", lastSeenAt: Date.now() - 120000, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "assistant.ask"], state: "active" }, { id: "mobile-2", name: "iPad", lastSeenAt: Date.now() - 7200000, scopes: ["summary.read", "workers.read"], state: "active" }]
+    ? [{ id: "mobile-1", name: "Pixel 9", lastSeenAt: Date.now() - 120000, scopes: ["summary.read", "workers.read", "needs.read", "memory.read", "actions.request", "assistant.ask"], state: "active" }, { id: "mobile-2", name: "iPad", lastSeenAt: Date.now() - 7200000, scopes: ["summary.read", "workers.read"], state: "active" }]
     : [],
   "plugin.approval.list": () => ([]),
   "plugin.status": () => ({ enabled: true, installed: 2 }),

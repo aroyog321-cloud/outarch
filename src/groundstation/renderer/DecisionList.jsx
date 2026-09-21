@@ -15,8 +15,7 @@ const PREFIX = {
   mission: "A",
   mcp: "M",
   automation: "R",
-  mobile: "P",
-  plugin: "G"
+  mobile: "P"
 };
 
 const SOURCE_LABEL = {
@@ -26,8 +25,7 @@ const SOURCE_LABEL = {
   mission: "Agent mission",
   mcp: "MCP request",
   automation: "Automation",
-  mobile: "Mobile request",
-  plugin: "Plugin request"
+  mobile: "Mobile request"
 };
 
 function timeAgo(timestamp) {

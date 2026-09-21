@@ -19,7 +19,8 @@ test("the project avatar is one letter and the switch affordance is an icon", ()
   assert.match(app, /const projectMark = \(Array\.from\(String\(workspace\?\.name \|\| ""\)\.trim\(\)\)\[0\] \|\| "P"\)\.toUpperCase\(\);/);
   assert.doesNotMatch(app, /\.slice\(0, 2\)\.toUpperCase\(\)/);
   // The old text glyph rendered as a lowercase "v".
-  assert.match(app, /<i aria-hidden="true"><Icon name="selector" size=\{14\}\/><\/i><\/button>/);
+  // A plan that keeps one project shows the crown there instead.
+  assert.match(app, /<i aria-hidden="true">\{projectLocked \? <CrownIcon size=\{13\}\/> : <Icon name="selector" size=\{14\}\/>\}<\/i><\/button>/);
   assert.doesNotMatch(app, /"Choose project"\}<\/strong><\/div><i aria-hidden="true">⌄/);
   const base = read("redesign/base.css");
   assert.match(base, /grid-template-columns: 26px minmax\(0, 1fr\) auto !important;/);

@@ -203,7 +203,7 @@ test("Rename and Duplicate are label-level actions beside engine Reconfigure", (
   // Duplicate stops at the form: a second copy of a process is not created
   // until the command and directory have been reviewed.
   assert.match(pane, /<span>Duplicate worker<\/span><small>Opens a new worker pre-filled from this one/);
-  assert.match(app, /onDuplicate=\{session => setWorkerDialog\(\{ mode: "create", seed:/);
+  assert.match(app, /onDuplicate=\{session => openCreateWorker\(\{ seed:/);
   const dialog = read("WorkerDialog.jsx");
   assert.match(dialog, /initialWorkerDraft\(configuration \|\| seed\)/);
   assert.match(dialog, /if \(!configuration && seed\) initial\.id = nextAvailableWorkerId\(initial\.id, existingIds\);/,

@@ -19,7 +19,6 @@
     "VERIFY_MISSION_CONTROL_WINDOWS.cmd",
     "scripts/ensure-renderer-build.cjs",
     "scripts/windows-release-check.cjs",
-    "plugins/examples",
     "README-FIRST-WINDOWS.txt",
     "README.md",
     "RELEASE_NOTES.md",

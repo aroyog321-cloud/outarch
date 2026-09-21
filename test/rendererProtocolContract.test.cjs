@@ -122,7 +122,7 @@ test("the event transport is bounded end to end (preload buffer, engine queue, g
   assert.match(protocol, /function onEngineEvent\(event\) \{\s*if \(disposed \|\| event\?\.type === "session:output"\) return;/);
 
   // Every service subscription the connection opens is released on dispose().
-  for (const handle of ["unsubscribeEvents", "unsubscribeVSCode", "unsubscribeMcp", "unsubscribeMobile", "unsubscribePlugins"]) {
+  for (const handle of ["unsubscribeEvents", "unsubscribeVSCode", "unsubscribeMcp", "unsubscribeMobile"]) {
     assert.match(protocol, new RegExp(`try \\{ ${handle}\\?\\.\\(\\); \\}`));
   }
 });

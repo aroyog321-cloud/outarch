@@ -39,7 +39,7 @@ export default defineConfig({
           if (normalized.includes("/node_modules/@xterm/") || normalized.endsWith("/TerminalPane.jsx")) return "workspace-terminal";
           if (normalized.includes("/node_modules/react") || normalized.includes("/node_modules/scheduler")) return "vendor-react";
           if (normalized.includes("/node_modules/@radix-ui/") || normalized.includes("/node_modules/cmdk/") || normalized.includes("/node_modules/@floating-ui/")) return "vendor-desktop-ui";
-          if (/\/(MissionAI|McpGateway|MobileCompanion|PluginPlatform|AutomationWorkflows)\.jsx$/.test(normalized)) return "feature-integrations";
+          if (/\/(MissionAI|McpGateway|MobileCompanion|AutomationWorkflows)\.jsx$/.test(normalized)) return "feature-integrations";
           if (/\/(AgentWorkspace|MissionGraph|WorkspaceRecipes)\.jsx$/.test(normalized)) return "feature-operations";
           return undefined;
         }

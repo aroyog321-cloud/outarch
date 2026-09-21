@@ -1,4 +1,7 @@
 import React from "react";
+import { useAccount } from "./useAccount.js";
+import { PlanBadge, PlanNote } from "./PlanLock.jsx";
+import { planLimits, requiredPlanFor } from "./planRules.js";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Select from "@radix-ui/react-select";
 import { confirmedRequest, missionApi } from "./missionApi.js";
@@ -160,6 +163,10 @@ export default function AssistantKeys({ open, onOpenChange, status, onStatus, on
   const [problem, setProblem] = React.useState("");
   const [added, setAdded] = React.useState(null);
   const mission = status?.mission;
+  const { status: account } = useAccount();
+  const keyLimit = planLimits(account)?.byokKeys;
+  const keyCount = (status?.keys || []).length;
+  const atKeyLimit = keyLimit != null && keyCount >= keyLimit;
   React.useEffect(() => { if (!open) setAdded(null); }, [open]);
 
   const refresh = async keyId => {
@@ -204,13 +211,17 @@ export default function AssistantKeys({ open, onOpenChange, status, onStatus, on
                 </div>
                 {mission?.available && <button type="button" className="ai-keys__ghost" disabled={busyKey === "mission"} onClick={() => void refresh(null)}>{busyKey === "mission" ? "Checking…" : "Refresh"}</button>}
               </div>
-              <div className="ai-keys__slots">
-                <span><Dot on={mission?.keys?.primary}/>Primary key {mission?.keys?.primary ? "ready" : "missing"}</span>
-                <span><Dot on={mission?.keys?.fallback}/>Fallback key {mission?.keys?.fallback ? "ready" : "missing"}</span>
-              </div>
+              {mission?.managed
+                ? <div className="ai-keys__slots"><span><Dot on={mission?.available}/>{mission?.available ? "Connected to OUTARCH's AI service" : "OUTARCH's AI service is not reachable"}</span></div>
+                : <div className="ai-keys__slots">
+                  <span><Dot on={mission?.keys?.primary}/>Primary key {mission?.keys?.primary ? "ready" : "missing"}</span>
+                  <span><Dot on={mission?.keys?.fallback}/>Fallback key {mission?.keys?.fallback ? "ready" : "missing"}</span>
+                </div>}
               {mission?.modelsError && <p className="ai-keys__problem">{mission.modelsError}</p>}
               <ModelStrip models={mission?.models}/>
-              <p className="ai-keys__note">These keys are part of the app. They cannot be viewed or changed here — when the first runs out, the second takes over, and if both are at their limit Mission AI answers with the lighter Flash-Lite model. Only fast, free-tier Flash models are offered, so everyday questions don't use up the limits.</p>
+              {mission?.managed
+                ? <p className="ai-keys__note">These keys live on OUTARCH's server and never reach this computer. When one runs out, the next takes over automatically, so Mission AI keeps answering. Only fast, free-tier models are offered.</p>
+                : <p className="ai-keys__note">These keys are part of the app. They cannot be viewed or changed here — when the first runs out, the second takes over, and if both are at their limit Mission AI answers with the lighter Flash-Lite model. Only fast, free-tier Flash models are offered, so everyday questions don't use up the limits.</p>}
             </article>
           </section>
 
@@ -226,8 +237,8 @@ export default function AssistantKeys({ open, onOpenChange, status, onStatus, on
               <div className="ai-keys__card-head">
                 <ModelMark family={providerFamily(key.provider)} size={22}/>
                 <div>
-                  <strong>{key.label}</strong>
-                  <span>{key.hint ? `····${key.hint} · ` : ""}{key.models.length} models · checked {ago(key.modelsCheckedAt)}</span>
+                  <strong>{key.label}{key.locked ? <PlanBadge plan={requiredPlanFor(account, "byokKeys", keyCount)} className="ai-keys__crown"/> : null}</strong>
+                  <span>{key.locked ? "Not used on your plan · " : ""}{key.hint ? `····${key.hint} · ` : ""}{key.models.length} models · checked {ago(key.modelsCheckedAt)}</span>
                 </div>
                 <button type="button" className="ai-keys__ghost" disabled={busyKey === key.id} onClick={() => void refresh(key.id)}>{busyKey === key.id ? "Checking…" : "Refresh"}</button>
                 <button type="button" className="ai-keys__ghost is-danger" onClick={() => remove(key)}>Remove</button>
@@ -240,7 +251,9 @@ export default function AssistantKeys({ open, onOpenChange, status, onStatus, on
 
           <section className="ai-keys__section">
             <h3 className="ai-keys__kicker">Add a key</h3>
-            <AddKeyForm status={status} onAdded={result => { setAdded(result); onStatus?.(result.status); }}/>
+            {atKeyLimit
+              ? <PlanNote feature="byokKeys" amount={keyCount + 1} text={keyLimit === 0 ? "Bringing your own AI keys is not included in your plan." : `Your plan includes ${keyLimit} key${keyLimit === 1 ? "" : "s"} of your own.`}/>
+              : <AddKeyForm status={status} onAdded={result => { setAdded(result); onStatus?.(result.status); }}/>}
           </section>
         </div>
       </Dialog.Content>

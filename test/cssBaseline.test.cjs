@@ -20,7 +20,7 @@ const MAIN = path.join(RENDERER, "main.jsx");
 const CEIL = {
   files: 22,
   important: 1417, // OUTARCH readiness passes: forced History chapters unwound, dead badge rule removed (was 1420)
-  rawColors: 1198, // sidebar/toolbar polish: the two gradient tokens alias their stops, one AI violet added (was 1201)
+  rawColors: 1169, // plugin platform removed (its stylesheet went), account layer adds three gold tokens (was 1198)
 };
 
 function allCssFiles(dir) {

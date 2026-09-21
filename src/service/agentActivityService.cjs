@@ -219,6 +219,25 @@ class AgentActivityService extends EventEmitter {
     }
   }
 
+  // A permission prompt found by the prompt detector, which reads the whole
+  // screen rather than one line, so it sees dialogs the per-line patterns miss.
+  setAwaitingApproval(workerId, prompt = null) {
+    if (!workerId) return;
+    const current = this.getWorkerActivity(workerId);
+    const waiting = Boolean(prompt);
+    if (waiting && current.state === "awaiting_approval") return;
+    if (!waiting && current.state !== "awaiting_approval") return;
+    const updated = {
+      ...current,
+      isAgent: waiting ? true : current.isAgent,
+      agentType: current.agentType || (waiting && prompt.agent && prompt.agent !== "agent" ? prompt.agent : current.agentType),
+      state: waiting ? "awaiting_approval" : "idle",
+      updatedAt: this.#now()
+    };
+    this.#workers.set(workerId, updated);
+    this.emit("change", updated);
+  }
+
   clearWorker(workerId) {
     if (this.#workers.has(workerId)) {
       this.#workers.delete(workerId);

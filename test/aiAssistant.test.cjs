@@ -743,8 +743,8 @@ test("multi-worker recipe workflow: model designs recipe, pauses for approval, t
 });
 
 test("built-in NVIDIA NIM keys are supported with primary-to-fallback failover", async () => {
-  const NV_PRIMARY = "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";
-  const NV_FALLBACK = "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";
+  const NV_PRIMARY = "nvapi-TESTprimaryAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+  const NV_FALLBACK = "nvapi-TESTfallbackBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 
   const credentials = new BuiltinMissionAiCredentials({
     keys: {
@@ -809,10 +809,18 @@ test("built-in NVIDIA NIM keys are supported with primary-to-fallback failover",
   assert.equal(reply.error, null);
 });
 
-test("built-in NVIDIA credentials cannot be cleared or overwritten", () => {
-  const credentials = new BuiltinMissionAiCredentials();
+test("no built-in key ships in the app; the server's keys cannot be cleared or overwritten", () => {
+  // The shipped build carries no key: they live in Supabase behind the ai-proxy.
+  const unsigned = new BuiltinMissionAiCredentials();
+  assert.equal(unsigned.hasKey("primary", "nvidia"), false);
+  assert.equal(unsigned.hasKey("primary", "gemini"), false);
+  // Managed mode reports the providers the server has keys for, as one slot.
+  const credentials = new BuiltinMissionAiCredentials({ managed: { providers: () => ["nvidia"] } });
   assert.equal(credentials.hasKey("primary", "nvidia"), true);
-  assert.equal(credentials.hasKey("fallback", "nvidia"), true);
+  assert.equal(credentials.hasKey("fallback", "nvidia"), false, "the server rotates keys; there is no local fallback slot");
+  assert.equal(credentials.hasKey("primary", "gemini"), false);
+  assert.doesNotMatch(credentials.apiKey("primary", "nvidia"), /^nvapi-/, "only a placeholder reaches the provider layer");
+  assert.equal(credentials.status().managed, true);
   assert.throws(() => credentials.clear(), /cannot be removed/);
   assert.throws(() => credentials.configure({ apiKey: "sk-fake" }), /cannot be given another one/);
 });

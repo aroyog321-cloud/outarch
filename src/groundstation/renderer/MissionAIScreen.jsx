@@ -1,4 +1,5 @@
 import React from "react";
+import { MissionAiAllowance } from "./PlanLock.jsx";
 import { ModelMark, ModelSwitcher, useAssistantStatus, useConversation } from "./aiCatalog.jsx";
 import { AssistantComposer, AssistantThread } from "./AssistantChat.jsx";
 import AssistantKeys from "./AssistantKeys.jsx";
@@ -114,6 +115,7 @@ export default function MissionAIScreen({ initialPrompt = "", onConfirm }) {
             <i aria-hidden="true"/>
             <span>Act without asking</span>
           </button>
+          <MissionAiAllowance/>
         </>}
       />
     </div>

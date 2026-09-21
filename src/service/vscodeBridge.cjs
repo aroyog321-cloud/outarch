@@ -129,7 +129,7 @@ class VSCodeBridge extends EventEmitter {
     this.terminals = [];
     this.terminalLogs = new Map();
     this.lastSyncAt = null;
-    // T115 - the same audit depth MCP, Mobile and Plugins already had.
+    // T115 - the same audit depth MCP and Mobile already had.
     // Connection metadata only: no file content, no terminal input, no editor
     // text ever reaches this ring, and the recorded paths are the workspace's
     // own relative ones the status already publishes.

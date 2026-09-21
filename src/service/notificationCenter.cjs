@@ -44,6 +44,7 @@ const KINDS = Object.freeze({
   "service.ready": { tone: "success", rank: 0 },
   "tests.completed": { tone: "info", rank: 0 },
   "agent.turnCompleted": { tone: "info", rank: 0 },
+  "update.available": { tone: "info", rank: 0 },
   "notification.test": { tone: "info", rank: 0 }
 });
 
@@ -59,11 +60,11 @@ const WINDOWS_SOUND = Object.freeze({
   info: "ms-winsoundevent:Notification.Default"
 });
 
-const ACTION_IDS = new Set(["open-service", "copy-url", "restart", "stop", "focus-worker", "inspect-port", "review", "open-recipes"]);
+const ACTION_IDS = new Set(["open-service", "copy-url", "restart", "stop", "focus-worker", "inspect-port", "review", "open-recipes", "install-update"]);
 // A Windows toast button has to make sense from one click with nothing else on
 // screen, so only these can be its button; the rest stay in the app.
-const WINDOWS_ACTIONS = new Set(["open-service", "focus-worker", "review", "open-recipes"]);
-const ACTION_ROUTES = Object.freeze({ "open-service": "workspace", "focus-worker": "workspace", restart: "workspace", stop: "workspace", "inspect-port": "workspace", "copy-url": "workspace", review: "needs", "open-recipes": "recipes" });
+const WINDOWS_ACTIONS = new Set(["open-service", "focus-worker", "review", "open-recipes", "install-update"]);
+const ACTION_ROUTES = Object.freeze({ "open-service": "workspace", "focus-worker": "workspace", restart: "workspace", stop: "workspace", "inspect-port": "workspace", "copy-url": "workspace", review: "needs", "open-recipes": "recipes", "install-update": "settings" });
 
 const MERGE_WINDOW_MS = 900;
 const INCIDENT_WINDOW_MS = 15_000;
@@ -151,7 +152,8 @@ const ACTION_LABELS = Object.freeze({
   "focus-worker": "Open terminal",
   "inspect-port": "Who's using it",
   review: "Review",
-  "open-recipes": "Open recipes"
+  "open-recipes": "Open recipes",
+  "install-update": "Update now"
 });
 
 const actions = (...ids) => ids.map(id => ({ id, label: ACTION_LABELS[id] }));
@@ -208,8 +210,21 @@ function fromSemanticEvent(event) {
       return { ...base, kind: "build.failed", title: `${worker}: build failed`, body: clip(event.description || "The build reported an error.", 200), actions: actions("focus-worker", "restart"), groupKey: `build.failed:${event.workerId}`, dedupeKey: `build.failed:${event.workerId}:${event.runId || ""}` };
     case "service.crashed":
       return { ...base, kind: "worker.crashed", title: `${worker} stopped with an error`, body: clip(event.description || "The process exited unexpectedly.", 200), actions: actions("focus-worker", "restart"), groupKey: `crashed:${event.workerId}` };
-    case "agent.awaitingApproval":
-      return { ...base, kind: "agent.awaitingApproval", title: `${worker} is waiting for you`, body: clip(event.description || "A decision is waiting in Needs You.", 200), actions: actions("review"), groupKey: `agent.waiting:${event.workerId}` };
+    case "agent.awaitingApproval": {
+      // An agent stopped to ask before it runs something. The one action is the
+      // terminal it asked in, because that is where it is answered.
+      const question = clip(data.question || event.description, 200);
+      return {
+        ...base,
+        kind: "agent.awaitingApproval",
+        title: `${worker} is asking for your permission`,
+        body: question || "It is waiting for you to allow or deny something before it continues.",
+        actions: actions("focus-worker"),
+        groupKey: `agent.waiting:${event.workerId}`,
+        dedupeKey: `agent.permission:${event.workerId}:${data.promptId || question}`,
+        data: { promptId: data.promptId || null, agent: data.agent || null, choices: clip(data.choices, 200) }
+      };
+    }
     case "recipe.blocked":
       return { ...base, kind: "recipe.blocked", title: clip(event.title || "A recipe is blocked", 90), body: clip(event.description, 200), actions: actions("open-recipes"), groupKey: `recipe.blocked:${data.recipeId || event.workerId || "recipe"}` };
     case "tests.completed":
@@ -420,6 +435,31 @@ class NotificationCenter extends EventEmitter {
     return withdrawn;
   }
 
+  /**
+   * One kind of notice about a worker is over — an agent's permission question
+   * was answered. Its Windows toast is taken back, and the worker's incident is
+   * forgotten so the agent's next question is news again rather than a repeat.
+   */
+  withdrawKind(workerId, kind) {
+    if (!workerId || !kind) return 0;
+    const id = String(workerId);
+    let withdrawn = 0;
+    for (const [notification, about] of [...this.#live.entries()]) {
+      if (about.workerId !== id || about.kind !== kind) continue;
+      this.#live.delete(notification);
+      try { notification.close?.(); withdrawn += 1; } catch { /* the OS may have closed it already */ }
+    }
+    const incident = this.#incidents.get(id);
+    if (incident && incident.kind === kind) this.#incidents.delete(id);
+    for (const [key, entry] of [...this.#pending.entries()]) {
+      if (key === id && entry.notice.kind === kind) {
+        clearTimeout(entry.timer);
+        this.#pending.delete(key);
+      }
+    }
+    return withdrawn;
+  }
+
   /** Deliver anything still held for merging (used at shutdown and in tests). */
   flush() {
     for (const [key, entry] of [...this.#pending.entries()]) {
@@ -505,7 +545,7 @@ class NotificationCenter extends EventEmitter {
     const quiet = inQuietHours(prefs.quietHours, this.minutesOfDay(at));
 
     if (notice.rank > 0 && notice.workerId) {
-      this.#incidents.set(notice.workerId, { id: notice.id, rank: notice.rank, at });
+      this.#incidents.set(notice.workerId, { id: notice.id, rank: notice.rank, kind: notice.kind, at });
       prune(this.#incidents);
     }
 
@@ -580,7 +620,7 @@ class NotificationCenter extends EventEmitter {
       notification.on("close", () => this.#live.delete(notification));
       notification.on?.("failed", (_event, error) => { this.#lastError = String(error?.message || error || "The notification failed").slice(0, 240); });
       notification.show();
-      this.#live.set(notification, { workerId: summary ? null : notice.workerId, rank: notice.rank });
+      this.#live.set(notification, { workerId: summary ? null : notice.workerId, rank: notice.rank, kind: notice.kind });
       if (this.#live.size > MAX_LIVE_TOASTS) {
         const oldest = this.#live.keys().next().value;
         this.#live.delete(oldest);

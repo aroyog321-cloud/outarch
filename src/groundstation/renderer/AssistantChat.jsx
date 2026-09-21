@@ -1,4 +1,6 @@
 import React from "react";
+import { requestUpgrade } from "./useAccount.js";
+import { CrownIcon } from "./PlanLock.jsx";
 import { ModelMark } from "./aiCatalog.jsx";
 import { renderMarkdown } from "./aiMarkdown.jsx";
 
@@ -98,7 +100,9 @@ function Message({ message, pending, busy, last, compact, onResolve, onRetry }) 
     <Activity items={message.activity}/>
     {message.text && <div className="ai-msg__body mai-md-body">{renderMarkdown(message.text)}</div>}
     {working && <div className="ai-msg__thinking" role="status"><span className="ai-dots" aria-hidden="true"><i/><i/><i/></span><span>{current ? `${current.label}…` : "Thinking…"}</span></div>}
-    {message.error && <div className="ai-msg__error" role="alert"><span>{message.error}</span>{last && onRetry && <button type="button" onClick={onRetry}>Try again</button>}</div>}
+    {message.error && <div className={`ai-msg__error${message.errorCode === "PLAN_REQUIRED" ? " is-plan" : ""}`} role="alert"><span>{message.error}</span>{message.errorCode === "PLAN_REQUIRED"
+      ? <button type="button" className="plan-inline-upgrade" onClick={() => requestUpgrade({ feature: "missionAiMessages", message: message.error })}><CrownIcon size={12}/>Upgrade</button>
+      : last && onRetry && <button type="button" onClick={onRetry}>Try again</button>}</div>}
     {pending && pending.messageId === message.id && <ApprovalCard pending={pending} busy={busy} compact={compact} onResolve={onResolve}/>}
   </article>;
 }

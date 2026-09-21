@@ -39,7 +39,6 @@ function sourcesStub(overrides = {}) {
     missionSupervisor: { listApprovals: () => [approval({ id: "s1", plan: { summary: "Two steps", actions: [{}, {}] } })] },
     mcpGateway: { listApprovals: () => [approval({ id: "mcp1", client: "codex", action: "restart", targetName: "api" })] },
     mobileCompanion: { listApprovals: () => [approval({ id: "mob1", deviceName: "Pixel", action: "restart", targetName: "api" })] },
-    pluginPlatform: { listApprovals: () => [approval({ id: "pl1", pluginName: "Formatter", operation: "run", targetName: "repo" })] },
     ...overrides
   };
 }
@@ -60,8 +59,9 @@ test("buildDecisionQuery normalises every healthy source into one sorted list", 
   const query = await buildDecisionQuery(sourcesStub());
 
   assert.equal(query.complete, true);
-  assert.equal(query.records.length, 7, "session + supervisor + mission + mcp + automation + mobile + plugin pending");
-  assert.equal(query.counts.pending, 7);
+  assert.equal(query.records.length, 6, "session + supervisor + mission + mcp + automation + mobile pending");
+  assert.equal(query.counts.pending, 6);
+  assert.ok(!query.sources.some(source => source.id === "plugin"), "the removed plugin platform is not a decision source");
   assert.equal(query.counts.critical, 1);
   assert.equal(query.records[0].id, "session:api", "the critical failure sorts first");
   assert.equal(query.records[0].source, "session");
@@ -88,16 +88,16 @@ test("a failed source is isolated: it reports error, the rest are unaffected, th
   assert.equal(mcp.error, "gateway offline");
   assert.equal(mcp.pending, 0);
 
-  // The other six sources still contributed their records.
-  assert.equal(query.records.length, 6);
-  assert.equal(query.counts.pending, 6);
-  assert.ok(query.sources.filter(source => source.availability === "ready").length === 6);
+  // The other five sources still contributed their records.
+  assert.equal(query.records.length, 5);
+  assert.equal(query.counts.pending, 5);
+  assert.ok(query.sources.filter(source => source.availability === "ready").length === 5);
 });
 
 test("a missing source handle is 'unavailable', never a silent zero", async () => {
   const query = await buildDecisionQuery({
     engineApi: { listAttention: () => ({ records: [] }) }
-    // no missionSupervisor / mcpGateway / mobileCompanion / pluginPlatform
+    // no missionSupervisor / mcpGateway / mobileCompanion
   });
   assert.equal(query.complete, false);
   const mobile = query.sources.find(source => source.id === "mobile");
@@ -110,8 +110,8 @@ test("already-resolved approvals never inflate the pending count", async () => {
     mcpGateway: { listApprovals: () => [approval({ id: "mcp1", state: "pending" }), approval({ id: "mcp2", state: "approved" })] }
   });
   const query = await buildDecisionQuery(stub);
-  // Only mcp1 is active; mcp2 (approved) is not counted. Total stays at 7.
-  assert.equal(query.counts.pending, 7);
+  // Only mcp1 is active; mcp2 (approved) is not counted. Total stays at 6.
+  assert.equal(query.counts.pending, 6);
   assert.ok(!query.records.some(record => record.id === "mcp:mcp2"));
 });
 

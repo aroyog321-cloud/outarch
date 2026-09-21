@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mission Control - Workspace Command Header Redesign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base: #07090e;
+      --bg-surface: #0d111a;
+      --bg-surface-elevated: #131826;
+      --bg-surface-hover: #1b2236;
+      --bg-glass: rgba(13, 17, 26, 0.88);
+      --bg-glass-card: rgba(18, 24, 38, 0.7);
+      
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.12);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --border-glow: rgba(59, 130, 246, 0.45);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-blue-glow: rgba(59, 130, 246, 0.35);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --accent-purple-glow: rgba(139, 92, 246, 0.3);
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+
+      --radius-xs: 4px;
+      --radius-sm: 6px;
+      --radius-md: 9px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-display: 'Space Grotesk', sans-serif;
+    }
+
+    [data-theme="cyberpunk"] {
+      --bg-base: #060814;
+      --bg-surface: #0a0e24;
+      --bg-surface-elevated: #11183c;
+      --accent-blue: #00f0ff;
+      --accent-blue-glow: rgba(0, 240, 255, 0.4);
+      --accent-purple: #ff007f;
+    }
+
+    [data-theme="obsidian"] {
+      --bg-base: #050608;
+      --bg-surface: #0a0b10;
+      --bg-surface-elevated: #12141c;
+      --accent-blue: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      background-image: 
+        radial-gradient(circle at 20% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 80% 10%, rgba(139, 92, 246, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(6, 182, 212, 0.04) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Top Sticky Showcase Navigation */
+    .showcase-header {
+      background: rgba(10, 13, 20, 0.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.75rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-pill {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #93c5fd;
+      letter-spacing: 0.05em;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .theme-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      color: var(--text-primary);
+      padding: 0.38rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1520px;
+      margin: 1.25rem auto;
+      padding: 0 1.25rem 4rem;
+    }
+
+    /* Concept Header Box */
+    .concept-banner {
+      background: linear-gradient(180deg, rgba(19, 24, 38, 0.7) 0%, rgba(13, 17, 26, 0.5) 100%);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .concept-text h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .concept-text p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      max-width: 900px;
+    }
+
+    .feature-pills-list {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .feature-badge {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--radius-full);
+      color: #94a3b8;
+    }
+
+    /* =========================================================================
+       COMPLETE REDESIGNED WORKSPACE HEADER FRAME (All Main Buttons Included!)
+       ========================================================================= */
+    .workspace-redesign-frame {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+    }
+
+    /* -------------------------------------------------------------------------
+       ROW 1: SLEEK STAGING & UNMOUNTED WORKERS DOCK
+       ------------------------------------------------------------------------- */
+    .dock-staging-row {
+      background: linear-gradient(90deg, rgba(11, 14, 22, 0.95) 0%, rgba(16, 21, 33, 0.95) 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.45rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.78rem;
+    }
+
+    .staging-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    .staging-badge-title {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .staging-pill-counter {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fbbf24;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.12rem 0.5rem;
+      border-radius: var(--radius-full);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .staging-chip-stream {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+      flex: 1;
+      padding: 0.1rem 0;
+      mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    }
+    .staging-chip-stream::-webkit-scrollbar {
+      display: none;
+    }
+
+    .unmounted-chip {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 0.22rem 0.6rem;
+      border-radius: var(--radius-full);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .unmounted-chip:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .chip-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .chip-status-dot.exited { background: #64748b; }
+    .chip-status-dot.idle { background: #eab308; }
+    .chip-status-dot.live { background: #10b981; box-shadow: 0 0 5px rgba(16,185,129,0.8); }
+
+    .chip-worker-name {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .chip-worker-tag {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .staging-batch-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+    }
+
+    .btn-dock-action {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s;
+    }
+    .btn-dock-action:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+    }
+
+    /* -------------------------------------------------------------------------
+       ROW 2: MAIN COMMAND BAR (With All Core Action Buttons & Layout Selector)
+       ------------------------------------------------------------------------- */
+    .command-main-bar {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      padding: 0.7rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+
+    .bar-left-cluster {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .canvas-brand-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .indicator-pulse-ring {
+      position: relative;
+      width: 10px;
+      height: 10px;
+    }
+    .pulse-dot-center {
+      position: absolute;
+      inset: 1px;
+      background: var(--accent-green);
+      border-radius: 50%;
+    }
+    .pulse-glow-wave {
+      position: absolute;
+      inset: -1px;
+      background: rgba(16, 185, 129, 0.35);
+      border-radius: 50%;
+      animation: pulseWave 2s infinite ease-out;
+    }
+
+    @keyframes pulseWave {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    .canvas-title-text {
+      font-family: var(--font-display);
+      font-size: 0.94rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    /* VISUAL MATRIX GRID BUTTONS (Directly Visible) */
+    .matrix-segmented-strip {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .grid-btn-segment {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem 0.6rem;
+      border-radius: calc(var(--radius-md) - 3px);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .grid-btn-segment:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .grid-btn-segment.active {
+      background: linear-gradient(135deg, rgba(59,130,246,0.3) 0%, rgba(37,99,235,0.4) 100%);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      box-shadow: 0 0 12px rgba(59,130,246,0.25);
+    }
+
+    /* Micro grid matrix glyphs */
+    .matrix-glyph {
+      display: grid;
+      gap: 1.5px;
+      width: 12px;
+      height: 12px;
+    }
+    .matrix-glyph span {
+      background: currentColor;
+      opacity: 0.75;
+      border-radius: 1px;
+    }
+    .glyph-1 { grid-template-columns: 1fr; }
+    .glyph-1x2 { grid-template-columns: 1fr 1fr; }
+    .glyph-2x1 { grid-template-rows: 1fr 1fr; }
+    .glyph-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .glyph-3x2 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+    /* Center Search Bar */
+    .bar-center-search {
+      flex: 1;
+      max-width: 380px;
+      min-width: 220px;
+      position: relative;
+    }
+
+    .search-input-field {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      padding: 0.44rem 2.2rem 0.44rem 2.2rem;
+      width: 100%;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input-field:focus {
+      border-color: var(--accent-blue);
+      background: rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .search-icon-svg {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-kbd-tag {
+      position: absolute;
+      right: 0.6rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ALL MAIN ACTION BUTTONS (Right Cluster) */
+    .bar-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    /* Primary Add Worker Button */
+    .btn-main-add {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      border: 1px solid rgba(96, 165, 250, 0.4);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.44rem 0.9rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .btn-main-add:hover {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* AI Assistant Sparkle Button */
+    .btn-action-sparkle {
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #c4b5fd;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.42rem 0.75rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-action-sparkle:hover {
+      background: rgba(139, 92, 246, 0.22);
+      border-color: rgba(139, 92, 246, 0.6);
+      color: #fff;
+      box-shadow: 0 0 12px var(--accent-purple-glow);
+    }
+
+    /* Standard Glass Action Button (Recipes, Start idle) */
+    .btn-action-glass {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.42rem 0.75rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-action-glass:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .btn-action-glass.active-idle {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #34d399;
+    }
+
+    /* Icon-only buttons (Ports, Focus) */
+    .btn-action-icon-only {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      border-radius: var(--radius-md);
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+
+    .btn-action-icon-only:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .btn-action-icon-only.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.5);
+      color: #93c5fd;
+    }
+
+    /* -------------------------------------------------------------------------
+       ROW 3: REFINED CATEGORY FILTER TAB STRIP
+       ------------------------------------------------------------------------- */
+    .category-filter-strip {
+      background: rgba(10, 13, 20, 0.95);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.4rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .tab-pills-scroller {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+      flex: 1;
+    }
+    .tab-pills-scroller::-webkit-scrollbar {
+      display: none;
+    }
+
+    .category-pill-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .category-pill-tab:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+    }
+
+    .category-pill-tab.active {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+
+    .tab-glyph-icon {
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.9;
+    }
+
+    .tab-count-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.1rem 0.42rem;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+    }
+
+    .category-pill-tab.active .tab-count-tag {
+      background: rgba(59, 130, 246, 0.35);
+      color: #dbeafe;
+    }
+
+    .tab-scroll-arrow-btn {
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .tab-scroll-arrow-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* -------------------------------------------------------------------------
+       LIVE CANVAS VIEWPORT (Responds directly to the grid buttons above!)
+       ------------------------------------------------------------------------- */
+    .live-canvas-viewport {
+      padding: 1.25rem;
+      background: #07090e;
+      min-height: 280px;
+    }
+
+    .canvas-grid-matrix {
+      display: grid;
+      gap: 1rem;
+      height: 100%;
+      min-height: 260px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .canvas-grid-matrix[data-layout="3x2"] {
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 130px);
+    }
+    .canvas-grid-matrix[data-layout="2x2"] {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 130px);
+    }
+    .canvas-grid-matrix[data-layout="1x2"] {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: 260px;
+    }
+    .canvas-grid-matrix[data-layout="2x1"] {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(2, 125px);
+    }
+    .canvas-grid-matrix[data-layout="1"] {
+      grid-template-columns: 1fr;
+      grid-template-rows: 260px;
+    }
+
+    .terminal-tile-card {
+      background: rgba(14, 18, 28, 0.75);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+    }
+
+    .terminal-tile-card:hover {
+      border-color: var(--border-medium);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .card-tile-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+    }
+
+    .card-worker-title {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .tile-live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 6px rgba(16,185,129,0.7);
+    }
+
+    .card-log-preview {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-meta-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      border-top: 1px solid rgba(255,255,255,0.03);
+      padding-top: 0.4rem;
+    }
+
+    /* Modal / Spawn Dialog Preview */
+    .overlay-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .overlay-backdrop.open {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-dialog-box {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 600px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .modal-head h3 {
+      font-size: 1.1rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-close-modal {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.25rem;
+    }
+    .btn-close-modal:hover { color: #fff; }
+
+    .preset-card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .preset-archetype-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .preset-archetype-card:hover {
+      background: rgba(59,130,246,0.1);
+      border-color: rgba(59,130,246,0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Toast */
+    .toast-popup {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      z-index: 300;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-popup.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 900px) {
+      .bar-center-search {
+        min-width: 160px;
+      }
+      .staging-chip-stream {
+        max-width: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation & Showcase Bar -->
+  <header class="showcase-header">
+    <div class="brand-section">
+      <span class="brand-pill">MISSION CONTROL</span>
+      <h1 class="brand-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--accent-blue)">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        Workspace Command Header - High-Fidelity Interactive Suite
+      </h1>
+    </div>
+
+    <div class="nav-controls">
+      <select class="theme-select" onchange="setTheme(this.value)">
+        <option value="default">🌌 Deep Space (Default)</option>
+        <option value="obsidian">🌑 Obsidian Stealth</option>
+        <option value="cyberpunk">⚡ Cyberpunk Neon</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Concept Explanation -->
+    <section class="concept-banner">
+      <div class="concept-text">
+        <h2>✨ Complete Developer Header with All Core Controls & Micro-Matrix Tiling</h2>
+        <p>
+          All main buttons from your original app are fully present, reorganized into high-visibility functional clusters: <strong>Visual Grid Matrix Switcher</strong> (<code>1</code>, <code>1×2</code>, <code>2×1</code>, <code>2×2</code>, <code>3×2</code>), <strong>Primary Add Worker</strong>, <strong>AI Copilot</strong>, <strong>Recipes</strong>, <strong>Start Idle</strong>, <strong>Network/Ports</strong>, <strong>Focus/Zen</strong>, <strong>Staging Dock</strong>, and <strong>Category Filter Pills</strong>.
+        </p>
+      </div>
+      <div class="feature-pills-list">
+        <span class="feature-badge">⚡ Interactive Grid Buttons</span>
+        <span class="feature-badge">🤖 AI Agent Trigger</span>
+        <span class="feature-badge">⊞ Stack Recipes</span>
+        <span class="feature-badge">▷ Batch Start Idle</span>
+        <span class="feature-badge">⛶ Zen Focus Mode</span>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         COMPLETE REDESIGNED WORKSPACE HEADER (ALL MAIN BUTTONS VISIBLE)
+         ========================================================================= -->
+    <div class="workspace-redesign-frame" id="workspaceFrame">
+
+      <!-- =======================================================================
+           TIER 1: UNMOUNTED / OFF-CANVAS STAGING DOCK (Row 1)
+           ======================================================================= -->
+      <div class="dock-staging-row" id="dockStaging">
+        <div class="staging-left">
+          <span class="staging-badge-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M2 9h20"/></svg>
+            Staging Dock
+          </span>
+          <span class="staging-pill-counter">
+            <span class="chip-status-dot idle"></span>
+            14 Unmounted
+          </span>
+        </div>
+
+        <!-- Horizontal Stream of Off-Canvas Chips -->
+        <div class="staging-chip-stream" id="stagingStream">
+          <div class="unmounted-chip" onclick="mountWorker('qwerwa', 'Shell', this)">
+            <span class="chip-status-dot exited"></span>
+            <span class="chip-worker-name">qwerwa</span>
+            <span class="chip-worker-tag">exited</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('xvx cvxv', 'AI Agent', this)">
+            <span class="chip-status-dot exited"></span>
+            <span class="chip-worker-name">xvx cvxv</span>
+            <span class="chip-worker-tag">exited</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('server', 'Service', this)">
+            <span class="chip-status-dot idle"></span>
+            <span class="chip-worker-name">server</span>
+            <span class="chip-worker-tag">idle:3000</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('frontend', 'Frontend', this)">
+            <span class="chip-status-dot idle"></span>
+            <span class="chip-worker-name">frontend</span>
+            <span class="chip-worker-tag">vite:5173</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('backend', 'Service', this)">
+            <span class="chip-status-dot exited"></span>
+            <span class="chip-worker-name">backend</span>
+            <span class="chip-worker-tag">exited</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('postgres-db', 'Database', this)">
+            <span class="chip-status-dot live"></span>
+            <span class="chip-worker-name">postgres-db</span>
+            <span class="chip-worker-tag">live:5432</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('redis-cache', 'Database', this)">
+            <span class="chip-status-dot live"></span>
+            <span class="chip-worker-name">redis-cache</span>
+            <span class="chip-worker-tag">live:6379</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('unit-tests', 'Test', this)">
+            <span class="chip-status-dot exited"></span>
+            <span class="chip-worker-name">unit-tests</span>
+            <span class="chip-worker-tag">passed:0</span>
+          </div>
+          <div class="unmounted-chip" onclick="mountWorker('git-sync', 'Git', this)">
+            <span class="chip-status-dot exited"></span>
+            <span class="chip-worker-name">git-sync</span>
+            <span class="chip-worker-tag">clean</span>
+          </div>
+        </div>
+
+        <!-- Quick Batch Actions -->
+        <div class="staging-batch-actions">
+          <button class="btn-dock-action" onclick="mountAllBatch()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Mount All
+          </button>
+          <button class="btn-dock-action" onclick="clearExitedBatch()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Clear Exited
+          </button>
+        </div>
+      </div>
+
+      <!-- =======================================================================
+           TIER 2: MAIN COMMAND BAR (With All Core Action Buttons & Layout Matrix)
+           ======================================================================= -->
+      <div class="command-main-bar">
+        
+        <!-- Left Cluster: Workspace Title + Segmented Grid Buttons -->
+        <div class="bar-left-cluster">
+          <div class="canvas-brand-indicator">
+            <div class="indicator-pulse-ring">
+              <div class="pulse-glow-wave"></div>
+              <div class="pulse-dot-center"></div>
+            </div>
+            <span class="canvas-title-text">Multi-Terminal Canvas</span>
+          </div>
+
+          <!-- Direct Grid Matrix Switcher Buttons (1, 1×2, 2×1, 2×2, 3×2) -->
+          <div class="matrix-segmented-strip" id="gridStrip">
+            <button class="grid-btn-segment" data-grid="1" onclick="applyGrid('1', this)" title="Single Window (1x1)">
+              <div class="matrix-glyph glyph-1"><span></span></div>
+              1
+            </button>
+            <button class="grid-btn-segment" data-grid="1x2" onclick="applyGrid('1x2', this)" title="Split Vertical (1x2)">
+              <div class="matrix-glyph glyph-1x2"><span></span><span></span></div>
+              1×2
+            </button>
+            <button class="grid-btn-segment" data-grid="2x1" onclick="applyGrid('2x1', this)" title="Split Horizontal (2x1)">
+              <div class="matrix-glyph glyph-2x1"><span></span><span></span></div>
+              2×1
+            </button>
+            <button class="grid-btn-segment" data-grid="2x2" onclick="applyGrid('2x2', this)" title="Quad Grid (2x2)">
+              <div class="matrix-glyph glyph-2x2"><span></span><span></span><span></span><span></span></div>
+              2×2
+            </button>
+            <button class="grid-btn-segment active" data-grid="3x2" onclick="applyGrid('3x2', this)" title="Command Matrix (3x2)">
+              <div class="matrix-glyph glyph-3x2"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+              3×2
+            </button>
+          </div>
+        </div>
+
+        <!-- Center Search Omnibar -->
+        <div class="bar-center-search">
+          <span class="search-icon-svg">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="text" class="search-input-field" id="workerSearchInput" placeholder="Find worker, port, tag..." oninput="filterWorkers(this.value)" />
+          <span class="search-kbd-tag">⌘K</span>
+        </div>
+
+        <!-- Right Cluster: ALL CORE ACTION BUTTONS DIRECTLY ACCESSIBLE -->
+        <div class="bar-right-actions">
+          
+          <!-- 1. Primary Add Worker Button -->
+          <button class="btn-main-add" onclick="openSpawnDialog()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Worker
+          </button>
+
+          <!-- 2. AI Assistant Button (✨) -->
+          <button class="btn-action-sparkle" onclick="showToast('AI Agent Copilot Activated (Synthesizing logs & build suggestions)')" title="AI Agent Copilot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            AI Agent
+          </button>
+
+          <!-- 3. Recipes Button (⊞) -->
+          <button class="btn-action-glass" onclick="showToast('Loaded Stack Recipes (Fullstack Node+Vite, Python ML, Microservices)')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Recipes
+          </button>
+
+          <!-- 4. Start Idle Button (▷) -->
+          <button class="btn-action-glass" id="startIdleBtn" onclick="toggleStartIdleState(this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent-blue)"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Start Idle
+          </button>
+
+          <!-- 5. Network / Ports Inspector Button (🌐) -->
+          <button class="btn-action-icon-only" onclick="showToast('Opened Network Ports & Tunnels Inspector')" title="Network Ports & Tunnels">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </button>
+
+          <!-- 6. Focus / Zen Mode Button (⛶) -->
+          <button class="btn-action-icon-only" id="focusToggleBtn" onclick="toggleZenFocusMode(this)" title="Zen Focus Mode (Hide Dock & Category Filter)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- =======================================================================
+           TIER 3: CATEGORY FILTER TABS (Row 3)
+           ======================================================================= -->
+      <div class="category-filter-strip" id="filterTabStrip">
+        <div class="tab-pills-scroller" id="tabPillsScroller">
+          
+          <button class="category-pill-tab active" onclick="filterByArchetype('all', this)">
+            <span class="tab-glyph-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </span>
+            All Terminals
+            <span class="tab-count-tag">20</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('shell', this)">
+            <span class="tab-glyph-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </span>
+            Shells
+            <span class="tab-count-tag">7</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('ai', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-purple)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            </span>
+            AI Agents
+            <span class="tab-count-tag" style="background:rgba(139,92,246,0.3); color:#c4b5fd">1</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('service', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-blue)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            </span>
+            Services
+            <span class="tab-count-tag">5</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('container', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-cyan)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </span>
+            Containers
+            <span class="tab-count-tag">2</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('database', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-amber)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </span>
+            Databases
+            <span class="tab-count-tag">2</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('test', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-green)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 2 4 4"/><path d="M10 2v7.5l-4.5 7.5a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 9.5V2"/><line x1="8.5" y1="14" x2="15.5" y2="14"/></svg>
+            </span>
+            Tests
+            <span class="tab-count-tag">2</span>
+          </button>
+
+          <button class="category-pill-tab" onclick="filterByArchetype('git', this)">
+            <span class="tab-glyph-icon" style="color:var(--accent-rose)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            </span>
+            Git
+            <span class="tab-count-tag">1</span>
+          </button>
+
+        </div>
+
+        <button class="tab-scroll-arrow-btn" onclick="scrollPillsRight()" title="Scroll Tabs Right">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <!-- =======================================================================
+           LIVE CANVAS VIEWPORT (Directly updates when clicking any grid button)
+           ======================================================================= -->
+      <div class="live-canvas-viewport">
+        <div class="canvas-grid-matrix" id="terminalGrid" data-layout="3x2">
+          
+          <div class="terminal-tile-card" data-archetype="service">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                api-server:8080
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#60a5fa">Service</span>
+            </div>
+            <div class="card-log-preview">[INFO] Fastify listening on http://127.0.0.1:8080</div>
+            <div class="card-meta-bottom">
+              <span>PID: 4892</span>
+              <span>RAM: 78MB</span>
+            </div>
+          </div>
+
+          <div class="terminal-tile-card" data-archetype="service">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                vite-client:5173
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#60a5fa">Frontend</span>
+            </div>
+            <div class="card-log-preview">VITE v5.4.2 ready in 240 ms - Local: :5173</div>
+            <div class="card-meta-bottom">
+              <span>HMR Active</span>
+              <span>RAM: 112MB</span>
+            </div>
+          </div>
+
+          <div class="terminal-tile-card" data-archetype="ai">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                autonomous-agent-01
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#c4b5fd">AI Copilot</span>
+            </div>
+            <div class="card-log-preview">Watching 14 processes • Synthesizing log streams...</div>
+            <div class="card-meta-bottom">
+              <span>Model: Claude 3.5</span>
+              <span>Tokens: 1.4k</span>
+            </div>
+          </div>
+
+          <div class="terminal-tile-card" data-archetype="database">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                postgresql-primary
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#fbbf24">Database</span>
+            </div>
+            <div class="card-log-preview">PostgreSQL ready to accept connections (:5432)</div>
+            <div class="card-meta-bottom">
+              <span>Port: 5432</span>
+              <span>Conn: 8</span>
+            </div>
+          </div>
+
+          <div class="terminal-tile-card" data-archetype="shell">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                zsh-workspace-root
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#94a3b8">Shell</span>
+            </div>
+            <div class="card-log-preview">~/mission-control-pro (main) $ npm run test:watch</div>
+            <div class="card-meta-bottom">
+              <span>TTY: /dev/ttys004</span>
+              <span>Idle: 12s</span>
+            </div>
+          </div>
+
+          <div class="terminal-tile-card" data-archetype="test">
+            <div class="card-tile-top">
+              <span class="card-worker-title">
+                <span class="tile-live-dot"></span>
+                vitest-runner
+              </span>
+              <span class="feature-badge" style="font-size:0.65rem; color:#34d399">Test</span>
+            </div>
+            <div class="card-log-preview">✓ 42 test suites passed (188 tests) [0 failing]</div>
+            <div class="card-meta-bottom">
+              <span>Watch Mode</span>
+              <span>Time: 1.84s</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Spawn Worker Dialog -->
+  <div class="overlay-backdrop" id="spawnModal" onclick="closeSpawnDialog(event)">
+    <div class="modal-dialog-box" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-blue)"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Quick Spawn Terminal Worker
+        </h3>
+        <button class="btn-close-modal" onclick="closeSpawnDialog()">&times;</button>
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-secondary)">Choose an archetype to mount to the canvas:</p>
+      
+      <div class="preset-card-grid">
+        <div class="preset-archetype-card" onclick="spawnArchetype('Node + Vite Fullstack Stack')">
+          <div style="font-size:1.5rem">⚡</div>
+          <div>
+            <h4 style="font-size:0.85rem; color:#fff">Fullstack Dev Duo</h4>
+            <p style="font-size:0.72rem; color:var(--text-secondary)">Spawns Backend Express + Vite Frontend</p>
+          </div>
+        </div>
+
+        <div class="preset-archetype-card" onclick="spawnArchetype('Autonomous AI Agent')">
+          <div style="font-size:1.5rem">🤖</div>
+          <div>
+            <h4 style="font-size:0.85rem; color:#fff">Autonomous AI Agent</h4>
+            <p style="font-size:0.72rem; color:var(--text-secondary)">Watches test failures and log exceptions</p>
+          </div>
+        </div>
+
+        <div class="preset-archetype-card" onclick="spawnArchetype('PostgreSQL + Redis Database')">
+          <div style="font-size:1.5rem">🐳</div>
+          <div>
+            <h4 style="font-size:0.85rem; color:#fff">Postgres + Redis</h4>
+            <p style="font-size:0.72rem; color:var(--text-secondary)">Containerized DB pair with auto health check</p>
+          </div>
+        </div>
+
+        <div class="preset-archetype-card" onclick="spawnArchetype('Raw Zsh Shell')">
+          <div style="font-size:1.5rem">💻</div>
+          <div>
+            <h4 style="font-size:0.85rem; color:#fff">Interactive Zsh Shell</h4>
+            <p style="font-size:0.72rem; color:var(--text-secondary)">Clean terminal worker with env variables</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Feedback -->
+  <div class="toast-popup" id="toastBox">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--accent-green)"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toastContent">Action executed</span>
+  </div>
+
+  <script>
+    // Theme Switcher
+    function setTheme(theme) {
+      if (theme === 'default') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+      showToast(`Applied Theme: ${theme.toUpperCase()}`);
+    }
+
+    // Grid Layout Switcher (1, 1x2, 2x1, 2x2, 3x2)
+    function applyGrid(gridKey, btn) {
+      document.querySelectorAll('#gridStrip .grid-btn-segment').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const grid = document.getElementById('terminalGrid');
+      grid.setAttribute('data-layout', gridKey);
+
+      showToast(`Layout changed to: ${gridKey} Matrix`);
+    }
+
+    // Category Filter Switcher
+    function filterByArchetype(archetype, tab) {
+      document.querySelectorAll('#tabPillsScroller .category-pill-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const cards = document.querySelectorAll('.terminal-tile-card');
+      let visible = 0;
+      cards.forEach(card => {
+        if (archetype === 'all' || card.getAttribute('data-archetype') === archetype) {
+          card.style.display = 'flex';
+          visible++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      showToast(`Filter: ${archetype.toUpperCase()} (${visible} visible)`);
+    }
+
+    // Search filter
+    function filterWorkers(val) {
+      const q = val.toLowerCase().trim();
+      const cards = document.querySelectorAll('.terminal-tile-card');
+      cards.forEach(card => {
+        if (card.innerText.toLowerCase().includes(q)) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Mount single worker from dock
+    function mountWorker(name, type, chip) {
+      chip.style.transform = 'scale(0.8)';
+      chip.style.opacity = '0';
+      setTimeout(() => {
+        chip.remove();
+        showToast(`Mounted "${name}" (${type}) to Canvas Grid`);
+      }, 200);
+    }
+
+    // Batch Mount All
+    function mountAllBatch() {
+      document.querySelectorAll('.unmounted-chip').forEach(c => c.remove());
+      showToast('All 14 unmounted workers mounted to Canvas');
+    }
+
+    // Batch Clear Exited
+    function clearExitedBatch() {
+      let count = 0;
+      document.querySelectorAll('.unmounted-chip').forEach(c => {
+        if (c.querySelector('.chip-status-dot.exited')) {
+          c.remove();
+          count++;
+        }
+      });
+      showToast(`Cleared ${count} exited workers from Staging Dock`);
+    }
+
+    // Toggle Start Idle state
+    function toggleStartIdleState(btn) {
+      btn.classList.toggle('active-idle');
+      const isRunning = btn.classList.contains('active-idle');
+      if (isRunning) {
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent-green)"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Running Idle';
+        showToast('Started 6 idle background worker processes');
+      } else {
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent-blue)"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Idle';
+        showToast('Paused idle workers');
+      }
+    }
+
+    // Toggle Zen Focus Mode
+    function toggleZenFocusMode(btn) {
+      const dock = document.getElementById('dockStaging');
+      const filter = document.getElementById('filterTabStrip');
+      const isFocus = btn.classList.contains('active');
+
+      if (isFocus) {
+        dock.style.display = 'flex';
+        filter.style.display = 'flex';
+        btn.classList.remove('active');
+        showToast('Exited Zen Focus Mode');
+      } else {
+        dock.style.display = 'none';
+        filter.style.display = 'none';
+        btn.classList.add('active');
+        showToast('Entered Zen Focus Mode (Distraction-Free Full Canvas)');
+      }
+    }
+
+    // Spawn dialog
+    function openSpawnDialog() {
+      document.getElementById('spawnModal').classList.add('open');
+    }
+    function closeSpawnDialog() {
+      document.getElementById('spawnModal').classList.remove('open');
+    }
+    function spawnArchetype(name) {
+      closeSpawnDialog();
+      showToast(`Spawned new worker: "${name}"`);
+    }
+
+    // Scroll pills
+    function scrollPillsRight() {
+      document.getElementById('tabPillsScroller').scrollBy({ left: 160, behavior: 'smooth' });
+    }
+
+    // Toast utility
+    let toastTimer;
+    function showToast(text) {
+      const toast = document.getElementById('toastBox');
+      document.getElementById('toastContent').innerText = text;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // Keyboard shortcut for Cmd/Ctrl+K
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('workerSearchInput').focus();
+      }
+    });
+  </script>
+</body>
+</html>

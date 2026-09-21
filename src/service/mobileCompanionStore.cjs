@@ -37,9 +37,12 @@ function normalizeScopes(value) {
   return MOBILE_SCOPES.filter(scope => value.includes(scope));
 }
 
+// autoRun: whether a paired phone's start, restart and recipe requests run
+// straight away. It is on unless the operator turns it off, and a store written
+// before the setting existed reads as on, so it is never "unset".
 function normalizePreferences(value = {}) {
   if (!isPlainObject(value)) throw new TypeError("Mobile companion preferences must be an object");
-  return { enabled: value.enabled === true, port: normalizePort(value.port), scopes: normalizeScopes(value.scopes) };
+  return { enabled: value.enabled === true, port: normalizePort(value.port), scopes: normalizeScopes(value.scopes), autoRun: value.autoRun !== false };
 }
 
 function publicDevice(device) {
@@ -87,8 +90,9 @@ class MobileCompanionStore {
 
   configure(value = {}) {
     if (!isPlainObject(value)) throw new TypeError("Mobile companion configuration must be an object");
-    const unsupported = Object.keys(value).find(key => !["enabled", "port", "scopes"].includes(key));
+    const unsupported = Object.keys(value).find(key => !["enabled", "port", "scopes", "autoRun"].includes(key));
     if (unsupported) throw new TypeError(`Unsupported mobile companion configuration field: ${unsupported}`);
+    if (value.autoRun !== undefined && typeof value.autoRun !== "boolean") throw new TypeError("Mobile companion autoRun must be true or false");
     const current = this.#readDocument();
     const preferences = normalizePreferences({ ...current.preferences, ...value });
     if (preferences.enabled && !this.protectionStatus().available) throw new Error("OS credential encryption is unavailable; Mobile Companion remains disabled");

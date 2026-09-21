@@ -584,7 +584,11 @@
 
 /* The row is restated with the display: styles.css turns this deck into a
    column below 760px, where each item's flex basis (the title's 220px) became
-   a height and the deck stood ~300px tall over the canvas. */
+   a height and the deck stood ~300px tall over the canvas.
+   The deck is unboxed: its controls carry their own faces, so a band around
+   them was a second outline. The border stays 1px (transparent) so nothing
+   moves. Focus mode floats the deck over the terminals and needs a backdrop,
+   so it sets --mc-deck-fill and --mc-deck-edge (workspace.css). */
 #root#root .shell .view-workspace .workspace-command-deck {
   display: flex !important;
   flex-direction: row;
@@ -592,8 +596,8 @@
   align-items: center;
   gap: var(--mc-space-1) var(--mc-space-2);
   padding: var(--mc-space-1) var(--mc-space-2) !important;
-  background: var(--mc-surface) !important;
-  border: 1px solid var(--mc-border) !important;
+  background: var(--mc-deck-fill, transparent) !important;
+  border: 1px solid var(--mc-deck-edge, transparent) !important;
   border-radius: var(--mc-radius-sm) !important;
   box-shadow: none !important;
 }

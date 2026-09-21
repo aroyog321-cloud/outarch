@@ -10,8 +10,31 @@ ipcRenderer.on("mission-control:event", (_event, message) => {
   }
 });
 
+// Account and update states for screenshots: see accountFixtures.cjs.
+const accountKind = process.env.OUTARCH_HARNESS_ACCOUNT || "none";
+const updateKind = process.env.OUTARCH_HARNESS_UPDATE || "";
+const accountFixtures = require("./accountFixtures.cjs");
+const accountBridge = accountKind === "none" ? undefined : Object.freeze({
+  status: () => Promise.resolve(accountFixtures.status(accountKind)),
+  signIn: () => Promise.resolve(accountFixtures.status("signing-in")),
+  cancelSignIn: () => Promise.resolve(accountFixtures.status("signed-out")),
+  signOut: () => Promise.resolve(accountFixtures.status("signed-out")),
+  refresh: () => Promise.resolve(accountFixtures.status(accountKind)),
+  openPortal: () => Promise.resolve(true),
+  onChange: () => () => {}
+});
+const updatesBridge = accountKind === "none" ? undefined : Object.freeze({
+  status: () => Promise.resolve(accountFixtures.updateStatus(updateKind)),
+  check: () => Promise.resolve(accountFixtures.updateStatus(updateKind)),
+  download: () => Promise.resolve(accountFixtures.updateStatus("ready")),
+  install: () => Promise.resolve(accountFixtures.updateStatus("ready")),
+  onChange: () => () => {}
+});
+
 contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: 1,
+  account: accountBridge,
+  updates: updatesBridge,
   request: (method, params = {}) => ipcRenderer.invoke("mission-control:request", { version: 1, id: `h-${Date.now()}-${Math.random()}`, method, params }),
   openExternal: () => Promise.resolve({ ok: true }),
   // The harness has no main-process clipboard; copying is a no-op that succeeds.

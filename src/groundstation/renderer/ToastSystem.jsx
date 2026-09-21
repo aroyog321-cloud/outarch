@@ -95,6 +95,7 @@ export function ToastProvider({ children }) {
       detail: typeof options.detail === "string" ? options.detail : "",
       source: typeof options.source === "string" ? options.source : "",
       compact: options.compact === true,
+      icon: typeof options.icon === "string" ? options.icon : "",
       duration,
       createdAt: Date.now(),
       actions
@@ -216,34 +217,50 @@ export function ToastIcon({ type }) {
   return TOAST_ICONS[type] || TOAST_ICONS.info;
 }
 
-const TOAST_ICONS = {
-  success: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 6 9 17l-5-5"/>
-    </svg>
+// Filled glyphs on a tinted tile, the same set the OUTARCH website shows on
+// its notification cards: the tile's colour and shape say what kind of notice
+// it is before a word is read.
+const TOAST_GLYPHS = {
+  bell: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,71.1a8,8,0,0,1-10.78-3.42,94.13,94.13,0,0,0-33.46-36.91,8,8,0,1,1,8.54-13.54,111.46,111.46,0,0,1,39.12,43.09A8,8,0,0,1,224,71.1ZM35.71,72a8,8,0,0,0,7.1-4.32A94.13,94.13,0,0,1,76.27,30.77a8,8,0,1,0-8.54-13.54A111.46,111.46,0,0,0,28.61,60.32,8,8,0,0,0,35.71,72Zm186.1,103.94A16,16,0,0,1,208,200H167.2a40,40,0,0,1-78.4,0H48a16,16,0,0,1-13.79-24.06C43.22,160.39,48,138.28,48,112a80,80,0,0,1,160,0C208,138.27,212.78,160.38,221.81,175.94ZM150.62,200H105.38a24,24,0,0,0,45.24,0Z"/></svg>
   ),
-  danger: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3h.01"/>
-    </svg>
+  diamond: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M235.33,116.72,139.28,20.66a16,16,0,0,0-22.56,0l-96,96.06a16,16,0,0,0,0,22.56l96.05,96.06h0a16,16,0,0,0,22.56,0l96.05-96.06a16,16,0,0,0,0-22.56ZM120,80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg>
   ),
-  warning: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 3h.01"/>
-    </svg>
+  check: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>
   ),
   info: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>
-    </svg>
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-4,48a12,12,0,1,1-12,12A12,12,0,0,1,124,72Zm12,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg>
   ),
-  ai: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3.5c.4 4.4 4.1 8.1 8.5 8.5-4.4.4-8.1 4.1-8.5 8.5-.4-4.4-4.1-8.1-8.5-8.5 4.4-.4 8.1-4.1 8.5-8.5Z"/>
-    </svg>
+  alert: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg>
   ),
+  sparkle: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"/></svg>
+  ),
+  shield: (
+    <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm-34.32,69.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>
+  ),
+};
+
+const TOAST_ICONS = {
+  success: TOAST_GLYPHS.check,
+  danger: TOAST_GLYPHS.diamond,
+  warning: TOAST_GLYPHS.alert,
+  info: TOAST_GLYPHS.info,
+  ai: TOAST_GLYPHS.sparkle,
   progress: <span className="mc-toast__spinner" aria-hidden="true"/>
 };
+
+// How long ago, the way a phone notification says it: "now" at first, then
+// minutes, then the time of day.
+function since(at, now) {
+  const seconds = Math.max(0, Math.round((now - at) / 1000));
+  if (seconds < 45) return "now";
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))}m ago`;
+  return clock(at);
+}
 
 function clock(at) {
   return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -251,6 +268,14 @@ function clock(at) {
 
 function Toast({ toast: t, onDismiss }) {
   const [visible, setVisible] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+
+  // The age on the card moves on while it is on screen.
+  React.useEffect(() => {
+    if (t.compact) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, [t.compact]);
 
   React.useEffect(() => {
     // Trigger enter animation on next frame
@@ -261,6 +286,8 @@ function Toast({ toast: t, onDismiss }) {
   const hasAction = t.actions.length > 0;
   const heading = t.title || t.message;
   const body = t.title ? t.message : "";
+  // Something waiting on the operator keeps a slow ring on its tile.
+  const ringing = !t.compact && (t.type === "warning" || t.type === "danger");
   return (
     <div
       className={`mc-toast mc-toast--${t.type} ${t.compact ? "is-compact" : ""} ${visible ? "is-visible" : ""}`}
@@ -276,18 +303,21 @@ function Toast({ toast: t, onDismiss }) {
       aria-atomic="true"
       onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); onDismiss(t.id); } }}
     >
-      <span className="mc-toast__icon">{TOAST_ICONS[t.type] || TOAST_ICONS.info}</span>
+      <span className={`mc-toast__icon ${ringing ? "is-ringing" : ""}`}>{(t.icon && TOAST_GLYPHS[t.icon]) || TOAST_ICONS[t.type] || TOAST_ICONS.info}</span>
       <div className="mc-toast__body">
+        {!t.compact && <div className="mc-toast__meta">
+          <b>OUTARCH</b>
+          <time dateTime={new Date(t.createdAt).toISOString()} title={clock(t.createdAt)}>{since(t.createdAt, now)}</time>
+        </div>}
         <div className="mc-toast__head">
           <strong className="mc-toast__title">{heading}</strong>
-          {!t.compact && <time dateTime={new Date(t.createdAt).toISOString()}>{clock(t.createdAt)}</time>}
         </div>
-        {body && <p className="mc-toast__text">{body}</p>}
+        {(body || t.source) && <p className="mc-toast__text">
+          {t.source && <span className="mc-toast__source">{t.source}</span>}
+          {t.source && body ? " · " : null}
+          {body}
+        </p>}
         {t.detail && <p className="mc-toast__detail">{t.detail}</p>}
-        {t.source && <span className="mc-toast__source">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.2"/><path d="m7.5 10 2.5 2-2.5 2"/></svg>
-          {t.source}
-        </span>}
         {hasAction && <div className="mc-toast__actions">
           {t.actions.map((item, index) => (
             <button key={item.label} type="button" className={index === 0 ? "mc-toast__action" : `mc-toast__secondary ${item.tone === "danger" ? "is-danger" : ""}`} onClick={() => { item.run(); if (item.keepOpen !== true) onDismiss(t.id); }}>

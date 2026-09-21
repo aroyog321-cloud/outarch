@@ -1,0 +1,34 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "OUTARCH" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - navigation "Account" [ref=e8]:
+      - link "Plans" [ref=e9] [cursor=pointer]:
+        - /url: /pricing
+      - link "Account" [ref=e10] [cursor=pointer]:
+        - /url: /account
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]: Signing in to the OUTARCH app
+      - heading "Sign in to OUTARCH" [level=1] [ref=e16]
+      - paragraph [ref=e17]: Welcome back. Pick up where your terminals left off.
+      - button "Continue with Google" [ref=e18] [cursor=pointer]
+      - separator [ref=e24]:
+        - generic [ref=e25]: or use your email
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Email
+          - textbox "Email" [ref=e29]:
+            - /placeholder: you@example.com
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - text: Password
+            - button "Password Show password" [ref=e32] [cursor=pointer]: Forgot password?
+          - generic [ref=e33]:
+            - textbox [ref=e34]
+            - button "Show password" [ref=e35] [cursor=pointer]
+        - button "Sign in" [disabled] [ref=e39]
+      - paragraph [ref=e40]:
+        - text: New to OUTARCH?
+        - button "Create an account" [ref=e41] [cursor=pointer]
+  - contentinfo [ref=e42]: Your password goes to OUTARCH's account service only. The desktop app keeps its session encrypted on your computer.

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OUTARCH"><defs>
+<linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#161a22"/><stop offset="1" stop-color="#050608"/></linearGradient>
+<clipPath id="top"><rect width="64" height="26.5"/><rect y="30" width="64" height="34"/></clipPath>
+<clipPath id="band"><rect y="26.5" width="64" height="3.5"/></clipPath>
+</defs>
+<rect x=".5" y=".5" width="63" height="63" rx="15" fill="url(#tile)" stroke="#ffffff" stroke-opacity=".14"/>
+<path fill="#2f7bff" fill-rule="evenodd" transform="translate(19.16 10.1) scale(0.47)" d="M22 0H42A22 22 0 0 1 64 22V78A22 22 0 0 1 42 100H22A22 22 0 0 1 0 78V22A22 22 0 0 1 22 0Z M31 24A5 5 0 0 0 26 29V71A5 5 0 0 0 31 76H33A5 5 0 0 0 38 71V29A5 5 0 0 0 33 24Z"/>
+<g clip-path="url(#top)"><path fill="#f6f8fc" fill-rule="evenodd" transform="translate(16.96 8.5) scale(0.47)" d="M22 0H42A22 22 0 0 1 64 22V78A22 22 0 0 1 42 100H22A22 22 0 0 1 0 78V22A22 22 0 0 1 22 0Z M31 24A5 5 0 0 0 26 29V71A5 5 0 0 0 31 76H33A5 5 0 0 0 38 71V29A5 5 0 0 0 33 24Z"/></g>
+<g clip-path="url(#band)"><path fill="#f6f8fc" fill-rule="evenodd" transform="translate(19.560000000000002 8.5) scale(0.47)" d="M22 0H42A22 22 0 0 1 64 22V78A22 22 0 0 1 42 100H22A22 22 0 0 1 0 78V22A22 22 0 0 1 22 0Z M31 24A5 5 0 0 0 26 29V71A5 5 0 0 0 31 76H33A5 5 0 0 0 38 71V29A5 5 0 0 0 33 24Z"/></g>
+<rect x="9" y="37.5" width="12" height="2.6" rx=".6" fill="#2f7bff"/>
+<rect x="44" y="19.5" width="9" height="2" rx=".5" fill="#f6f8fc"/></svg>

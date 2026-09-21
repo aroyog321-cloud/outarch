@@ -349,8 +349,8 @@
   gap: 14px;
   min-height: 0 !important;
   padding: 4px 10px !important;
-  background: var(--mc-surface) !important;
-  border: 1px solid var(--mc-border) !important;
+  background: var(--mc-deck-fill, transparent) !important;
+  border: 1px solid var(--mc-deck-edge, transparent) !important;
   border-radius: var(--mc-radius-sm) !important;
   box-shadow: none !important;
 }
@@ -453,6 +453,9 @@
 /* Focus mode: terminals only. */
 #root#root .shell .workspace-experience.is-focus-mode { grid-template-columns: minmax(0, 1fr) 0 !important; }
 #root#root .shell .workspace-experience.is-focus-mode .workspace-toolbar-v2 {
+  /* Floating over terminal output, the deck keeps its own face. */
+  --mc-deck-fill: var(--mc-surface);
+  --mc-deck-edge: var(--mc-border);
   position: absolute;
   z-index: 6;
   right: 8px;

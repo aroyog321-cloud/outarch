@@ -16,9 +16,12 @@ const { test } = require("node:test");
 const app = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/renderer/App.jsx"), "utf8");
 
 test("single-destination capabilities stay single-destination", () => {
-  // Add worker — every entry point opens the one create dialog.
-  const addWorker = [...app.matchAll(/setWorkerDialog\(\{ mode: "create" \}\)/g)].length;
+  // Add worker — every entry point goes through the one create handler, which
+  // checks the plan's terminal count and then opens the one create dialog.
+  const addWorker = [...app.matchAll(/openCreateWorker\(\)/g)].length;
   assert.ok(addWorker >= 3, `expected the create-dialog handler at multiple entry points, found ${addWorker}`);
+  assert.match(app, /const openCreateWorker = React\.useCallback\(\(extra = \{\}\) => \{[\s\S]{0,420}setWorkerDialog\(\{ mode: "create", \.\.\.extra \}\);/);
+  assert.doesNotMatch(app, /onAddWorker=\{\(\) => setWorkerDialog\(\{ mode: "create" \}\)\}/, "an add-worker control must not skip the plan check");
 
   // Mission Graph — every entry point opens the one modal, none navigate.
   const openGraph = [...app.matchAll(/setMissionGraphOpen\(true\)/g)].length;

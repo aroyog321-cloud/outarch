@@ -1,34 +1,30 @@
 "use strict";
 
 // ============================================================================
-//  MISSION AI — BUILT-IN GEMINI KEYS
+//  MISSION AI — BUILT-IN KEYS
 //
-//  Paste this build's two Google AI Studio keys between the quotes below.
-//  The primary key answers every request; when Google refuses it (quota
-//  exhausted, rate limited, revoked) the fallback key takes the same request.
+//  No built-in key ships in the app any more. The keys live in the OUTARCH
+//  Supabase project (table public.ai_provider_keys) and are used only by the
+//  ai-proxy Edge Function, which the app reaches with the signed-in user's
+//  session. To replace a key that is used up, add a row to that table (or run
+//  `select admin.add_ai_key('gemini', '<key>', 'label');`) — no rebuild.
 //
-//  How these are protected, and the limit of that protection:
-//    - They live only in the Electron main process. No IPC method, status
-//      payload, audit record, usage record or error message ever carries them;
-//      the renderer can learn that a key is configured and nothing else.
-//    - There is no UI that can read, replace or clear them.
-//    - They are part of the shipped application, so anyone who unpacks the
-//      installed app can recover them. Restrict them in Google AI Studio (API
-//      restrictions, quota caps) accordingly, and rotate them by editing this
-//      file and rebuilding.
+//  The constants stay, empty, so a development build can still be pointed at
+//  keys of its own through the `keys` option (the tests do exactly that).
 // ============================================================================
 
-const MISSION_AI_PRIMARY_KEY = "AQ.Ab8RN6JvljUGoIzVbZms0iDcRZdsMYn_ZmBOP_4E7DevQihklg";
-const MISSION_AI_FALLBACK_KEY = "AQ.Ab8RN6J0gq3tUL-4tHvV6w1T9lGawVl-ieV-pKeJR_Kr_6geeg";
+const MISSION_AI_PRIMARY_KEY = "";
+const MISSION_AI_FALLBACK_KEY = "";
 
-const MISSION_AI_NVIDIA_PRIMARY_KEY = "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";
-const MISSION_AI_NVIDIA_FALLBACK_KEY = "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";
+const MISSION_AI_NVIDIA_PRIMARY_KEY = "";
+const MISSION_AI_NVIDIA_FALLBACK_KEY = "";
 
 // ----------------------------------------------------------------------------
 
 const fs = require("node:fs");
 const path = require("node:path");
 const { isMissionModelId } = require("./aiProviders.cjs");
+const { MANAGED_KEY_PLACEHOLDER } = require("./managedAiTransport.cjs");
 
 const PREFERENCES_VERSION = 1;
 const MAX_PREFERENCES_BYTES = 16 * 1024;
@@ -86,9 +82,13 @@ class BuiltinMissionAiCredentials {
   #keys;
   #preferencesPath;
   #fs;
+  #managed;
 
   constructor(options = {}) {
     this.#keys = builtinKeys(options.keys || null);
+    // Managed mode: the keys are on the server and the ai-proxy uses them.
+    // `providers()` says which providers the server has a key for right now.
+    this.#managed = !options.keys && options.managed && typeof options.managed.providers === "function" ? options.managed : null;
     this.#preferencesPath = typeof options.preferencesPath === "string" && options.preferencesPath
       ? path.resolve(options.preferencesPath)
       : null;
@@ -120,8 +120,23 @@ class BuiltinMissionAiCredentials {
     this.#fs.renameSync(temporary, this.#preferencesPath);
   }
 
+  #managedProviders() {
+    try {
+      const listed = this.#managed.providers();
+      return Array.isArray(listed) ? listed.filter(item => item === "gemini" || item === "nvidia") : [];
+    } catch {
+      return [];
+    }
+  }
+
   hasKey(slot = "primary", provider = null) {
     const wantsFallback = slot === "secondary" || slot === "fallback";
+    if (this.#managed) {
+      // The server rotates its own keys; there is one managed slot per provider.
+      if (wantsFallback) return false;
+      const providers = this.#managedProviders();
+      return provider ? providers.includes(provider) : providers.length > 0;
+    }
     const subSlot = wantsFallback ? "fallback" : "primary";
     if (provider === "nvidia") {
       return Boolean(this.#keys.nvidia?.[subSlot]);
@@ -133,15 +148,17 @@ class BuiltinMissionAiCredentials {
   }
 
   protectionStatus() {
-    return { available: true, backend: "built-in", protection: "built-in" };
+    return this.#managed
+      ? { available: true, backend: "managed", protection: "server" }
+      : { available: true, backend: "built-in", protection: "built-in" };
   }
 
   status() {
     const preferences = this.#readPreferences();
-    const primaryGemini = Boolean(this.#keys.gemini?.primary);
-    const fallbackGemini = Boolean(this.#keys.gemini?.fallback);
-    const primaryNvidia = Boolean(this.#keys.nvidia?.primary);
-    const fallbackNvidia = Boolean(this.#keys.nvidia?.fallback);
+    const primaryGemini = this.hasKey("primary", "gemini");
+    const fallbackGemini = this.hasKey("fallback", "gemini");
+    const primaryNvidia = this.hasKey("primary", "nvidia");
+    const fallbackNvidia = this.hasKey("fallback", "nvidia");
     const primary = primaryGemini || primaryNvidia;
     const fallback = fallbackGemini || fallbackNvidia;
     return {
@@ -157,8 +174,9 @@ class BuiltinMissionAiCredentials {
       secondaryConfigured: fallback,
       model: preferences.model || "gemini-2.5-flash",
       includeTerminalEvidence: preferences.includeTerminalEvidence,
+      managed: Boolean(this.#managed),
       ...this.protectionStatus(),
-      error: primary || fallback ? null : "Mission AI keys are not set in this build"
+      error: primary || fallback ? null : this.#managed ? "Sign in to OUTARCH to use Mission AI" : "Mission AI keys are not set in this build"
     };
   }
 
@@ -185,6 +203,11 @@ class BuiltinMissionAiCredentials {
 
   apiKey(slot = "primary", provider = null) {
     const wantsFallback = slot === "secondary" || slot === "fallback";
+    if (this.#managed) {
+      // A placeholder the provider layer accepts; the managed transport drops it.
+      if (this.hasKey(wantsFallback ? "fallback" : "primary", provider)) return MANAGED_KEY_PLACEHOLDER;
+      throw new Error("Mission AI is not available right now. Sign in to OUTARCH, or try again shortly.");
+    }
     const targetProvider = provider === "nvidia" ? "nvidia" : (provider === "gemini" ? "gemini" : (this.#keys.gemini?.primary || this.#keys.gemini?.fallback ? "gemini" : "nvidia"));
     const bucket = this.#keys[targetProvider] || this.#keys.gemini;
     const key = wantsFallback ? (bucket.fallback || bucket.primary) : (bucket.primary || bucket.fallback);

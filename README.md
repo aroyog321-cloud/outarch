@@ -52,8 +52,8 @@ The current desktop preview provides:
 - Engine-owned root-process CPU/memory sampling and Worker Health analysis
 - Resumable Project Memory chapters with concise engine summaries and
   evidence-backed cross-run recovery relationships
-- A shared, bounded Mission Context snapshot for future built-in AI, MCP,
-  mobile, and plugin consumers
+- A shared, bounded Mission Context snapshot for built-in AI, MCP, and
+  mobile consumers
 - Optional Gemini Mission Supervisor for grounded project questions and
   structured workspace plans, using an OS-encrypted key and local approvals
 - Optional authenticated VS Code Bridge for active-file, diagnostics, Git,
@@ -70,8 +70,11 @@ The current desktop preview provides:
 - Mobile supervision security foundation with proof-based local pairing,
   encrypted scoped device sessions, replay protection, immediate revocation,
   bounded Mission Context reads, and Needs You approval before every action
-- Permission-controlled declarative plugins with zero default grants, bounded
-  context/health resources, metadata-only audit, and Needs You action requests
+- OUTARCH accounts: sign in on the website with email and password or Google,
+  with Free, Pro and Ultimate plans kept in sync from Supabase
+- Desktop and in-app notifications, with sound, whenever an AI agent in any
+  terminal stops to ask for permission, with a button that opens that terminal
+- Signed automatic updates that verify every download before installing it
 - Android 13+ supervision client source using Android Keystore, X25519,
   HKDF-SHA256, AES-256-GCM, and biometric identity verification
 - Windows descendant-process metrics, release smoke checks, renderer feature
@@ -213,14 +216,20 @@ release. Open `mobile/android` in Android Studio to build a development APK.
 Release APK signing, iOS, push notification relay, and secure outside-LAN
 rendezvous still require separate release infrastructure.
 
-## Permission-controlled plugins
+## Accounts, plans and automatic updates
 
-Open **Settings → Permission-controlled plugins** to import a local JSON
-manifest. Every manifest installs disabled with no permissions. OUTARCH
-rejects executable, filesystem, process, network, terminal, environment, URL,
-and secret authority. The first supported capabilities are bounded context,
-memory, attention, activity, health, and approval-gated worker or recipe
-requests. Example manifests are available under `plugins/examples`.
+OUTARCH opens only for a signed-in account. **Sign in** opens the OUTARCH
+website in your browser, where you sign in with email and password or with
+Google, and the browser hands you back to the app. The plan on that account
+(Free, Pro or Ultimate) decides how many terminals, projects, recipes and
+BYOK keys you get, and whether MCP, the mobile companion and the VS Code
+bridge are available. Features your plan does not include show a crown and an
+Upgrade button. **Settings → Account** shows your plan, its limits and today's
+Mission AI usage. Updates are checked automatically and installed from
+**Settings → About** after their signature is verified.
+
+Administering plans, the built-in Mission AI keys, Google sign-in and releases
+is described in [OUTARCH_ACCOUNTS_AND_UPDATES.md](OUTARCH_ACCOUNTS_AND_UPDATES.md).
 
 ## Windows release verification
 

@@ -9,7 +9,7 @@ const SCOPE_OPTIONS = [
   ["needs.read", "Needs You", "Current human decisions and blocker resolution"],
   ["memory.read", "Project Memory", "Bounded chapters and recovery links"],
   ["terminal.read", "Terminal Evidence", "Bounded redacted lines; disabled by default"],
-  ["actions.request", "Request Actions", "Creates a local approval; never executes remotely"],
+  ["actions.request", "Control workers & recipes", "Start, restart and run recipes from the phone. Stop and cancel always wait for your approval here"],
   ["assistant.ask", "Ask Mission AI", "Read-only answers about this project; nothing runs from the phone"]
 ];
 
@@ -17,6 +17,16 @@ function timeLabel(timestamp) {
   if (!timestamp) return "Never connected";
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
   return minutes < 1 ? "Active now" : minutes < 60 ? `Seen ${minutes}m ago` : `Seen ${Math.floor(minutes / 60)}h ago`;
+}
+
+// What a phone did on its own, in the words the operator would use.
+const PHONE_ACTION_WORDS = {
+  worker: { start: "Started", restart: "Restarted", acknowledge: "Acknowledged", stop: "Stopped" },
+  recipe: { run: "Ran recipe", recover: "Recovered recipe", cancel: "Cancelled recipe" }
+};
+function phoneActionLabel(item) {
+  const verb = PHONE_ACTION_WORDS[item.type]?.[item.action] || item.action;
+  return `${verb} ${item.targetName || ""}`.trim();
 }
 
 function refreshAge(timestamp) {
@@ -224,6 +234,24 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     void configure({ scopes: next });
   };
 
+  // A setting of its own: unlike a permission it changes nothing about who may
+  // pair, so it does not create a new pairing code.
+  const setAutoRun = async value => {
+    setBusy("configure");
+    setMessage("");
+    try {
+      const next = await missionApi().request("mobile.configure", { configuration: { autoRun: value } });
+      setStatus(next);
+      setMessage(value
+        ? "A phone's requests to start, restart or run a recipe now go straight through."
+        : "Every request from a phone now waits here for your approval.");
+    } catch (error) {
+      setMessage(error.message || String(error));
+    } finally {
+      setBusy("");
+    }
+  };
+
   const copyText = async (text, key) => {
     if (!text) return;
     try {
@@ -241,6 +269,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     setMessage("");
     try {
       await confirmedRequest("mobile.device.revoke", { deviceId: device.id });
+      setDevices(current => current.filter(item => item.id !== device.id));
       await refresh();
       setMessage(`${device.name} was revoked and removed. The revocation is in the audit trail.`);
     } catch (error) {
@@ -289,6 +318,9 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
         : "";
   const formattedCode = invitation?.code ? `${invitation.code.slice(0, 3)} ${invitation.code.slice(3)}` : "";
   const grantedCount = (status?.scopes || []).length;
+  // Unset reads as on, the same as the service treats a setting saved before it existed.
+  const autoRun = status?.autoRun !== false;
+  const recentActions = status?.recentActions || [];
 
   return (
     <section className={`settings-panel settings-panel-wide mobile-companion-settings companion ${status?.running ? "is-running" : ""}`}>
@@ -297,7 +329,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
           <span className="companion__mark" aria-hidden="true"><PhoneGlyph/></span>
           <div>
             <h3>Mobile Companion</h3>
-            <p>Follow this project from your phone on the same network, and ask for a worker to start, stop or restart — every request waits here for your approval. It is not a remote shell or mobile IDE.</p>
+            <p>Follow this project from your phone on the same network, and start or restart a terminal or run a recipe from it — those go straight through. Stopping one, or cancelling a run, waits here for your approval. It is not a remote shell or mobile IDE.</p>
           </div>
         </div>
         <div className={`companion__state ${serviceTone}`}>
@@ -402,6 +434,39 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
         </div>
       </section>
 
+      <section className="companion__section" aria-label="What happens when a phone asks">
+        <header>
+          <h4>When a phone asks</h4>
+          <p>{autoRun ? "Start, restart, acknowledge and recipe runs go straight through, and show below." : "Every request from a phone waits here, in Needs You, until you approve it."} Stop and cancel always wait here.</p>
+        </header>
+        <div className="companion__rows">
+          <label className="companion__row">
+            <span><strong>Run phone requests without asking</strong><small>Needs “Control workers &amp; recipes” above. Turn it off to approve every request yourself.</small></span>
+            <span className="pm-toggle">
+              <input
+                type="checkbox"
+                checked={autoRun}
+                disabled={!statusKnown || Boolean(busy)}
+                onChange={() => void setAutoRun(!autoRun)}
+              />
+              <i className="pm-toggle-track"><b className="pm-toggle-thumb"/></i>
+            </span>
+          </label>
+        </div>
+        {recentActions.length > 0 && <ul className="companion__devices" aria-label="Recent phone actions">
+          {recentActions.map(item => (
+            <li key={item.id}>
+              <span className="companion__device-icon" aria-hidden="true"><PhoneGlyph/></span>
+              <div>
+                <strong>{phoneActionLabel(item)}</strong>
+                <small>{`${item.deviceName || "A phone"} · ${refreshAge(item.at)}${item.error ? ` · ${item.error}` : ""}`}</small>
+              </div>
+              <small>{item.state === "approved" ? "Done" : item.state === "failed" ? "Failed" : "Running…"}</small>
+            </li>
+          ))}
+        </ul>}
+      </section>
+
       {resourceState.devicesError && <div className="integration-resource-notice" role="status"><span><strong>Paired devices could not be refreshed.</strong> {resourceState.devicesUpdatedAt ? `Showing devices verified ${refreshAge(resourceState.devicesUpdatedAt)}.` : "No devices are shown because the device registry is unavailable."}</span><button type="button" onClick={() => void refresh()}>Retry</button></div>}
       <section className="companion__section" aria-label="Paired phones">
         <header>
@@ -418,7 +483,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
               <span className="companion__device-icon" aria-hidden="true"><PhoneGlyph/></span>
               <div>
                 <strong>{device.name}</strong>
-                <small>{`${timeLabel(device.lastSeenAt)} · ${device.scopes?.length || 0} permissions`}{device.scopes?.includes("assistant.ask") ? " · can ask Mission AI" : ""}</small>
+                <small>{`${timeLabel(device.lastSeenAt)} · ${device.scopes?.length || 0} permissions`}{device.scopes?.includes("actions.request") ? " · can start and restart" : ""}{device.scopes?.includes("assistant.ask") ? " · can ask Mission AI" : ""}</small>
               </div>
               <button
                 type="button"

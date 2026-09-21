@@ -13,8 +13,10 @@ per-device credential is encrypted by Android Keystore.
 The initial UI exposes encrypted Summary, Needs You, and Project Memory reads.
 Biometric identity verification is available for sensitive review. Direct
 terminal access, terminal input, source files, environment values, and remote
-execution are deliberately absent. Worker and recipe mutations remain desktop
-Needs You approvals in the protocol.
+execution are deliberately absent. This client has no worker or recipe controls of its own;
+the web companion the desktop serves at /mobile has them. In the protocol, start, restart and
+recipe runs go straight through while the desktop setting "Run phone requests without asking"
+is on, and stop and cancel always wait for a desktop approval.
 
 This repository does not contain a release signing key. Produce a signed APK/AAB
 only through a protected release pipeline; never commit the keystore.

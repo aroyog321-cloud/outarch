@@ -91,19 +91,6 @@ const PROBES = {
         : status.enabled
           ? "The desktop gateway is offline. Check the port, then re-enable it."
           : "Enable the gateway and pair a device to supervise this project from a phone."
-  },
-  extensions: {
-    label: "Plugins",
-    method: "plugin.status",
-    permissions: () => ["declarative manifests", "permission-controlled", "no arbitrary code"],
-    endpoint: () => "local registry",
-    lastSuccess: status => status.lastLoadedAt,
-    lastError: status => status.lastError || (status.available === false ? "Plugin registry is unavailable" : null),
-    recovery: status => status.available === false
-      ? "The plugin registry could not be read. No plugin is active while this is true."
-      : Number(status.pendingApprovalCount) > 0
-        ? "A plugin is waiting on a permission decision in Needs You."
-        : null
   }
 };
 

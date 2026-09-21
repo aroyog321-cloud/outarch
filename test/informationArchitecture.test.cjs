@@ -74,7 +74,7 @@ test("T222 - Needs You IA: All, Critical, Agents, Integrations, and resolved his
   assert.match(app, /value: "resolved", label: "Resolved"/);
 
   // Decision sources flow into one engine-owned model
-  assert.match(decisions, /CONFIRMED_SOURCES = new Set\(\["missionSupervisor", "mission", "mcp", "automation", "mobile", "plugin"\]\);/);
+  assert.match(decisions, /CONFIRMED_SOURCES = new Set\(\["missionSupervisor", "mission", "mcp", "automation", "mobile"\]\);/);
   assert.match(decisionList, /session: "Worker"/);
 });
 
@@ -150,13 +150,14 @@ test("T226 & T201 & T202 - Settings IA: 8 distinct groups, dedicated Diagnostics
   assert.match(diagnostics, /Recovery controller/);
   assert.match(diagnostics, /Recovery attempts/);
 
-  // T202 & T197: Distinct About surface and explicit deferred auto-updater policy
+  // T202 & T197: Distinct About surface, and the auto-updater it now reports
   const about = app.slice(app.indexOf("function AboutSettings("), app.indexOf("const SETTINGS_GROUPS"));
   assert.match(about, /Application/);
   assert.match(about, /Engine contract/);
   assert.match(about, /Runtime/);
   assert.match(about, /Updates/);
-  assert.match(about, /auto-update deferred/);
+  assert.match(about, /Automatic · signed releases, verified before they install/);
+  assert.match(about, /<UpdatesPanel onConfirm=\{onConfirm\}\/>/);
   assert.match(about, /<ResourceLinks\/>/);
 });
 

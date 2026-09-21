@@ -62,6 +62,12 @@
         ],
         "createdAt": "2026-09-18T13:00:40.874Z",
         "reason": "Claude checked 2026-09-18: L1641 is .recipe-run-history > ol > li { border-left: 2px solid var(--mc-border-strong) }, recoloured per run outcome (phase-completed ok, phase-failed danger, phase-cancelled warning). A 2px status rule on list rows whose outcome is also written as text (runPhaseLabel in RecipesView.jsx), not a decorative card side-tab. Pre-existing in HEAD; this session only added flex-direction: row to the command-deck rule in this file."
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "oa-bounce",
+        "createdAt": "2026-09-19T15:59:46.401Z",
+        "reason": "Claude decided: oa-bounce is the three-dot 'Mission AI is typing' indicator in the demo (default ease, 4px lift); literal typing-dots motion, not a bounce/elastic easing curve"
       }
     ]
   }

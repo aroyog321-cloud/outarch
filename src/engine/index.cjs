@@ -319,7 +319,6 @@ class EngineAPI extends EventEmitter {
       { id: "vscode", name: "VS Code Bridge", status: "available", capability: "Synchronize active file, diagnostics, Git, tasks, and editor terminal identities", permission: "Authenticated loopback; project-relative editor commands only", projectRequired: true, enabled: false },
       { id: "mission-ai", name: "Built-in Mission AI", status: "available", capability: "Answer project questions from bounded Mission Context", permission: "Observe-only; OS-encrypted Gemini key; stateless remote requests", projectRequired: true, enabled: false },
       { id: "assistant", name: "Secure MCP Gateway", status: "available", capability: "Expose bounded Mission Context and approval-gated operations through authenticated local MCP", permission: "OS-encrypted bearer token; explicit scopes; every mutation requires local approval", projectRequired: true, enabled: false },
-      { id: "plugins", name: "Permissioned Plugins", status: "available", capability: "Install declarative manifests for bounded context, health, and approval-gated actions", permission: "No executable plugin code, filesystem, process, network, terminal, or secret authority", projectRequired: false, enabled: false },
       { id: "mobile", name: "Mobile Companion", status: "available", capability: "Review bounded project health and request approval-gated actions from a paired device", permission: "Proof-based pairing, encrypted payloads, replay protection, revocable device scopes", projectRequired: true, enabled: false }
     ].map(item => ({ ...item, blockedReason: item.projectRequired && !workspace.persistent ? "Open a project folder first" : null }));
   }
@@ -1302,6 +1301,16 @@ class EngineAPI extends EventEmitter {
 
   get autoStartDeferred() {
     return this.#sessionEngine.deferAutoStart === true;
+  }
+
+  /** Replace the guard asked before any worker process starts (see SessionEngine). */
+  setSpawnGuard(guard) {
+    this.#sessionEngine.setSpawnGuard?.(guard);
+  }
+
+  /** How many worker processes are live right now. */
+  runningCount() {
+    return this.#sessionEngine.list().filter(session => session.status === "running" || session.status === "starting").length;
   }
 
   attachRawStream(id) {

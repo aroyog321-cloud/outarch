@@ -307,6 +307,8 @@ class AiAssistant extends EventEmitter {
   #selections;
   #noTools;
   #workbench;
+  #missionFetch;
+  #allowByokKey;
 
   constructor(options = {}) {
     super();
@@ -332,6 +334,23 @@ class AiAssistant extends EventEmitter {
     // again would cost a failed request on every turn.
     this.#noTools = new Set();
     this.#workbench = options.workbench || new AssistantWorkbench({ getRoot: () => this.#projectRoot(), platform: this.#platform });
+    // Built-in (Mission AI) models go through OUTARCH's AI service when one is
+    // given: it holds the keys and meters messages against the plan. Keys the
+    // operator brought are never sent there.
+    this.#missionFetch = typeof options.missionFetch === "function" ? options.missionFetch : null;
+    // Which of the operator's own keys their plan lets answer.
+    this.#allowByokKey = typeof options.allowByokKey === "function" ? options.allowByokKey : () => true;
+  }
+
+  // The fetch a built-in model call uses. `turn` is the message's metering
+  // context: the first call opens it, the message's later rounds reuse it.
+  #fetchForMission(turn = null) {
+    if (!this.#missionFetch) return this.#fetch;
+    return (url, init) => this.#missionFetch(url, init, turn);
+  }
+
+  #byokAllowed(keyId) {
+    try { return this.#allowByokKey(String(keyId || "")) !== false; } catch { return true; }
   }
 
   // ---------------------------------------------------------------- targets
@@ -357,7 +376,7 @@ class AiAssistant extends EventEmitter {
         for (const slot of ["primary", "fallback"]) {
           if (!this.#builtin.hasKey(slot, "gemini")) continue;
           try {
-            const listed = await providers.listModels({ provider: "gemini", apiKey: this.#builtin.apiKey(slot, "gemini"), fetch: this.#fetch });
+            const listed = await providers.listModels({ provider: "gemini", apiKey: this.#builtin.apiKey(slot, "gemini"), fetch: this.#fetchForMission(null) });
             curatedGemini = providers.curateMissionModels(listed, { geminiOnly: true });
             break;
           } catch (error) {
@@ -446,6 +465,7 @@ class AiAssistant extends EventEmitter {
     // Pro or preview model is not quietly allowed onto the free-tier keys.
     if (target.source === "mission") return this.#missionAvailable() && this.#missionModelList().some(item => item.id === target.model);
     const key = this.#byok?.get(target.keyId);
+    if (key && !this.#byokAllowed(key.id)) return false;
     return Boolean(key && (key.models.some(item => item.id === target.model) || !key.models.length));
   }
 
@@ -461,6 +481,7 @@ class AiAssistant extends EventEmitter {
       if (model) return this.#describeTarget({ source: "mission", model: model.id });
     }
     for (const key of this.#byok?.list() || []) {
+      if (!this.#byokAllowed(key.id)) continue;
       const model = key.models.find(item => item.id === key.defaultModel) || providers.defaultModel(key.models);
       if (model) return this.#describeTarget({ source: "byok", keyId: key.id, model: model.id });
     }
@@ -485,10 +506,12 @@ class AiAssistant extends EventEmitter {
     if (this.#byok && !this.#byokCheckedAt && !this.#byokRefresh) void this.reconcileKeysOnStartup();
     let keys = [];
     let keysError = null;
-    try { keys = this.#byok?.list() || []; } catch (error) { keysError = error.message; }
+    try { keys = (this.#byok?.list() || []).map(key => (this.#byokAllowed(key.id) ? key : { ...key, locked: true })); } catch (error) { keysError = error.message; }
     return {
       mission: {
         available: missionAvailable,
+        // Built-in keys held by OUTARCH's AI service rather than the app.
+        managed: (() => { try { return this.#builtin?.status?.().managed === true; } catch { return false; } })(),
         keys: { primary: Boolean(this.#builtin?.hasKey?.("primary")), fallback: Boolean(this.#builtin?.hasKey?.("fallback")) },
         models: this.#missionModelList(),
         modelsCheckedAt: this.#missionModels.checkedAt,
@@ -983,6 +1006,7 @@ class AiAssistant extends EventEmitter {
       conversation.display.splice(-2, 2);
     }
     conversation.focusWorkerId = typeof focusWorkerId === "string" ? focusWorkerId : null;
+    conversation.turn = { id: null, surface: conversation.surface };
     conversation.model.push({ role: "user", text: message });
     conversation.display.push({ id: `m-${crypto.randomUUID().slice(0, 10)}`, role: "user", text: message, at: this.#now() });
     const reply = { id: `m-${crypto.randomUUID().slice(0, 10)}`, role: "assistant", text: "", at: this.#now(), model: { id: target.model, label: target.label, family: target.family, source: target.source, keyLabel: target.keyLabel }, activity: [], error: null };
@@ -1015,7 +1039,7 @@ class AiAssistant extends EventEmitter {
       .map(turn => ({ role: turn.role, text: turn.text.trim().slice(0, 2000) }));
     // A model turn must follow a user turn; a history that opens with an answer is trimmed.
     while (earlier.length && earlier[0].role !== "user") earlier.shift();
-    const conversation = { id: "mobile-ask", surface: "mobile", readOnly: true, allowedTools, focusWorkerId: null, model: [...earlier, { role: "user", text: message }] };
+    const conversation = { id: "mobile-ask", surface: "mobile", readOnly: true, allowedTools, focusWorkerId: null, turn: { id: null, surface: "mobile" }, model: [...earlier, { role: "user", text: message }] };
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || ASK_TIMEOUT_MS));
@@ -1161,7 +1185,8 @@ class AiAssistant extends EventEmitter {
             model: target.model,
             provider: "nvidia",
             apiKey: () => this.#builtin.apiKey(slot, "nvidia"),
-            baseUrl: null
+            baseUrl: null,
+            fetch: this.#fetchForMission(conversation.turn || null)
           });
         }
       } else {
@@ -1173,7 +1198,8 @@ class AiAssistant extends EventEmitter {
               model,
               provider: "gemini",
               apiKey: () => this.#builtin.apiKey(slot, "gemini"),
-              baseUrl: null
+              baseUrl: null,
+              fetch: this.#fetchForMission(conversation.turn || null)
             });
           }
         }
@@ -1188,7 +1214,7 @@ class AiAssistant extends EventEmitter {
       const system = systemPrompt({ surface: conversation.surface, snapshot: this.#snapshot(), focused, autoApprove: this.#selections.autoApprove[conversation.id] === true, readOnly: conversation.readOnly === true, toolsAvailable, platform: this.#platform });
       const startedAt = this.#now();
       try {
-        const response = await providers.chat({ provider: attempt.provider, apiKey: attempt.apiKey(), baseUrl: attempt.baseUrl, model: attempt.model, system, messages, tools: toolsAvailable ? toolDefinitions : [], fetch: this.#fetch, signal });
+        const response = await providers.chat({ provider: attempt.provider, apiKey: attempt.apiKey(), baseUrl: attempt.baseUrl, model: attempt.model, system, messages, tools: toolsAvailable ? toolDefinitions : [], fetch: attempt.fetch || this.#fetch, signal });
         this.#usage({ ...target, model: attempt.model }, attempt, "success", response.usage, startedAt);
         if (response.toolsDropped) this.#noTools.add(this.#toolsKey(target, attempt.model));
         return { ...response, servedModel: attempt.model };
@@ -1203,6 +1229,7 @@ class AiAssistant extends EventEmitter {
 
         // The fallback key exists for exactly this: the first one ran out or
         // was refused. A model the provider retired (404) moves on the same way.
+        if (error?.managed) break;
         const worthRetrying = error?.keyProblem || error?.status === 429 || error?.retryable || (target.source === "mission" && error?.status === 404);
         if (!(worthRetrying && index < attempts.length - 1)) break;
       }
@@ -1214,11 +1241,12 @@ class AiAssistant extends EventEmitter {
   #explain(error, target) {
     if (!error) return new Error("The model did not answer");
     if (error.name === "AbortError") return error;
+    if (error.managed) return error;
     // The built-in keys have no account the operator can look at, so their
     // quota errors are said outright instead of relaying provider wording.
     if (target.source === "mission" && error.status === 429) {
       const providerLabel = target.provider === "nvidia" ? "NVIDIA" : "Gemini";
-      const quota = new Error(`Mission AI's free-tier limit for ${providerLabel} is used up on both built-in keys for now. Try again in a minute, or switch to another model or your own BYOK keys in the model menu.`);
+      const quota = new Error(`Mission AI's free-tier limit for ${providerLabel} is used up on every built-in key for now. Try again in a minute, or switch to another model or your own BYOK keys in the model menu.`);
       quota.status = 429;
       return quota;
     }
@@ -1302,6 +1330,8 @@ class AiAssistant extends EventEmitter {
     } catch (error) {
       const cancelled = error?.name === "AbortError";
       reply.error = cancelled ? "Stopped." : safe(error?.message || String(error), 400);
+      // A plan limit carries its own call to action in the chat.
+      reply.errorCode = !cancelled && error?.planLimit ? "PLAN_REQUIRED" : null;
       // A failed turn is removed from the model's history so the next message
       // does not arrive after a dangling tool call the provider will reject.
       while (conversation.model.length && conversation.model[conversation.model.length - 1].role !== "user") conversation.model.pop();

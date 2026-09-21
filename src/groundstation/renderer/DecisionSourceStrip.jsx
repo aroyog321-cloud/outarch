@@ -13,8 +13,7 @@ const SOURCE_LABEL = {
   mission: "Agent missions",
   mcp: "MCP",
   automation: "Automation",
-  mobile: "Mobile",
-  plugin: "Plugins"
+  mobile: "Mobile"
 };
 
 const DOWN = new Set(["error", "unavailable"]);

@@ -1,4 +1,5 @@
 import React from "react";
+import { RecipePlanNote } from "./PlanLock.jsx";
 import { missionApi } from "./missionApi.js";
 import { RegisterSkeleton } from "./LoadingSkeleton.jsx";
 
@@ -70,6 +71,7 @@ export default function RecipesView({ sessions, onManage, onLaunch, onAskAI, onD
       <div><span className="page-eyebrow">PROJECT AUTOMATION</span><h1>Recipes</h1><p>Repeatable workspace launches: start the right terminals in the right order, restore the layout, and keep every run evidence-backed.</p></div>
       <div className="page-command-actions"><button className="btn-secondary feat-ai" onClick={onAskAI}>Design with Mission AI</button><button className="btn-primary feat-recipe" onClick={() => onManage(null, "create")}>New recipe</button></div>
     </header>
+    <RecipePlanNote count={recipes.length}/>
     <section className="recipes-status-strip" aria-label="Recipe status">
       <div><span>SAVED</span><strong>{recipes.length}</strong><small>project recipes</small></div>
       <div><span>RUNNING</span><strong>{running}</strong><small>active launches</small></div>

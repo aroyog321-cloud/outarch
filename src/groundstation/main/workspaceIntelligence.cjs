@@ -11,6 +11,7 @@
 const { LocalServiceRegistry } = require("../../service/localServiceRegistry.cjs");
 const { UsageLedger } = require("../../service/usageLedger.cjs");
 const { AgentActivityService } = require("../../service/agentActivityService.cjs");
+const { AgentPromptDetector } = require("../../service/agentPromptDetector.cjs");
 const { SemanticEventRouter } = require("../../service/semanticEventRouter.cjs");
 const { SessionJournal } = require("../../service/sessionJournal.cjs");
 const { SessionRecoveryService } = require("../../service/sessionRecoveryService.cjs");
@@ -40,6 +41,7 @@ class WorkspaceIntelligence {
   /** @type {Map<string, object>} serviceId -> in-flight readiness verification */
   #verifying;
   #waitForListening;
+  #prompts;
 
   constructor(options = {}) {
     this.#services = options.services || new LocalServiceRegistry();
@@ -56,6 +58,7 @@ class WorkspaceIntelligence {
     this.#reconcileScheduled = false;
     this.#verifying = new Map();
     this.#waitForListening = options.waitForListening || waitForListening;
+    this.#prompts = options.prompts || new AgentPromptDetector();
 
     // Anything the observers derive is pushed to renderers rather than polled,
     // so a panel updates the moment a dev server prints its address.
@@ -63,6 +66,34 @@ class WorkspaceIntelligence {
     this.#usage.subscribe(() => this.#onChange({ type: "usage:changed" }));
     this.#agents.on("change", activity => this.#onChange({ type: "agents:changed", workerId: activity.workerId }));
     this.#events.on("event", event => this.#onChange({ type: "operational:event", event }));
+    // An agent asking for permission becomes one semantic event, so it reaches
+    // the notification center and the renderers along the path every other
+    // operational event takes.
+    this.#prompts.on("prompt", prompt => {
+      try { this.#agents.setAwaitingApproval(prompt.workerId, prompt); } catch {}
+      this.#events.publish({
+        type: "agent.awaitingApproval",
+        severity: "warning",
+        workerId: prompt.workerId,
+        workerName: prompt.workerName,
+        projectId: this.#projectId,
+        runId: prompt.runId,
+        title: `${prompt.workerName || prompt.workerId} is asking for your permission`,
+        description: prompt.question,
+        data: { promptId: prompt.id, question: prompt.question, choices: prompt.choices.join(" · "), agent: prompt.agent }
+      });
+    });
+    this.#prompts.on("cleared", cleared => {
+      try { this.#agents.setAwaitingApproval(cleared.workerId, null); } catch {}
+      this.#onChange({ type: "agent:prompt-cleared", workerId: cleared.workerId, promptId: cleared.id, reason: cleared.reason });
+    });
+  }
+
+  get prompts() { return this.#prompts; }
+
+  /** The operator typed into a terminal: a question it was asking is answered. */
+  noteInput(workerId) {
+    try { return this.#prompts.noteInput(workerId); } catch { return false; }
   }
 
   get services() { return this.#services; }
@@ -215,6 +246,8 @@ class WorkspaceIntelligence {
       // the safe direction for recovery to guess.
     }
     if (invalidate) this.#services.invalidateWorker(this.#projectId, workerId);
+    // A process that ended is no longer asking anything.
+    try { this.#prompts.forget(workerId); } catch {}
     if (forget) {
       try { this.#agents.clearWorker(workerId); } catch {}
     }
@@ -231,6 +264,12 @@ class WorkspaceIntelligence {
       chunk = typeof metadata.analysisText === "string" ? metadata.analysisText : "";
       if (!chunk) return;
     }
+    // A permission prompt is read from the screen as it is drawn, before the
+    // text is split into lines: agents draw their dialogs without a final newline.
+    try {
+      const activity = this.#agents.getWorkerActivity(workerId);
+      this.#prompts.observe(workerId, chunk, { isAgent: activity?.isAgent === true, agentType: activity?.agentType || null, workerName: entry.name, runId: entry.runId });
+    } catch {}
     // The engine recognised an error the operator has already acknowledged.
     // Addresses and agent activity in it are still read; it is not a new event.
     const acknowledged = metadata?.acknowledged === true;

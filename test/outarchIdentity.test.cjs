@@ -160,7 +160,9 @@ test("the main process settles its folder before the lock, wears the icon and ha
   assert.ok(main.indexOf("app.setPath(") === setPath, "no earlier path decision");
   assert.match(main, /if \(process\.platform === "win32"\) app\.setAppUserModelId\(APP_USER_MODEL_ID\);/);
   assert.match(main, /async function start\(\) \{\n  if \(!holdsInstanceLock\) return;/);
-  assert.match(main, /app\.on\("second-instance", \(\) => \{[\s\S]{0,200}mainWindow\.restore\(\);[\s\S]{0,60}mainWindow\.focus\(\);/);
+  assert.match(main, /app\.on\("second-instance", \([^)]*\) => \{[\s\S]{0,480}mainWindow\.restore\(\);[\s\S]{0,60}mainWindow\.focus\(\);/);
+  // The website's sign-in link arrives as a second launch and is handed on.
+  assert.match(main, /app\.on\("second-instance", \(_event, argv = \[\]\) => \{[\s\S]{0,240}accountService\?\.handleDeepLink\(link\)/);
   assert.equal((main.match(/icon: BRAND_ASSETS\.windowIcon,/g) || []).length, 2, "the main window and every pop-out carry the icon");
   assert.match(main, /title: PRODUCT_NAME,/);
   assert.match(main, /title: `\$\{spec\.workerName\} — \$\{PRODUCT_NAME\}`/);

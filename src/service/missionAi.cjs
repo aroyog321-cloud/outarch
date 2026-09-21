@@ -198,7 +198,7 @@ class MissionAIService {
     this.lastCompletedAt = null;
     this.lastError = null;
     this.keyState = { primary: "ok", secondary: "ok", activeSlot: "primary" };
-    // T115 - the same audit depth MCP, Mobile and Plugins already had.
+    // T115 - the same audit depth MCP and Mobile already had.
     // METADATA ONLY, and that is a rule rather than an omission: the question,
     // the answer, the model input and the API key must never reach this ring,
     // so nothing recorded below is derived from any of them.

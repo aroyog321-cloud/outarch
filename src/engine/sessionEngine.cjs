@@ -524,6 +524,18 @@ class Session extends EventEmitter {
   spawn() {
     if (this._disposed) return false;
     if (this.isAlive()) return false;
+    // Admission: the engine owner may cap how many processes run at once (the
+    // operator's plan). A refused start changes nothing about the session; it
+    // simply does not launch, and says why.
+    this.admissionRefusal = null;
+    if (typeof this.admit === "function") {
+      let refusal = null;
+      try { refusal = this.admit(this); } catch { refusal = null; }
+      if (refusal) {
+        this.admissionRefusal = String(refusal).slice(0, 300);
+        return false;
+      }
+    }
 
     this._disposePtyRegistrations();
     this.proc = null;
@@ -678,7 +690,7 @@ class Session extends EventEmitter {
     if (this.isAlive()) return { ok: false, error: "session is already running" };
     return this.spawn()
       ? { ok: true }
-      : { ok: false, error: this.spawnError || "session failed to start" };
+      : { ok: false, error: this.admissionRefusal || this.spawnError || "session failed to start", ...(this.admissionRefusal ? { code: "PLAN_REQUIRED" } : null) };
   }
 
   write(data, options = {}) {
@@ -742,7 +754,7 @@ class Session extends EventEmitter {
 
     return this.spawn()
       ? { ok: true }
-      : { ok: false, error: this.spawnError || "session failed to start" };
+      : { ok: false, error: this.admissionRefusal || this.spawnError || "session failed to start", ...(this.admissionRefusal ? { code: "PLAN_REQUIRED" } : null) };
   }
 
   rename(name) {
@@ -941,6 +953,9 @@ class SessionEngine extends EventEmitter {
     this.sessions = new Map();
     this.ptyFactory = options.ptyFactory || defaultPtyFactory;
     this._sessionCleanups = new Map();
+    // Asked before any process starts, however it was asked to start (autoStart,
+    // a click, a recipe, an MCP client). Returns null to allow, or the reason.
+    this.spawnGuard = typeof options.spawnGuard === "function" ? options.spawnGuard : null;
     // Recovery gate. When the previous session ended unexpectedly, the engine
     // still loads every worker definition but must not relaunch processes
     // before the operator has seen what was running. This defers the launch
@@ -998,12 +1013,26 @@ class SessionEngine extends EventEmitter {
     }
 
     const session = new Session(def, { ptyFactory: this.ptyFactory });
+    session.admit = candidate => this._admit(candidate);
     this.sessions.set(session.id, session);
     this._wireSession(session);
     this.emit("session:created", { id: session.id, session: session.summary() });
     if (session.autoStart && !this.deferAutoStart) session.spawn();
     else if (session.autoStart) session._setStatus("idle");
     return session;
+  }
+
+  _admit(candidate) {
+    if (!this.spawnGuard) return null;
+    let running = 0;
+    for (const session of this.sessions.values()) {
+      if (session !== candidate && session.isAlive()) running += 1;
+    }
+    return this.spawnGuard({ id: candidate.id, name: candidate.name, running }) || null;
+  }
+
+  setSpawnGuard(guard) {
+    this.spawnGuard = typeof guard === "function" ? guard : null;
   }
 
   list() {

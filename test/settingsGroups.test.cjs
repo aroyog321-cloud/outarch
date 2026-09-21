@@ -23,11 +23,12 @@ function block(source, name) {
   return source.slice(start, source.indexOf("\nfunction ", start + 1));
 }
 
-test("T120 - the eight groups exist, in the documented order", () => {
+test("T120 - the groups exist, in the documented order, with the account first", () => {
   const app = read("App.jsx");
   const groups = app.slice(app.indexOf("const SETTINGS_GROUPS = ["), app.indexOf("const SETTINGS_GROUP_KEY"));
   const ids = [...groups.matchAll(/\["([a-z]+)", "/g)].map(match => match[1]);
   assert.deepEqual(ids, [
+    "account",
     "appearance",
     "terminal",
     "notifications",
@@ -42,6 +43,7 @@ test("T120 - the eight groups exist, in the documented order", () => {
   // route that owns it rather than growing a second copy here (T249).
   const hub = block(app, "SettingsHub");
   for (const [id, component] of [
+    ["account", "AccountSettings"],
     ["appearance", "SettingsView"],
     ["terminal", "TerminalSettings"],
     ["notifications", "NotificationSettings"],

@@ -16,7 +16,6 @@ import "./mcpGateway.css";
 import "./agentSupervision.css";
 import "./automationWorkflows.css";
 import "./mobileCompanion.css";
-import "./pluginPlatform.css";
 import "./missionAi.css";
 import "./workspaceRecipes2.css";
 import "./premiumDesign.css";
@@ -32,6 +31,9 @@ import "./redesign/screens.css";
 // Density pass: page headers, meter strips, accent discipline, deck + pane
 // header overflow, empty states. See redesign/README.md.
 import "./redesign/cockpit.css";
+// Account, plan and update surfaces: the sign-in screen, the crown, the upgrade
+// dialog, Settings > Account and plan.
+import "./redesign/account.css";
 // Shared primitives resolve last: trust, decisions, skeletons, live telemetry,
 // status chips and desktop feedback all have one renderer-owned grammar.
 import "./redesign/surfaces.css";

@@ -11,7 +11,6 @@
  *   mcp                mcpGateway.listApprovals()
  *   automation         engineApi.listAutomations().approvals
  *   mobile             mobileCompanion.listApprovals()
- *   plugin             pluginPlatform.listApprovals()
  *
  * Renderer terminal-transport alerts are NOT brokered here — they never reach the
  * engine and are injected client-side by the renderer with origin "renderer".
@@ -32,7 +31,7 @@ const ACTIVE_STATUSES = new Set(["pending", "acting", "verifying", "acknowledged
 
 // Sources whose resolve is a consequential approval and must carry a confirmation
 // ceremony. "session" and "terminal" are lifecycle/visibility only.
-const CONFIRMED_SOURCES = new Set(["missionSupervisor", "mission", "mcp", "automation", "mobile", "plugin"]);
+const CONFIRMED_SOURCES = new Set(["missionSupervisor", "mission", "mcp", "automation", "mobile"]);
 
 /** Split a namespaced decision id ("mcp:approval-7") into { source, nativeId }. */
 function parseDecisionId(id) {
@@ -131,7 +130,7 @@ const APPROVAL_DEFAULTS = Object.freeze({
   target: item => ({
     kind: "integration",
     id: item.targetId || null,
-    label: text(item.targetName || item.client || item.deviceName || item.pluginName || item.missionTitle, "integration")
+    label: text(item.targetName || item.client || item.deviceName || item.missionTitle, "integration")
   }),
   evidence: item => text(item.reason || item.actionLabel, "Authenticated request awaiting a local decision."),
   impact: item => text(item.impact, "Approving performs the request through EngineAPI. Denying performs no action."),
@@ -209,12 +208,6 @@ const SOURCE_OVERRIDES = Object.freeze({
     title: item => `${text(item.action, "Request")} · ${text(item.targetName, "target")}`,
     target: item => ({ kind: "integration", id: null, label: text(item.deviceName, "paired device") }),
     deepLink: () => ({ view: "integrations", params: { section: "mobile" } })
-  },
-  plugin: {
-    type: () => "approval.plugin",
-    title: item => `${text(item.operation, "Operation")} · ${text(item.targetName, "target")}`,
-    target: item => ({ kind: "integration", id: null, label: text(item.pluginName, "plugin") }),
-    deepLink: () => ({ view: "integrations", params: { section: "plugins" } })
   }
 });
 
@@ -265,19 +258,18 @@ function approvalAdapterFrom(id, handle, method) {
 }
 
 /**
- * @param {object} sources { engineApi, missionSupervisor, mcpGateway, mobileCompanion, pluginPlatform }
+ * @param {object} sources { engineApi, missionSupervisor, mcpGateway, mobileCompanion }
  * @returns {Promise<{records, sources, complete, counts}>}
  */
 async function buildDecisionQuery(sources = {}) {
-  const { engineApi, missionSupervisor, mcpGateway, mobileCompanion, pluginPlatform } = sources;
+  const { engineApi, missionSupervisor, mcpGateway, mobileCompanion } = sources;
   const results = await Promise.all([
     sessionAdapter(engineApi),
     approvalAdapterFrom("missionSupervisor", missionSupervisor, "listApprovals"),
     approvalAdapterFrom("mission", engineApi, "listMissionApprovals"),
     approvalAdapterFrom("mcp", mcpGateway, "listApprovals"),
     approvalAdapterFrom("automation", engineApi, "listAutomations"),
-    approvalAdapterFrom("mobile", mobileCompanion, "listApprovals"),
-    approvalAdapterFrom("plugin", pluginPlatform, "listApprovals")
+    approvalAdapterFrom("mobile", mobileCompanion, "listApprovals")
   ]);
 
   const records = sortDecisions(results.flatMap(result => result.records));

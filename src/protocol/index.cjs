@@ -33,10 +33,6 @@ const CONFIRMATION_METHODS = new Set([
   "mobile.invite",
   "mobile.device.revoke",
   "mobile.approval.resolve",
-  "plugin.install",
-  "plugin.configure",
-  "plugin.uninstall",
-  "plugin.approval.resolve",
   "recipe.delete",
   "automation.delete",
   "automation.approval.resolve",
@@ -103,16 +99,6 @@ const METHODS = Object.freeze([
   "mobile.approval.list",
   "mobile.approval.resolve",
   "mobile.audit.list",
-  "plugin.status",
-  "plugin.list",
-  "plugin.install",
-  "plugin.configure",
-  "plugin.uninstall",
-  "plugin.resource.read",
-  "plugin.action.request",
-  "plugin.approval.list",
-  "plugin.approval.resolve",
-  "plugin.audit.list",
   "recipe.list",
   "recipe.save",
   "recipe.delete",
@@ -198,10 +184,13 @@ const METHODS = Object.freeze([
 ]);
 
 class ProtocolError extends Error {
-  constructor(code, message) {
+  constructor(code, message, details = null) {
     super(message);
     this.name = "ProtocolError";
     this.code = code;
+    // A plan refusal says which plan would allow the request, so the renderer
+    // can offer the upgrade instead of a bare error.
+    this.details = details && typeof details === "object" ? details : null;
   }
 }
 
@@ -478,7 +467,6 @@ function createProtocolConnection(engineApi, options = {}) {
   const missionSupervisor = options.missionSupervisor || null;
   const mcpGateway = options.mcpGateway || null;
   const mobileCompanion = options.mobileCompanion || null;
-  const pluginPlatform = options.pluginPlatform || null;
   const notifications = options.notifications || null;
   const portInspector = options.portInspector || null;
   const localServiceRegistry = options.localServiceRegistry || null;
@@ -501,6 +489,12 @@ function createProtocolConnection(engineApi, options = {}) {
   // Which presentation view this connection speaks for, and the lease table
   // that says which view currently owns each terminal's keyboard.
   const terminalLeases = options.terminalLeases || null;
+  // The operator's plan. `entitlements()` returns what it allows right now; a
+  // request outside it is refused here, before any service sees it.
+  const planGate = options.planGate && typeof options.planGate.entitlements === "function" ? options.planGate : null;
+  // Told about every keystroke that reaches a terminal: typing into an agent's
+  // terminal is how the operator answers what it was asking.
+  const onTerminalInput = typeof options.onTerminalInput === "function" ? options.onTerminalInput : null;
   const viewId = typeof options.getViewId === "function" ? options.getViewId : () => "main";
   const now = options.now || Date.now;
   const randomBytes = options.randomBytes || crypto.randomBytes;
@@ -599,7 +593,6 @@ function createProtocolConnection(engineApi, options = {}) {
     { id: "mcp", service: mcpGateway, methods: methodsWithPrefix("mcp."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.enabled && !value?.running ? "loading" : value?.running ? "ready" : "disabled" },
     { id: "automation", service: engineApi, methods: methodsWithPrefix("automation."), state: () => "ready" },
     { id: "companion", service: mobileCompanion, methods: methodsWithPrefix("mobile."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.enabled && !value?.running ? "loading" : value?.running ? "ready" : "disabled" },
-    { id: "extensions", service: pluginPlatform, methods: methodsWithPrefix("plugin."), state: value => value?.available === false ? "unavailable" : "ready" },
     { id: "notifications", service: notifications, methods: methodsWithPrefix("notification."), state: value => value?.available === false ? "unavailable" : value?.lastError ? "error" : value?.running ? "ready" : "disabled" },
     { id: "terminal-broadcast", service: engineApi, methods: ["terminal.broadcast.preview", "terminal.broadcast"], state: () => "ready" },
     { id: "crashlens-free-port", service: portInspector, methods: ["crashlens.port.inspect"], state: value => value?.available === false ? "unavailable" : "ready" },
@@ -693,14 +686,6 @@ function createProtocolConnection(engineApi, options = {}) {
         version: PROTOCOL_VERSION,
         type: "integration:event",
         integration: "mobile",
-        status
-      }))
-    : null;
-  const unsubscribePlugins = typeof pluginPlatform?.subscribe === "function"
-    ? pluginPlatform.subscribe(status => safeSend({
-        version: PROTOCOL_VERSION,
-        type: "integration:event",
-        integration: "plugins",
         status
       }))
     : null;
@@ -868,7 +853,7 @@ function createProtocolConnection(engineApi, options = {}) {
     const activity = engineApi.getActivity({ limit });
     let decisions = [];
     try {
-      const query = await buildDecisionQuery({ engineApi, missionSupervisor, mcpGateway, mobileCompanion, pluginPlatform });
+      const query = await buildDecisionQuery({ engineApi, missionSupervisor, mcpGateway, mobileCompanion });
       decisions = Array.isArray(query?.records) ? query.records : [];
     } catch {
       // buildDecisionQuery isolates its own sources; a throw here means the
@@ -936,15 +921,98 @@ function createProtocolConnection(engineApi, options = {}) {
     }
   }
 
-  async function callPlugin(method, operation) {
-    if (!pluginPlatform || typeof pluginPlatform[method] !== "function") {
-      throw new ProtocolError("UNAVAILABLE", "Plugin Platform is not available on this connection");
+  function refuseForPlan(refusal) {
+    if (!refusal) return;
+    throw new ProtocolError("PLAN_REQUIRED", refusal.message, typeof refusal.toJSON === "function" ? refusal.toJSON() : null);
+  }
+
+  function runningWorkers() {
+    try {
+      if (typeof engineApi.runningCount === "function") return engineApi.runningCount();
+      return (engineApi.list?.() || []).filter(session => session.status === "running" || session.status === "starting").length;
+    } catch {
+      return 0;
     }
-    try { return await operation(pluginPlatform[method].bind(pluginPlatform)); }
-    catch (error) {
-      if (error instanceof ProtocolError) throw error;
-      throw new ProtocolError(error instanceof TypeError ? "INVALID_PARAMS" : "PLUGIN_PLATFORM_ERROR", error instanceof Error ? error.message : String(error));
+  }
+
+  function currentProjectIdSafely() {
+    try {
+      const listed = projectService?.list?.();
+      return listed && typeof listed.then !== "function" ? listed.currentProjectId || null : null;
+    } catch {
+      return null;
     }
+  }
+
+  function recipeList() {
+    try { return engineApi.listRecipes() || []; } catch { return []; }
+  }
+
+  function byokKeys() {
+    try { return aiAssistant?.status?.().keys || []; } catch { return []; }
+  }
+
+  function projectSwitchRefusal(gate, method, params) {
+    const workspace = (() => { try { return engineApi.getWorkspace?.() || null; } catch { return null; } })();
+    const sameProject = method === "project.open" && typeof params.projectId === "string" && params.projectId === currentProjectIdSafely();
+    return gate.checkProjectSwitch({ currentPersistent: Boolean(workspace?.persistent), sameProject });
+  }
+
+  // Everything the plan decides, in one place: method -> the refusal, if any.
+  // Status reads are never refused, so a locked feature still shows what it
+  // would do. (A lookup table rather than a switch keeps each method's handler
+  // the only "case" for it in this file.)
+  const PLAN_RULES = Object.freeze({
+    "action.dispatch": (gate, params) => {
+      const type = isPlainObject(params.action) ? params.action.type : null;
+      if (type === "create" || type === "instantiateSavedCommand") return gate.checkCreateTerminal((engineApi.list?.() || []).length);
+      if (type === "start" || type === "restart") {
+        const target = typeof params.sessionId === "string" ? engineApi.getSnapshot(params.sessionId) : null;
+        if (target && target.status !== "running" && target.status !== "starting") return gate.checkRunTerminal(runningWorkers());
+      }
+      return null;
+    },
+    "agent.create": gate => gate.checkCreateTerminal((engineApi.list?.() || []).length),
+    "recipe.save": (gate, params) => {
+      const recipes = recipeList();
+      const id = isPlainObject(params.recipe) && typeof params.recipe.id === "string" ? params.recipe.id : null;
+      return id && recipes.some(recipe => recipe?.id === id) ? gate.checkRecipeUse() : gate.checkRecipeCreate(recipes.length);
+    },
+    "recipe.run": gate => gate.checkRecipeUse(),
+    "recipe.resume": gate => gate.checkRecipeUse(),
+    "project.choose": (gate, params) => projectSwitchRefusal(gate, "project.choose", params),
+    "project.open": (gate, params) => projectSwitchRefusal(gate, "project.open", params),
+    "project.initialize": (gate, params) => projectSwitchRefusal(gate, "project.initialize", params),
+    "mcp.configure": (gate, params) => (isPlainObject(params.configuration) && params.configuration.enabled === true ? gate.checkMcp() : null),
+    "mcp.getToken": gate => gate.checkMcp(),
+    "mcp.rotateToken": gate => gate.checkMcp(),
+    "mcp.installClient": gate => gate.checkMcp(),
+    "mcp.tools.list": gate => gate.checkMcp(),
+    "mcp.tool.call": gate => gate.checkMcp(),
+    "mobile.configure": (gate, params) => (isPlainObject(params.configuration) && params.configuration.enabled === true ? gate.checkMobile() : null),
+    "mobile.invite": gate => gate.checkMobile(),
+    "vscode.launch": gate => gate.checkVsCode(),
+    "vscode.openFile": gate => gate.checkVsCode(),
+    "vscode.openProblems": gate => gate.checkVsCode(),
+    "vscode.terminal.create": gate => gate.checkVsCode(),
+    "vscode.terminal.write": gate => gate.checkVsCode(),
+    "vscode.terminal.focus": gate => gate.checkVsCode(),
+    "vscode.terminal.close": gate => gate.checkVsCode(),
+    "ai.byok.add": gate => gate.checkByokAdd(byokKeys().length),
+    "ai.selection.set": (gate, params) => {
+      const target = isPlainObject(params.target) ? params.target : null;
+      if (target?.source !== "byok") return null;
+      const keys = byokKeys();
+      return gate.allowedByokKeyIds(keys).has(String(target.keyId || "")) ? null : gate.checkByokAdd(Math.max(keys.length, gate.byokLimit() ?? 0));
+    }
+  });
+
+  function enforcePlan(method, params) {
+    if (!planGate || !Object.hasOwn(PLAN_RULES, method)) return;
+    let gate;
+    try { gate = planGate.entitlements(); } catch { gate = null; }
+    if (!gate) return;
+    refuseForPlan(PLAN_RULES[method](gate, params));
   }
 
   function projectSelector(params) {
@@ -954,6 +1022,7 @@ function createProtocolConnection(engineApi, options = {}) {
   }
 
   async function dispatchMethod(method, params) {
+    enforcePlan(method, params);
     switch (method) {
       case "system.hello": {
         const state = engineApi.getState();
@@ -1064,7 +1133,7 @@ function createProtocolConnection(engineApi, options = {}) {
         return { result: await callMissionAi("ask", ask => ask({ question, afterSequence: params.afterSequence })) };
       }
       // T115 - Mission AI, VS Code and Automation now answer the same audit
-      // question MCP, Mobile and Plugins already did. All three reads are
+      // question MCP and Mobile already did. All three reads are
       // metadata-only; none can expose a question, a key, editor text or
       // terminal output.
       case "missionAi.audit.list":
@@ -1094,13 +1163,11 @@ function createProtocolConnection(engineApi, options = {}) {
         const missionAiStatus = typeof missionAi?.status === "function" ? missionAi.status() : null;
         const mcpStatus = typeof mcpGateway?.status === "function" ? mcpGateway.status() : null;
         const mobileStatus = typeof mobileCompanion?.status === "function" ? mobileCompanion.status() : null;
-        const pluginStatus = typeof pluginPlatform?.status === "function" ? pluginPlatform.status() : null;
         return { result: engineApi.listIntegrations().map(item => {
           if (item.id === "vscode") return { ...item, enabled: bridgeStatus?.connected === true, bridge: bridgeStatus };
           if (item.id === "mission-ai") return { ...item, enabled: missionAiStatus?.configured === true, missionAi: missionAiStatus };
           if (item.id === "assistant") return { ...item, status: "available", enabled: mcpStatus?.running === true, mcp: mcpStatus };
           if (item.id === "mobile") return { ...item, status: "available", enabled: mobileStatus?.running === true, mobile: mobileStatus };
-          if (item.id === "plugins") return { ...item, status: "available", enabled: Number(pluginStatus?.enabledCount) > 0, plugins: pluginStatus };
           return item;
         }) };
       }
@@ -1217,45 +1284,6 @@ function createProtocolConnection(engineApi, options = {}) {
       }
       case "mobile.audit.list":
         return { result: await callMobile("listAudit", listAudit => listAudit(params.limit)) };
-      case "plugin.status":
-        return { result: await callPlugin("status", status => status()) };
-      case "plugin.list":
-        return { result: await callPlugin("list", list => list()) };
-      case "plugin.install": {
-        requireConfirmation("plugin.install", params);
-        return { result: await callPlugin("chooseAndInstall", chooseAndInstall => chooseAndInstall()) };
-      }
-      case "plugin.configure": {
-        const pluginId = requireString(params, "pluginId");
-        if (!isPlainObject(params.configuration)) throw new ProtocolError("INVALID_PARAMS", "configuration is required");
-        requireConfirmation("plugin.configure", params);
-        return { result: await callPlugin("configure", configure => configure(pluginId, params.configuration)) };
-      }
-      case "plugin.uninstall": {
-        const pluginId = requireString(params, "pluginId");
-        requireConfirmation("plugin.uninstall", params);
-        return { result: await callPlugin("uninstall", uninstall => uninstall(pluginId)) };
-      }
-      case "plugin.resource.read": {
-        const pluginId = requireString(params, "pluginId");
-        if (!isPlainObject(params.request)) throw new ProtocolError("INVALID_PARAMS", "request is required");
-        return { result: await callPlugin("read", read => read(pluginId, params.request)) };
-      }
-      case "plugin.action.request": {
-        const pluginId = requireString(params, "pluginId");
-        if (!isPlainObject(params.request)) throw new ProtocolError("INVALID_PARAMS", "request is required");
-        return { result: await callPlugin("requestAction", requestAction => requestAction(pluginId, params.request)) };
-      }
-      case "plugin.approval.list":
-        return { result: await callPlugin("listApprovals", listApprovals => listApprovals()) };
-      case "plugin.approval.resolve": {
-        const approvalId = requireString(params, "approvalId");
-        const decision = requireString(params, "decision");
-        requireConfirmation("plugin.approval.resolve", params);
-        return { result: await callPlugin("resolveApproval", resolveApproval => resolveApproval(approvalId, decision)) };
-      }
-      case "plugin.audit.list":
-        return { result: await callPlugin("listAudit", listAudit => listAudit(params.limit)) };
       case "recipe.list":
         return { result: engineApi.listRecipes() };
       case "recipe.save": {
@@ -1420,8 +1448,7 @@ function createProtocolConnection(engineApi, options = {}) {
             engineApi,
             missionSupervisor,
             mcpGateway,
-            mobileCompanion,
-            pluginPlatform
+            mobileCompanion
           })
         };
       case "decisions.acknowledge": {
@@ -1463,8 +1490,6 @@ function createProtocolConnection(engineApi, options = {}) {
           }
           case "mobile":
             return { result: await callMobile("resolveApproval", resolveApproval => resolveApproval(nativeId, actionId)) };
-          case "plugin":
-            return { result: await callPlugin("resolveApproval", resolveApproval => resolveApproval(nativeId, actionId)) };
           case "session": {
             const state = actionId === "acknowledge" ? "seen" : actionId;
             const result = engineApi.transitionAttention(nativeId, state, { snoozedUntil: params.snoozedUntil });
@@ -1523,7 +1548,7 @@ function createProtocolConnection(engineApi, options = {}) {
         }
         const result = await router.dispatch(sessionId, params.action);
         if (!result?.ok) {
-          throw new ProtocolError("ACTION_FAILED", result?.error || "action failed");
+          throw new ProtocolError(result?.code === "PLAN_REQUIRED" ? "PLAN_REQUIRED" : "ACTION_FAILED", result?.error || "action failed");
         }
         return { result };
       }
@@ -1632,6 +1657,7 @@ function createProtocolConnection(engineApi, options = {}) {
         if (!state.rawStream.write(params.data, { source: "groundstation" })) {
           throw new ProtocolError("TERMINAL_NOT_RUNNING", "terminal is not running or write failed");
         }
+        try { onTerminalInput?.(state.sessionId); } catch { /* an observer never blocks typing */ }
         return { result: { written: true } };
       }
       // T023 — broadcast is the one action that multiplies a mistake by the
@@ -2021,7 +2047,7 @@ function createProtocolConnection(engineApi, options = {}) {
         version: PROTOCOL_VERSION,
         id: request?.id || requestIdFrom(input),
         ok: false,
-        error: { code: protocolError.code, message: protocolError.message }
+        error: { code: protocolError.code, message: protocolError.message, ...(protocolError.details ? { plan: protocolError.details } : null) }
       };
     }
 
@@ -2036,7 +2062,6 @@ function createProtocolConnection(engineApi, options = {}) {
     try { unsubscribeVSCode?.(); } catch (error) { /* Best effort. */ }
     try { unsubscribeMcp?.(); } catch (error) { /* Best effort. */ }
     try { unsubscribeMobile?.(); } catch (error) { /* Best effort. */ }
-    try { unsubscribePlugins?.(); } catch (error) { /* Best effort. */ }
     try { unsubscribeNotifications?.(); } catch (error) { /* Best effort. */ }
     for (const streamId of [...terminalStreams.keys()]) closeTerminal(streamId);
     pendingConfirmations.clear();

@@ -22,3 +22,6 @@ measured_*
 all_edits.json
 __pycache__/
 *.pyc
+
+# Signed update archives built by scripts/release/publish-release.cjs
+release/

@@ -20,6 +20,12 @@ const MOBILE_APPROVAL_TTL_MS = 15 * 60 * 1000;
 const MOBILE_CLOCK_SKEW_MS = 2 * 60 * 1000;
 const MOBILE_NONCE_TTL_MS = 5 * 60 * 1000;
 const MAX_MOBILE_REQUEST_BYTES = 256 * 1024;
+const MAX_MOBILE_APPROVALS = 100;
+const MOBILE_EXECUTION_TTL_MS = 5 * 60 * 1000;
+// What a paired phone may do without asking, while the operator leaves
+// "run phone requests without asking" on. These start or acknowledge work.
+// Stop and cancel end it, so they keep waiting for the desktop.
+const MOBILE_AUTO_ACTIONS = Object.freeze({ worker: Object.freeze(["start", "restart", "acknowledge"]), recipe: Object.freeze(["run", "recover"]) });
 // The OUTARCH icon for the home screen, the tab and the page header.
 const MOBILE_BRAND_ICONS = Object.freeze({
   "/mobile/icon-192.png": BRAND_ASSETS.pwaIcon192,
@@ -106,8 +112,17 @@ class MobileCompanionGateway extends EventEmitter {
     this.invitations = new Map();
     this.seenNonces = new Map();
     this.sseClients = new Set();
+    // Targets a phone is changing right now, so a double tap is one action.
+    this.busyTargets = new Set();
     this.lastError = null;
     this.disposed = false;
+    // Whether the operator's plan includes the companion. When it does not,
+    // the gateway does not listen, whatever its saved setting says.
+    this.isAllowed = typeof options.isAllowed === "function" ? options.isAllowed : () => true;
+  }
+
+  #planAllows() {
+    try { return this.isAllowed() === true; } catch { return false; }
   }
 
   status() {
@@ -123,7 +138,7 @@ class MobileCompanionGateway extends EventEmitter {
       endpoints: this.#endpoints(port).map(endpoint => `${endpoint}${MOBILE_PAIR_PATH}`),
       expiresAt: latestInvite.expiresAt
     } : null;
-    return { ...stored, running: Boolean(this.server?.listening), host: "0.0.0.0", port, endpoints: this.#endpoints(port), activeInvitation, activeInvitationCount: this.invitations.size, activeClientCount: this.sseClients.size, lastError: this.lastError, transport: "application-layer-aes-256-gcm", authority: "approval-gated-no-shell" };
+    return { ...stored, running: Boolean(this.server?.listening), host: "0.0.0.0", port, endpoints: this.#endpoints(port), activeInvitation, activeInvitationCount: this.invitations.size, activeClientCount: this.sseClients.size, lastError: this.lastError, transport: "application-layer-aes-256-gcm", authority: "approval-gated-no-shell", planAllowed: this.#planAllows(), autoActions: MOBILE_AUTO_ACTIONS, recentActions: this.#recentActions() };
   }
 
   subscribe(callback) { if (typeof callback !== "function") throw new TypeError("Mobile companion subscribe requires a callback"); this.on("status", callback); return () => this.off("status", callback); }
@@ -145,6 +160,7 @@ class MobileCompanionGateway extends EventEmitter {
     if (this.server?.listening) return this.status();
     const stored = this.store.status();
     if (!stored.enabled) return this.status();
+    if (!this.#planAllows()) return this.status();
     if (!stored.available) throw new Error("OS credential encryption is unavailable; Mobile Companion remains disabled");
     await new Promise((resolve, reject) => {
       const server = this.http.createServer((request, response) => void this.#handleHttp(request, response));
@@ -259,9 +275,33 @@ class MobileCompanionGateway extends EventEmitter {
         if (scopes.includes("workers.read") && this.store.status().scopes.includes("workers.read")) { result.workers = context.workers; result.missions = context.missions; result.recipes = context.recipes; }
         if (scopes.includes("needs.read") && this.store.status().scopes.includes("needs.read")) result.attention = context.attention;
         if (scopes.includes("memory.read") && this.store.status().scopes.includes("memory.read")) result.projectMemory = context.projectMemory;
+        // What this phone can do right now, so its buttons say the truth: a
+        // device keeps the permissions it was paired with, and the operator
+        // can also switch a permission off for every phone at once.
+        const allowed = this.store.status();
+        result.companion = {
+          autoRun: allowed.autoRun === true,
+          autoActions: MOBILE_AUTO_ACTIONS,
+          canControl: scopes.includes("actions.request") && allowed.scopes.includes("actions.request"),
+          canReadOutput: scopes.includes("terminal.read") && allowed.scopes.includes("terminal.read")
+        };
       }
       this.#audit({ kind: "read", outcome: "completed", deviceId: device.id, capability: operation });
       return result;
+    }
+    if (operation === "worker") {
+      // One terminal's detail. Unlike a snapshot that asks for output, a phone
+      // without the terminal permission is not refused: it gets the summary and
+      // is told the output is off.
+      requireScope("workers.read");
+      const workerId = String(payload.workerId || "").slice(0, 64);
+      if (!workerId) throw new Error("Choose a terminal first");
+      const outputAllowed = scopes.includes("terminal.read") && this.store.status().scopes.includes("terminal.read");
+      const context = this.missionContext.snapshot({ includeOutput: outputAllowed, workerIds: [workerId] });
+      const worker = (context.workers || []).find(item => item.id === workerId);
+      if (!worker) throw new Error("That terminal is no longer in this project");
+      if (outputAllowed) this.#audit({ kind: "read", outcome: "completed", deviceId: device.id, capability: "worker", target: workerId });
+      return { generatedAt: context.generatedAt, worker, outputAllowed };
     }
     if (operation === "ask") {
       requireScope("assistant.ask");
@@ -291,11 +331,8 @@ class MobileCompanionGateway extends EventEmitter {
     const credential = this.store.deviceCredential(approval.deviceId);
     if (credential.device.projectKey !== this.#projectIdentity().key || approval.projectKey !== credential.device.projectKey) throw new Error("Mobile approval belongs to a different project");
     if (!credential.device.scopes.includes("actions.request") || !this.store.status().scopes.includes("actions.request")) throw new Error("Mobile action permission was revoked before approval");
-    approval.state = "executing"; approval.resolvedAt = this.now(); this.store.setApprovals(approvals); this.#emitStatus();
-    try { approval.result = await this.#executeApproval(approval); approval.state = "approved"; }
-    catch (error) { approval.state = "failed"; approval.error = error instanceof Error ? error.message : String(error); }
-    approval.completedAt = this.now(); this.store.setApprovals(approvals); this.#audit({ kind: "approval", outcome: approval.state, deviceId: approval.deviceId, capability: approval.action, target: approval.target }); this.#emitStatus();
-    return clone(approval);
+    approval.state = "executing"; approval.resolvedAt = this.now(); approval.decidedBy = "operator"; this.store.setApprovals(approvals); this.#emitStatus();
+    return this.#run(approval);
   }
 
   async dispose() { if (this.disposed) return false; this.disposed = true; await this.stop(); this.removeAllListeners(); return true; }
@@ -314,9 +351,62 @@ class MobileCompanionGateway extends EventEmitter {
       if (!["run", "recover", "cancel"].includes(action)) throw new Error("Mobile recipe action is invalid");
       record = { type: "recipe", target, targetName: recipe.name, action };
     }
-    const approval = { id: `mobile-approval-${this.randomUUID()}`, state: "pending", deviceId: device.id, deviceName: device.name, projectKey: this.#projectIdentity().key, reason: safeReason(payload.reason), createdAt: this.now(), expiresAt: this.now() + MOBILE_APPROVAL_TTL_MS, ...record };
-    const approvals = [...this.store.approvals(), approval].slice(-100); this.store.setApprovals(approvals); this.#audit({ kind: "approval", outcome: "requested", deviceId: device.id, capability: approval.action, target: approval.target }); this.#emitStatus();
-    return clone(approval);
+    // The request was already checked for the project and the permission, so
+    // an automatic one goes straight to execution and never sits in Needs You.
+    const auto = this.store.status().autoRun === true && (MOBILE_AUTO_ACTIONS[record.type] || []).includes(record.action);
+    const busyKey = `${record.type}:${record.target}`;
+    if (auto && this.busyTargets.has(busyKey)) throw new Error(`${record.targetName} is already being changed from a phone`);
+    const now = this.now();
+    const approval = { id: `mobile-approval-${this.randomUUID()}`, state: auto ? "executing" : "pending", deviceId: device.id, deviceName: device.name, projectKey: this.#projectIdentity().key, reason: safeReason(payload.reason), createdAt: now, expiresAt: now + MOBILE_APPROVAL_TTL_MS, ...record, ...(auto ? { resolvedAt: now, decidedBy: "auto" } : null) };
+    this.store.setApprovals(this.#compact([...this.store.approvals(), approval])); this.#audit({ kind: "approval", outcome: "requested", deviceId: device.id, capability: approval.action, target: approval.target }); this.#emitStatus();
+    if (!auto) return clone(approval);
+    this.busyTargets.add(busyKey);
+    return this.#run(approval).then(done => this.#phoneView(done)).finally(() => this.busyTargets.delete(busyKey));
+  }
+
+  // Runs an approval that is already saved as "executing" and records how it
+  // ended. The store is read again afterwards: another request may have written
+  // while this one was running, and writing back the list held from before
+  // would erase it.
+  async #run(approval) {
+    let state = "approved"; let result = null; let error = null;
+    try { result = await this.#executeApproval(approval); }
+    catch (failure) { state = "failed"; error = failure instanceof Error ? failure.message : String(failure); }
+    const approvals = this.store.approvals();
+    const current = approvals.find(item => item.id === approval.id);
+    const finished = current || { ...approval };
+    finished.state = state; finished.completedAt = this.now();
+    if (state === "approved") finished.result = result; else finished.error = error;
+    if (current) this.store.setApprovals(approvals);
+    this.#audit({ kind: "approval", outcome: finished.decidedBy === "auto" ? `auto-${state}` : state, deviceId: finished.deviceId, capability: finished.action, target: finished.target });
+    this.#emitStatus();
+    return clone(finished);
+  }
+
+  // What a phone is told about its own request: the outcome, not the engine's
+  // raw result or the desktop's internal identifiers.
+  #phoneView(approval) {
+    return { id: approval.id, state: approval.state, type: approval.type, action: approval.action, target: approval.target, targetName: approval.targetName, decidedBy: approval.decidedBy || null, error: approval.error ? redactText(approval.error, { maxLength: 300 }).value : null, createdAt: approval.createdAt, completedAt: approval.completedAt || null };
+  }
+
+  // Automatic requests are stored too, so they would crowd a request that is
+  // still waiting out of the list. Finished ones are dropped first.
+  #compact(approvals) {
+    const list = [...approvals];
+    while (list.length > MAX_MOBILE_APPROVALS) {
+      const finished = list.findIndex(item => item.state !== "pending" && item.state !== "executing");
+      list.splice(finished === -1 ? 0 : finished, 1);
+    }
+    return list;
+  }
+
+  // The last few things phones did on their own, for the desktop to show.
+  #recentActions() {
+    return this.store.approvals()
+      .filter(item => item.decidedBy === "auto")
+      .sort((left, right) => (right.completedAt || right.createdAt) - (left.completedAt || left.createdAt))
+      .slice(0, 5)
+      .map(item => ({ id: item.id, deviceName: item.deviceName, type: item.type, action: item.action, targetName: item.targetName, state: item.state, at: item.completedAt || item.createdAt, error: item.error ? redactText(item.error, { maxLength: 160 }).value : null }));
   }
 
   async #executeApproval(approval) {
@@ -332,6 +422,8 @@ class MobileCompanionGateway extends EventEmitter {
     const now = this.now();
     for (const [id, invitation] of this.invitations) if (invitation.expiresAt <= now) this.invitations.delete(id);
     const approvals = this.store.approvals(); let changed = false;
+    // A request the desktop was running when it stopped never reports back.
+    for (const approval of approvals) if (approval.state === "executing" && (approval.resolvedAt || approval.createdAt) + MOBILE_EXECUTION_TTL_MS <= now) { approval.state = "failed"; approval.error = "The desktop stopped before this finished"; approval.completedAt = now; changed = true; this.#audit({ kind: "approval", outcome: "interrupted", deviceId: approval.deviceId, capability: approval.action, target: approval.target }); }
     for (const approval of approvals) if (approval.state === "pending" && approval.expiresAt <= now) { approval.state = "expired"; approval.resolvedAt = now; changed = true; this.#audit({ kind: "approval", outcome: "expired", deviceId: approval.deviceId, capability: approval.action, target: approval.target }); }
     if (changed) this.store.setApprovals(approvals);
   }
@@ -507,4 +599,4 @@ class MobileCompanionGateway extends EventEmitter {
   }
 }
 
-module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_CLOCK_SKEW_MS, MOBILE_EVENTS_PATH, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_PING_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };
+module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_AUTO_ACTIONS, MOBILE_CLOCK_SKEW_MS, MOBILE_EVENTS_PATH, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_PING_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };

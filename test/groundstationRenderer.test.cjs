@@ -165,7 +165,7 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   assert.doesNotMatch(appSource, /function LegacyGroundstationView/);
   assert.doesNotMatch(appSource, /function GroundstationView/);
   assert.match(appSource, /Observed facts, not inferred failures/);
-  assert.match(appSource, /surface="health\.status"/);
+  assert.doesNotMatch(appSource, /PluginContributionSlot|surface="health\.status"/);
 
   const recipesSource = require("node:fs").readFileSync(
     path.resolve(__dirname, "../src/groundstation/renderer/WorkspaceRecipes.jsx"),
@@ -348,7 +348,8 @@ test("Groundstation premium shell uses one responsive sidebar with intentional p
   assert.match(recipes, /request\("recipe\.list"\)/);
   assert.match(recipes, /Launch workspace/);
   assert.match(integrations, /request\(integration\.request\)/);
-  for (const label of ["Mission AI", "VS Code Bridge", "Secure MCP", "Mobile Companion", "Plugins"]) assert.match(integrations, new RegExp(label));
+  for (const label of ["Mission AI", "VS Code Bridge", "Secure MCP", "Mobile Companion"]) assert.match(integrations, new RegExp(label));
+  assert.doesNotMatch(integrations, /name: "Plugins"|plugin\.status/);
 });
 
 test("Mission Graph stays contextual and renders only configured recipe relationships", () => {
@@ -525,21 +526,16 @@ test("Mobile Companion stays contextual, encrypted, revocable, and approval-gate
   assert.doesNotMatch(mobile, /terminal\.write|terminal\.open|action\.dispatch/);
 });
 
-test("Plugin Platform stays contextual, declarative, permissioned, and approval-gated", () => {
+test("the plugin platform is gone from the renderer and the protocol", () => {
   const rendererRoot = path.join(__dirname, "..", "src", "groundstation", "renderer");
   const app = fs.readFileSync(path.join(rendererRoot, "App.jsx"), "utf8");
-  const plugins = fs.readFileSync(path.join(rendererRoot, "PluginPlatform.jsx"), "utf8");
   const protocol = fs.readFileSync(path.resolve(__dirname, "../src/protocol/index.cjs"), "utf8");
-  assert.match(app, /<PluginPlatformSettings/);
-  // Plugin approvals reach Needs You through the unified decision queue; the old
-  // standalone queue component was dead code and is removed.
+  assert.equal(fs.existsSync(path.join(rendererRoot, "PluginPlatform.jsx")), false);
+  assert.equal(fs.existsSync(path.join(rendererRoot, "PluginContributionSlot.jsx")), false);
+  assert.doesNotMatch(app, /PluginPlatformSettings|PluginContributionSlot/);
+  // Approvals still reach Needs You through the unified decision queue.
   assert.match(app, /decisionRecords=\{decisions\.records\}/);
-  assert.doesNotMatch(app, /\["plugins",\s*"Plugins/);
-  assert.match(plugins, /OUTARCH renders every contribution/);
-  assert.match(plugins, /Files, process, network, secrets, JSX, CSS, and handlers/);
-  assert.doesNotMatch(plugins, /plugin\.approval\.resolve|<DecisionItem/);
-  assert.match(protocol, /callPlugin\("resolveApproval", resolveApproval => resolveApproval\(nativeId, actionId\)\)/);
-  assert.doesNotMatch(plugins, /terminal\.write|action\.dispatch/);
+  assert.doesNotMatch(protocol, /callPlugin|"plugin\./);
 });
 
 test("Groundstation build is isolated from parent PostCSS configurations", async () => {
@@ -557,7 +553,7 @@ test("Groundstation build is isolated from parent PostCSS configurations", async
   assert.equal(typeof chunks, "function");
   assert.equal(chunks("D:/repo/node_modules/react/index.js"), "vendor-react");
   assert.equal(chunks("D:/repo/src/groundstation/renderer/TerminalPane.jsx"), "workspace-terminal");
-  assert.equal(chunks("D:/repo/src/groundstation/renderer/PluginPlatform.jsx"), "feature-integrations");
+  assert.equal(chunks("D:/repo/src/groundstation/renderer/McpGateway.jsx"), "feature-integrations");
 });
 
 test("renderer bridge unwraps protocol results and preserves structured errors", async t => {

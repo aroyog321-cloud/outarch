@@ -770,101 +770,111 @@
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  width: min(372px, calc(100vw - 28px));
+  width: min(392px, calc(100vw - 28px));
   pointer-events: none;
 }
 
-/* Rebuilt again 2026-09-14. A notice reads top-down: what happened (the
-   title), the detail, the worker it came from, then what you can do about it.
-   The thin edge on the left is the kind of notice — red failed, amber needs
-   you, green came up — so a glance at the stack sorts it before a word is
-   read. */
+/* Rebuilt 2026-09-19 to match the notification cards on the OUTARCH website.
+   A notice reads the way a phone notification does: a tinted tile whose glyph
+   says what kind of notice it is (a bell for an agent waiting on you, a
+   diamond for a failure, a tick for something that came up), the app name and
+   its age on a quiet line, the title, then the detail in the terminal face
+   with the worker it came from, and pill actions underneath. Anything waiting
+   on you keeps a slow ring on its tile, so it still reads as unanswered. */
 .mc-toast {
   pointer-events: auto;
   position: relative;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 20px;
+  grid-template-columns: 36px minmax(0, 1fr) 22px;
   align-items: start;
-  gap: 10px;
-  padding: 11px 9px 12px 14px;
+  gap: 12px;
+  padding: 14px 10px 14px 14px;
   color: var(--mc-text);
-  background: var(--mc-surface-2);
-  border: 1px solid var(--mc-border-strong);
-  border-radius: var(--mc-radius-md);
+  background: color-mix(in srgb, var(--mc-surface-2) 91%, var(--mc-accent));
+  border: 1px solid var(--mc-border);
+  border-radius: 16px;
   box-shadow: var(--mc-shadow-float);
+  backdrop-filter: blur(18px) saturate(140%);
   font-size: 12.5px;
   line-height: 1.45;
   opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(28px) scale(0.97);
+  transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), transform 420ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms ease;
   overflow: hidden;
 }
-.mc-toast::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 3px;
-  content: "";
-  background: var(--mc-accent);
-}
-.mc-toast--success::before { background: var(--mc-ok); }
-.mc-toast--danger::before { background: var(--mc-danger); }
-.mc-toast--warning::before { background: var(--mc-warning); }
-.mc-toast--ai::before { background: var(--mc-ai); }
-.mc-toast--progress::before { background: var(--mc-border-strong); }
+.mc-toast--warning { border-color: color-mix(in srgb, var(--mc-warning) 45%, var(--mc-border)); }
+.mc-toast--danger { border-color: color-mix(in srgb, var(--mc-danger) 38%, var(--mc-border)); }
+.mc-toast:hover { border-color: var(--mc-border-strong); }
+.mc-toast--warning:hover { border-color: color-mix(in srgb, var(--mc-warning) 70%, var(--mc-border)); }
+.mc-toast--danger:hover { border-color: color-mix(in srgb, var(--mc-danger) 60%, var(--mc-border)); }
 
 .mc-toast.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 .mc-toast__icon {
+  position: relative;
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  color: var(--mc-accent);
+  color: var(--mc-accent-strong);
   background: var(--mc-accent-soft);
-  border-radius: 50%;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent);
 }
+.mc-toast__icon svg { width: 19px; height: 19px; }
 .mc-toast--success .mc-toast__icon { color: var(--mc-ok); background: var(--mc-ok-soft); }
 .mc-toast--danger .mc-toast__icon { color: var(--mc-danger); background: var(--mc-danger-soft); }
 .mc-toast--warning .mc-toast__icon { color: var(--mc-warning); background: var(--mc-warning-soft); }
-.mc-toast--ai .mc-toast__icon { color: var(--mc-ai); background: var(--mc-ai-soft); }
-.mc-toast--progress .mc-toast__icon { background: transparent; }
+.mc-toast--ai .mc-toast__icon { color: var(--mc-ai-violet); background: color-mix(in srgb, var(--mc-ai-violet) 16%, transparent); }
+.mc-toast--progress .mc-toast__icon { background: transparent; box-shadow: none; }
+.mc-toast__icon.is-ringing::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px currentColor;
+  opacity: 0;
+  animation: mc-toast-ring 1.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+@keyframes mc-toast-ring {
+  0% { opacity: 0.7; transform: scale(0.92); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
 
 .mc-toast__body {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
+.mc-toast__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mc-text-dim);
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+.mc-toast__meta b { color: var(--mc-text-muted); font-weight: 650; letter-spacing: 0.01em; }
+.mc-toast__meta time { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mc-toast__head {
   display: flex;
   min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
 }
 .mc-toast__title {
   display: -webkit-box;
   min-width: 0;
   overflow: hidden;
   color: var(--mc-text);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 560;
   line-height: 1.35;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-.mc-toast__head time {
-  flex: 0 0 auto;
-  color: var(--mc-text-dim);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 /* Three lines holds a worker name and an address; past that the list is the
    place to read it, not a corner of the window. */
@@ -876,48 +886,42 @@
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
 }
-.mc-toast__text { color: var(--mc-text-muted); font-size: 12.5px; -webkit-line-clamp: 3; }
-.mc-toast__detail { color: var(--mc-text-dim); font-size: 11.5px; -webkit-line-clamp: 2; }
-.mc-toast__source {
-  display: inline-flex;
-  max-width: 100%;
-  align-self: flex-start;
-  align-items: center;
-  gap: 5px;
-  margin-top: 3px;
-  padding: 1px 8px 1px 6px;
-  overflow: hidden;
-  color: var(--mc-text-soft);
-  background: var(--mc-surface-3);
-  border: 1px solid var(--mc-hairline);
-  border-radius: 999px;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.mc-toast__text {
+  margin-top: 1px;
+  color: var(--mc-text-muted);
+  font-family: var(--mc-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
 }
-.mc-toast__source svg { flex: 0 0 auto; color: var(--mc-text-dim); }
+.mc-toast__source { color: var(--mc-text-muted); }
+.mc-toast__detail { color: var(--mc-text-dim); font-size: 11.5px; -webkit-line-clamp: 2; }
 
 .mc-toast__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .mc-toast__action,
 .mc-toast__secondary {
   flex: 0 0 auto;
-  min-height: 26px;
-  padding: 0 11px;
-  border-radius: var(--mc-radius-xs);
-  font-size: 11.5px;
-  font-weight: 600;
+  min-height: 28px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 560;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
 }
+.mc-toast__action:active,
+.mc-toast__secondary:active { transform: scale(0.97); }
 .mc-toast__action {
   color: var(--mc-accent-ink);
   background: var(--mc-accent);
   border: 1px solid var(--mc-accent);
+  box-shadow: 0 8px 22px -12px var(--mc-accent);
 }
 .mc-toast__action:hover { background: var(--mc-accent-strong); border-color: var(--mc-accent-strong); }
 /* A failure's first action is a repair, not the accent verb of the moment. */
@@ -925,15 +929,15 @@
   color: var(--mc-text);
   background: var(--mc-danger-soft);
   border-color: color-mix(in srgb, var(--mc-danger) 45%, transparent);
+  box-shadow: none;
 }
 .mc-toast--danger .mc-toast__action:hover { background: color-mix(in srgb, var(--mc-danger) 28%, transparent); border-color: var(--mc-danger); }
 .mc-toast__secondary {
   color: var(--mc-text-soft);
-  background: transparent;
+  background: color-mix(in srgb, var(--mc-text) 6%, transparent);
   border: 1px solid var(--mc-border);
-  font-weight: 560;
 }
-.mc-toast__secondary:hover { color: var(--mc-text); background: var(--mc-surface-3); border-color: var(--mc-border-strong); }
+.mc-toast__secondary:hover { color: var(--mc-text); background: color-mix(in srgb, var(--mc-text) 10%, transparent); border-color: var(--mc-border-strong); }
 .mc-toast__secondary.is-danger { color: var(--mc-danger); }
 .mc-toast__secondary.is-danger:hover { background: var(--mc-danger-soft); border-color: color-mix(in srgb, var(--mc-danger) 40%, transparent); }
 .mc-toast__action:focus-visible,
@@ -942,15 +946,15 @@
 
 .mc-toast__dismiss {
   display: grid;
-  width: 20px;
-  height: 20px;
-  margin-top: -1px;
+  width: 22px;
+  height: 22px;
+  margin-top: -2px;
   padding: 0;
   place-items: center;
   color: var(--mc-text-dim);
   background: transparent;
   border: 0;
-  border-radius: 4px;
+  border-radius: 7px;
   cursor: pointer;
 }
 .mc-toast__dismiss:hover { color: var(--mc-text); background: var(--mc-surface-3); }
@@ -961,17 +965,17 @@
   position: absolute;
   right: 0;
   bottom: 0;
-  left: 3px;
+  left: 0;
   height: 2px;
   background: var(--mc-accent);
-  opacity: .5;
+  opacity: 0.5;
   transform-origin: left;
   animation: toast-progress linear forwards;
 }
 .mc-toast--danger .mc-toast__progress { background: var(--mc-danger); }
 .mc-toast--warning .mc-toast__progress { background: var(--mc-warning); }
 .mc-toast--success .mc-toast__progress { background: var(--mc-ok); }
-.mc-toast--ai .mc-toast__progress { background: var(--mc-ai); }
+.mc-toast--ai .mc-toast__progress { background: var(--mc-ai-violet); }
 .mc-toast-container[data-paused="true"] .mc-toast__progress { animation-play-state: paused; }
 
 @keyframes toast-progress {
@@ -979,18 +983,19 @@
   to { transform: scaleX(0); }
 }
 
-/* Feedback for something you just did: one line, no timestamp, gone in a
+/* Feedback for something you just did: one line, no app line, gone in a
    moment. */
 .mc-toast.is-compact {
-  grid-template-columns: 18px minmax(0, 1fr) 20px;
+  grid-template-columns: 24px minmax(0, 1fr) 22px;
   align-items: center;
-  gap: 9px;
-  padding: 8px 8px 8px 13px;
+  gap: 10px;
+  padding: 9px 9px 9px 11px;
+  border-radius: 12px;
 }
-.mc-toast.is-compact .mc-toast__icon { width: 18px; height: 18px; }
-.mc-toast.is-compact .mc-toast__icon svg { width: 11px; height: 11px; }
+.mc-toast.is-compact .mc-toast__icon { width: 24px; height: 24px; border-radius: 7px; }
+.mc-toast.is-compact .mc-toast__icon svg { width: 13px; height: 13px; }
 .mc-toast.is-compact .mc-toast__title { font-size: 12.5px; font-weight: 560; -webkit-line-clamp: 1; }
-.mc-toast--progress.is-compact { grid-template-columns: 18px minmax(0, 1fr); padding-right: 12px; }
+.mc-toast--progress.is-compact { grid-template-columns: 24px minmax(0, 1fr); padding-right: 12px; }
 .mc-toast__spinner {
   display: block;
   width: 12px;
@@ -1005,12 +1010,13 @@
 .mc-toast-more {
   pointer-events: auto;
   align-self: flex-end;
-  padding: 4px 11px;
+  padding: 5px 12px;
   color: var(--mc-text-soft);
-  background: var(--mc-surface-2);
+  background: color-mix(in srgb, var(--mc-surface-2) 94%, transparent);
   border: 1px solid var(--mc-border);
   border-radius: 999px;
   box-shadow: var(--mc-shadow-float);
+  backdrop-filter: blur(18px);
   font-size: 11.5px;
   cursor: pointer;
 }
@@ -1587,7 +1593,6 @@
 .mcp-gateway-settings :is(small, time, code, dt, dd),
 .automation-settings :is(small, time, code),
 .mobile-companion-settings :is(small, time, code),
-.plugin-platform-settings :is(small, time, code, dt, dd),
 .mission-ai-screen :is(small, time, code, dt, dd, kbd) {
   font-size: var(--mc-type-caption);
   line-height: var(--mc-leading-caption);
@@ -1597,7 +1602,6 @@
 .mcp-gateway-settings :is(p, strong, dd),
 .automation-settings :is(p, strong),
 .mobile-companion-settings :is(p, strong),
-.plugin-platform-settings :is(p, strong),
 .mission-ai-screen :is(p, strong, dd) {
   font-size: max(var(--mc-type-control), 1em);
 }
@@ -1606,7 +1610,6 @@
 .mcp-gateway-settings :is(button, input, select, textarea),
 .automation-settings :is(button, input, select, textarea),
 .mobile-companion-settings :is(button, input, select, textarea),
-.plugin-platform-settings :is(button, input, select, textarea),
 .mission-ai-screen :is(button, input, select, textarea) {
   font-size: var(--mc-type-control);
 }
@@ -1615,7 +1618,6 @@
 .mcp-gateway-settings :is(.mcp-state small, .mcp-summary span, .mcp-summary small, .mcp-permission-head span, .mcp-permission-head > small, .mcp-token-reveal > span, .mcp-token-reveal small),
 .automation-settings :is(.automation-builder label > span, header > span small),
 .mobile-companion-settings :is(.mobile-service-state small, .mobile-security-summary span, .mobile-device-list > header),
-.plugin-platform-settings :is(.plugin-platform-state small, .plugin-boundary span, .plugin-registry-head span, .plugin-audit > span),
 .mission-ai-screen :is(.mai-context > div > span, .mai-mode > span, .mai-message > span, .mai-composer > small) {
   font-size: var(--mc-type-caption);
   line-height: var(--mc-leading-caption);
@@ -1626,7 +1628,6 @@
 .mcp-gateway-settings > footer span,
 .automation-settings > footer > span,
 .mobile-companion-settings :is(.mobile-mark, .mobile-invitation > span, .mobile-device-list article > span, footer > span),
-.plugin-platform-settings :is(.plugin-avatar, .plugin-summary em, .plugin-permission-list strong em, .plugin-detail > footer > span, .plugin-empty > span),
 .mission-ai-screen :is(.mai-title > div > span, .mai-welcome > span, .mai-estimate span, .mai-evidence > span, .mai-plan > header span, .mai-plan li > span, .mai-plan > footer) {
   font-size: var(--mc-type-caption);
   line-height: var(--mc-leading-caption);
@@ -1719,27 +1720,6 @@
 #root#root .shell .decision-source-strip__down { color: var(--mc-warning); }
 #root#root .shell .decision-source-strip > button { flex: 0 0 auto; width: auto; min-height: 28px; margin-left: auto; padding: 0 12px; color: var(--mc-text); background: var(--mc-surface-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-xs); font-size: 12px; font-weight: 600; }
 #root#root .shell .decision-source-strip > button:hover { border-color: var(--mc-border-strong); }
-.plugin-contribution-slot { margin-block: var(--mc-space-4); }
-.plugin-contribution-slot > header { display: flex; align-items: center; justify-content: space-between; gap: var(--mc-space-3); margin-bottom: var(--mc-space-2); }
-.plugin-contribution-slot > header span { color: var(--mc-text-soft); font-size: var(--mc-type-control); font-weight: 650; }
-.plugin-contribution-slot > header small { color: var(--mc-text-dim); font-size: var(--mc-type-caption); }
-.plugin-contribution-slot > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--mc-space-2); }
-.plugin-contribution-slot article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px var(--mc-space-3); min-width: 0; padding: var(--mc-space-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-sm); background: var(--mc-surface-2); }
-.plugin-contribution-slot article.tone-healthy { border-inline-start: 2px solid var(--mc-ok); }
-.plugin-contribution-slot article.tone-warning { border-inline-start: 2px solid var(--mc-warning); }
-.plugin-contribution-slot article.tone-critical { border-inline-start: 2px solid var(--mc-danger); }
-.plugin-contribution-slot__source { grid-column: 1 / -1; color: var(--mc-text-dim); font-size: var(--mc-type-caption); }
-.plugin-contribution-slot article strong { min-width: 0; color: var(--mc-text-soft); font-size: var(--mc-type-control); }
-.plugin-contribution-slot article b { color: var(--mc-text); font: 650 var(--mc-type-control)/1.3 var(--mc-font-mono); font-variant-numeric: tabular-nums; }
-/* A card's action is a request for approval, so it is a quiet secondary button. */
-.plugin-contribution-action-row { display: flex; flex-wrap: wrap; grid-column: 1 / -1; align-items: center; gap: var(--mc-space-2); margin-top: var(--mc-space-2); }
-.shell .plugin-contribution-action-btn { min-height: 28px; padding: 0 10px; color: var(--mc-text-soft); background: var(--mc-surface-3); border: 1px solid var(--mc-border); border-radius: var(--mc-radius-xs); font-size: 12px; font-weight: 600; cursor: pointer; }
-.shell .plugin-contribution-action-btn:hover:not(:disabled) { color: var(--mc-text); border-color: var(--mc-border-strong); }
-.shell .plugin-contribution-action-btn:disabled { color: var(--mc-text-dim); cursor: progress; }
-.plugin-contribution-action-feedback { color: var(--mc-text-muted); font-size: 11.5px; }
-.plugin-contribution-action-feedback.is-ok { color: var(--mc-ok); }
-.plugin-contribution-action-feedback.is-error { color: var(--mc-danger); }
-.plugin-contribution-slot article p { grid-column: 1 / -1; margin: 2px 0 0; overflow: hidden; color: var(--mc-text-muted); font-size: var(--mc-type-caption); line-height: var(--mc-leading-caption); text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 840px) {
   .trust-boundary { grid-template-columns: 1fr; }
@@ -1753,8 +1733,7 @@
 @media (forced-colors: active) {
   .trust-boundary,
   .decision-queue,
-  .decision-item,
-  .plugin-contribution-slot article { border-color: CanvasText; }
+  .decision-item { border-color: CanvasText; }
 }
 
 /* ================================================== consolidated primitives */
@@ -1939,6 +1918,7 @@
   .mc-skeleton-panel :is(i, span),
   .mc-toast__progress,
   .mc-toast__spinner,
+  .mc-toast__icon.is-ringing::after,
   .crash-lens,
   .broadcast-bar__inner,
   .dag-node__halo { animation: none !important; }
@@ -2055,8 +2035,6 @@
 .mission-graph-recipes { background: var(--mc-surface-2); }
 .mission-graph-summary { background: var(--mc-surface); }
 .mission-graph-inspector { background: var(--mc-surface-2); }
-.plugin-mark { background: var(--mc-surface-2); }
-.plugin-avatar { background: var(--mc-surface-2); }
 .context-inspector { background: var(--mc-surface); }
 .inspector-evidence { background: var(--mc-surface-2); }
 .attention-policy { background: var(--mc-surface-2); }
@@ -3270,7 +3248,10 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 /* Was a bordered block: a header line, then a wrapping list of chips, 81px in
    total for what is a count and a set of shortcuts. Now one row — heading
    left, chips scrolling horizontally on the right — at a third of the height.
-   The list keeps every entry and every click target. */
+   The list keeps every entry and every click target.
+   The row sits on the canvas without a band of its own: three stacked bands
+   (roster, deck, folders) read as three nested panels above the terminals.
+   The edge stays, transparent, so the row keeps its exact height. */
 #root#root#root .shell .workspace-background {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -3278,6 +3259,8 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   gap: 10px;
   margin: 0;
   padding: 2px 8px;
+  background: transparent;
+  border-color: transparent;
   border-radius: var(--mc-radius-sm);
 }
 #root#root#root .shell .workspace-background > header {
@@ -3310,6 +3293,13 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 #root#root#root .shell .workspace-background li button {
   min-height: 22px;
   padding: 0 8px;
+  background: color-mix(in srgb, var(--mc-text) 3%, transparent);
+  border-color: var(--mc-border-faint);
+  border-radius: var(--mc-radius-pill);
+}
+#root#root#root .shell .workspace-background li button:hover {
+  background: color-mix(in srgb, var(--mc-text) 7%, transparent);
+  border-color: var(--mc-border);
 }
 #root#root#root .shell .workspace-background li button small { max-width: 20ch; }
 
@@ -3321,6 +3311,50 @@ body:has(.popout-window) { background: var(--mc-canvas); }
 #root#root#root .shell .worker-folder-select { min-height: 24px; padding: 0 7px 0 9px; }
 #root#root#root .shell .worker-folder-item { min-height: 24px; }
 #root#root#root .shell .worker-folder-list button > b { min-width: 16px; height: 16px; }
+
+/* The folders are a filter row, not a strip of buttons: no band behind the
+   row and no pill around each entry. Only the chosen folder keeps a face, a
+   faint accent one, and each role is told apart by the ink of its glyph. The
+   edges stay 1px and transparent, so no entry changes width. */
+#root#root#root .shell .worker-folders { background: transparent; }
+#root#root#root .shell .worker-folder-list > button,
+#root#root#root .shell .worker-folder-item {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+#root#root#root .shell .worker-folder-list > button:hover,
+#root#root#root .shell .worker-folder-item:hover {
+  color: var(--mc-text);
+  background: color-mix(in srgb, var(--mc-text) 5%, transparent);
+  border-color: transparent;
+}
+#root#root#root .shell .worker-folder-list > button.is-current,
+#root#root#root .shell .worker-folder-item.is-current {
+  color: var(--mc-text);
+  background: var(--mc-accent-soft);
+  border-color: color-mix(in srgb, var(--mc-accent) 34%, transparent);
+  box-shadow: none;
+}
+#root#root#root .shell .worker-folder-list > button.is-current > b,
+#root#root#root .shell .worker-folder-item.is-current b {
+  color: var(--mc-accent-strong);
+  background: color-mix(in srgb, var(--mc-accent) 22%, transparent);
+}
+#root#root#root .shell .worker-folder-list .worker-folder-add:hover {
+  background: var(--mc-accent-soft);
+}
+#root#root#root .shell .worker-folder-list > button:not(.worker-folder-add) > .icon { color: var(--mc-accent-strong); }
+#root#root#root .shell .worker-folder-item { --mc-folder-ink: var(--mc-text-dim); }
+#root#root#root .shell .worker-folder-item[data-role="terminal"] { --mc-folder-ink: var(--mc-ok); }
+#root#root#root .shell .worker-folder-item[data-role="agent"] { --mc-folder-ink: var(--mc-ai-violet); }
+#root#root#root .shell .worker-folder-item[data-role="service"] { --mc-folder-ink: var(--mc-accent-strong); }
+#root#root#root .shell .worker-folder-item[data-role="container"] { --mc-folder-ink: color-mix(in srgb, var(--mc-accent-strong) 50%, var(--mc-ok)); }
+#root#root#root .shell .worker-folder-item[data-role="database"] { --mc-folder-ink: color-mix(in srgb, var(--mc-ai-violet) 50%, var(--mc-danger)); }
+#root#root#root .shell .worker-folder-item[data-role="test"] { --mc-folder-ink: var(--mc-warning); }
+#root#root#root .shell .worker-folder-item[data-role="git"] { --mc-folder-ink: color-mix(in srgb, var(--mc-danger) 75%, var(--mc-warning)); }
+#root#root#root .shell .worker-folder-item[data-role="build"] { --mc-folder-ink: color-mix(in srgb, var(--mc-warning) 55%, var(--mc-danger)); }
+#root#root#root .shell .worker-folder-select > .icon { color: var(--mc-folder-ink); }
 
 /* ------------------------------------------------------ 5 · operations rail */
 

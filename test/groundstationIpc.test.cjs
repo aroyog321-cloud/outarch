@@ -122,7 +122,6 @@ test("IPC host passes integrations only through the protocol connection", async 
   const missionSupervisor = { status: () => ({ pendingApprovalCount: 0 }) };
   const projectSupervision = { snapshot: () => ({ supervisionVersion: 1 }) };
   const mobileCompanion = { status: () => ({ running: false }) };
-  const pluginPlatform = { status: () => ({ pluginCount: 0 }) };
   let receivedOptions = null;
   const host = new GroundstationIpcHost({
     ipcMain,
@@ -132,7 +131,6 @@ test("IPC host passes integrations only through the protocol connection", async 
     missionSupervisor,
     projectSupervision,
     mobileCompanion,
-    pluginPlatform,
     createProtocolConnection: (_engine, options) => {
       receivedOptions = options;
       return { handle: request => ({ version: 1, id: request.id, ok: true, result: true }), dispose() {} };
@@ -150,10 +148,9 @@ test("IPC host passes integrations only through the protocol connection", async 
   assert.equal(receivedOptions.missionSupervisor, missionSupervisor);
   assert.equal(receivedOptions.projectSupervision, projectSupervision);
   assert.equal(receivedOptions.mobileCompanion, mobileCompanion);
-  assert.equal(receivedOptions.pluginPlatform, pluginPlatform);
+  assert.equal(Object.hasOwn(receivedOptions, "pluginPlatform"), false, "the plugin platform was removed");
   assert.equal(Object.hasOwn(global, "vscodeBridge"), false);
   assert.equal(Object.hasOwn(global, "missionAi"), false);
   assert.equal(Object.hasOwn(global, "mobileCompanion"), false);
-  assert.equal(Object.hasOwn(global, "pluginPlatform"), false);
   host.dispose();
 });

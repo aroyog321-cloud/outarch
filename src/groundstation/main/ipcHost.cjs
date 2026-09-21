@@ -14,7 +14,6 @@ class GroundstationIpcHost {
   #projectSupervision;
   #mcpGateway;
   #mobileCompanion;
-  #pluginPlatform;
   #notifications;
   #portInspector;
   #localServiceRegistry;
@@ -32,6 +31,8 @@ class GroundstationIpcHost {
   #resolveViewId;
   #recoveryBoot;
   #importCliUsage;
+  #planGate;
+  #onTerminalInput;
   #connections;
   #observedWebContents;
   #trackedWebContents;
@@ -52,7 +53,6 @@ class GroundstationIpcHost {
     this.#projectSupervision = options.projectSupervision || null;
     this.#mcpGateway = options.mcpGateway || null;
     this.#mobileCompanion = options.mobileCompanion || null;
-    this.#pluginPlatform = options.pluginPlatform || null;
     this.#notifications = options.notifications || null;
     this.#portInspector = options.portInspector || null;
     this.#localServiceRegistry = options.localServiceRegistry || null;
@@ -72,6 +72,8 @@ class GroundstationIpcHost {
     this.#resolveViewId = typeof options.resolveViewId === "function" ? options.resolveViewId : null;
     this.#recoveryBoot = options.recoveryBoot || null;
     this.#importCliUsage = typeof options.importCliUsage === "function" ? options.importCliUsage : null;
+    this.#planGate = options.planGate || null;
+    this.#onTerminalInput = typeof options.onTerminalInput === "function" ? options.onTerminalInput : null;
     this.#connections = new Map();
     this.#observedWebContents = new Set();
     this.#trackedWebContents = new Map();
@@ -133,7 +135,6 @@ class GroundstationIpcHost {
       projectSupervision: this.#projectSupervision,
       mcpGateway: this.#mcpGateway,
       mobileCompanion: this.#mobileCompanion,
-      pluginPlatform: this.#pluginPlatform,
       notifications: this.#notifications,
       portInspector: this.#portInspector,
       localServiceRegistry: this.#localServiceRegistry,
@@ -149,6 +150,8 @@ class GroundstationIpcHost {
       terminalLeases: this.#terminalLeases,
       recoveryBoot: this.#recoveryBoot,
       importCliUsage: this.#importCliUsage,
+      planGate: this.#planGate,
+      onTerminalInput: this.#onTerminalInput,
       getViewId: () => this.#resolveViewId?.(webContents.id) || "main"
     });
     this.#connections.set(webContents.id, connection);

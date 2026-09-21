@@ -53,7 +53,7 @@ test("recipe deletion is protected by the same issued-token service", () => {
 
 test("predictable renderer confirmation strings are gone and protected methods consume issued tokens", () => {
   const protocol = read("src/protocol/index.cjs");
-  const rendererFiles = ["App.jsx", "AgentWorkspace.jsx", "AutomationWorkflows.jsx", "McpGateway.jsx", "MissionAI.jsx", "MobileCompanion.jsx", "PluginPlatform.jsx", "useDecisions.js"]
+  const rendererFiles = ["App.jsx", "AgentWorkspace.jsx", "AutomationWorkflows.jsx", "McpGateway.jsx", "MissionAI.jsx", "MobileCompanion.jsx", "useDecisions.js"]
     .map(file => read(`src/groundstation/renderer/${file}`)).join("\n");
 
   assert.doesNotMatch(protocol, /const expected = [`"]confirm:/);
