@@ -178,9 +178,14 @@ export function useConversation(conversationId, surface) {
 
 // ------------------------------------------------------------------ switcher
 
-function modelGroups(status) {
+function modelGroups(status, surface = null) {
   const groups = [];
-  if (status?.mission?.available) {
+  // Project memory writes with keys of its own on OUTARCH's server, so it is
+  // offered only the built-in models those keys can serve.
+  const memory = surface === "memory" && status?.mission?.memory?.separateKeys ? status.mission.memory : null;
+  if (memory) {
+    if (memory.available && memory.models?.length) groups.push({ id: "mission", heading: "Mission AI", detail: "Memory key", source: "mission", keyId: null, provider: "gemini", models: memory.models });
+  } else if (status?.mission?.available) {
     groups.push({ id: "mission", heading: "Mission AI", detail: "Built in", source: "mission", keyId: null, provider: "gemini", models: status.mission.models || [] });
   }
   for (const key of status?.keys || []) {
@@ -199,7 +204,7 @@ export function ModelSwitcher({ status, surface, compact = false, disabled = fal
   const [search, setSearch] = React.useState("");
   const [collapsed, setCollapsed] = React.useState({});
   const selection = status?.selections?.[surface] || null;
-  const groups = modelGroups(status);
+  const groups = modelGroups(status, surface);
   const total = groups.reduce((sum, group) => sum + group.models.length, 0);
 
   const builtinGroups = groups.filter(g => g.source === "mission");

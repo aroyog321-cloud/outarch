@@ -4,8 +4,31 @@ This Android 13+ client is a supervision companion, not a mobile IDE or remote
 shell. Open this folder in Android Studio, build the `app` module, and install
 the debug APK on a phone connected to the same private network as the desktop.
 
-Pairing requires the desktop endpoint and six-digit code shown in **Settings →
-Mobile supervision companion**. The phone fetches only the invitation's public
+## Build
+
+Needs JDK 17 and the Android SDK (platform 36). From this folder:
+
+```powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+.\gradlew.bat assembleDebug lintDebug
+```
+
+The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. `assembleRelease`
+produces an unsigned release APK; sign it only in a protected release pipeline.
+
+## Privacy
+
+Permissions: `INTERNET` (to reach the desktop on the local network) and
+`USE_BIOMETRIC` (identity check before a sensitive review, only when asked).
+No analytics, crash reporting or push. The pairing credential is encrypted by
+the Android Keystore and excluded from cloud backup and device transfer
+(`res/xml/data_extraction_rules.xml`). Cleartext HTTP is allowed because the
+desktop gateway is reached by LAN address; every payload is end-to-end
+encrypted (X25519, HKDF-SHA256, AES-256-GCM). The full notice is **Mobile
+companion privacy** in the desktop app and on the website.
+
+Pairing requires the desktop endpoint and six-digit code shown in **Integrations →
+Mobile Companion**. The phone fetches only the invitation's public
 key transcript; the code itself is used locally for the HMAC proof and is never
 sent. X25519, HKDF-SHA256, and AES-256-GCM match the desktop protocol. The
 per-device credential is encrypted by Android Keystore.

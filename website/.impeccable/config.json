@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-09-22T10:49:58.302Z",
+        "reason": "user instruction 2026-09-22 for the website copy pass: 'Do NOT change fonts / replace Geist'; Geist is the site's established type system"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "src/index.css"
+        ],
+        "createdAt": "2026-09-22T10:49:58.752Z",
+        "reason": "user instruction 2026-09-22: 'DO NOT remove the current background'; the backdrop grid is part of the existing site design"
+      }
+    ]
+  }
+}

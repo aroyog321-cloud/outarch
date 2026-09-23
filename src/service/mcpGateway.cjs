@@ -241,18 +241,37 @@ function tomlString(value) {
   return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
 }
 
+// The name OUTARCH's server is registered under in MCP clients. Older builds
+// used "mission-control"; installing replaces that entry and removing clears
+// both, so a client never lists OUTARCH twice.
+const MCP_SERVER_NAME = "outarch";
+const LEGACY_MCP_SERVER_NAMES = Object.freeze(["mission-control"]);
+const OWN_SERVER_NAMES = Object.freeze([MCP_SERVER_NAME, ...LEGACY_MCP_SERVER_NAMES]);
+
+function isOwnCodexSection(header) {
+  const name = header.trim();
+  return OWN_SERVER_NAMES.some(server => name === `mcp_servers.${server}` || name.startsWith(`mcp_servers.${server}.`));
+}
+
+function hasOwnCodexSection(content) {
+  return String(content || "").split(/\r?\n/).some(line => {
+    const header = line.trim().match(/^\[([^\]]+)\]$/);
+    return Boolean(header && isOwnCodexSection(header[1]));
+  });
+}
+
 function withCodexServer(content, endpoint, token) {
   const lines = String(content || "").split(/\r?\n/);
   const kept = [];
   let skipping = false;
   for (const line of lines) {
     const header = line.trim().match(/^\[([^\]]+)\]$/);
-    if (header) skipping = header[1].trim() === "mcp_servers.mission-control" || header[1].trim().startsWith("mcp_servers.mission-control.");
+    if (header) skipping = isOwnCodexSection(header[1]);
     if (!skipping) kept.push(line);
   }
   while (kept.length && kept[kept.length - 1].trim() === "") kept.pop();
   const section = [
-    "[mcp_servers.mission-control]",
+    `[mcp_servers.${MCP_SERVER_NAME}]`,
     `command = ${tomlString("npx")}`,
     `args = [${["-y", "mcp-remote", endpoint, "--header", `Authorization: Bearer ${token}`].map(tomlString).join(", ")}]`
   ];
@@ -298,7 +317,7 @@ function withoutCodexServer(content) {
   let skipping = false;
   for (const line of lines) {
     const header = line.trim().match(/^\[([^\]]+)\]$/);
-    if (header) skipping = header[1].trim() === "mcp_servers.mission-control" || header[1].trim().startsWith("mcp_servers.mission-control.");
+    if (header) skipping = isOwnCodexSection(header[1]);
     if (!skipping) kept.push(line);
   }
   while (kept.length && kept[kept.length - 1].trim() === "") kept.pop();
@@ -493,17 +512,18 @@ class SecureMcpGateway extends EventEmitter {
       throw new Error(`The ${target} configuration has an unexpected "mcpServers" value, so OUTARCH left it unchanged`);
     }
     if (!isPlainObject(config.mcpServers)) config.mcpServers = {};
+    for (const legacy of LEGACY_MCP_SERVER_NAMES) delete config.mcpServers[legacy];
 
     if (target === "gemini-cli") {
-      config.mcpServers["mission-control"] = {
+      config.mcpServers[MCP_SERVER_NAME] = {
         httpUrl: endpoint,
         headers: {
           Authorization: `Bearer ${token}`
         }
       };
     } else if (target === "cursor") {
-      config.mcpServers["mission-control"] = {
-        name: "mission-control",
+      config.mcpServers[MCP_SERVER_NAME] = {
+        name: MCP_SERVER_NAME,
         type: "http",
         url: endpoint,
         headers: {
@@ -511,7 +531,7 @@ class SecureMcpGateway extends EventEmitter {
         }
       };
     } else {
-      config.mcpServers["mission-control"] = {
+      config.mcpServers[MCP_SERVER_NAME] = {
         command: "npx",
         args: [
           "-y",
@@ -554,7 +574,7 @@ class SecureMcpGateway extends EventEmitter {
       const existing = this.fs.readFileSync(configPath, "utf8");
       const updated = withoutCodexServer(existing);
       // Nothing of ours in the file: it is not rewritten.
-      if (updated === existing || !/\[mcp_servers\.mission-control(?:\.[^\]]*)?\]/.test(existing)) {
+      if (updated === existing || !hasOwnCodexSection(existing)) {
         return { ok: true, target, filePath: configPath, removed: false, message: "OUTARCH was not configured in Codex CLI." };
       }
       writeClientConfig(this.fs, configPath, updated);
@@ -572,11 +592,13 @@ class SecureMcpGateway extends EventEmitter {
 
     let removed = false;
     if (isPlainObject(config)) {
-      if (isPlainObject(config.mcpServers) && Object.hasOwn(config.mcpServers, "mission-control")) {
-        delete config.mcpServers["mission-control"];
-        removed = true;
+      for (const server of OWN_SERVER_NAMES) {
+        if (isPlainObject(config.mcpServers) && Object.hasOwn(config.mcpServers, server)) {
+          delete config.mcpServers[server];
+          removed = true;
+        }
       }
-      if (config.name === "mission-control") {
+      if (OWN_SERVER_NAMES.includes(config.name)) {
         delete config.name;
         delete config.type;
         delete config.url;
@@ -608,10 +630,10 @@ class SecureMcpGateway extends EventEmitter {
         if (this.fs.existsSync(configPath)) {
           const content = this.fs.readFileSync(configPath, "utf8");
           if (target === "codex") {
-            installed = /\[mcp_servers\.mission-control\]/i.test(content);
+            installed = hasOwnCodexSection(content);
           } else {
             const config = content.trim() ? JSON.parse(content) : {};
-            installed = Boolean(config?.mcpServers?.["mission-control"] || config?.name === "mission-control");
+            installed = OWN_SERVER_NAMES.some(server => Boolean(config?.mcpServers?.[server])) || OWN_SERVER_NAMES.includes(config?.name);
           }
         }
         statuses[target] = {
@@ -899,7 +921,7 @@ class SecureMcpGateway extends EventEmitter {
 
     const sampleClaudeConfig = JSON.stringify({
       mcpServers: {
-        "mission-control": {
+        [MCP_SERVER_NAME]: {
           command: "npx",
           args: ["-y", "mcp-remote", `http://127.0.0.1:${port}/mcp`, "--header", "Authorization: Bearer <TOKEN>"]
         }
@@ -907,7 +929,7 @@ class SecureMcpGateway extends EventEmitter {
     }, null, 2);
 
     const sampleCursorConfig = JSON.stringify({
-      name: "mission-control",
+      name: MCP_SERVER_NAME,
       type: "http",
       url: `http://127.0.0.1:${port}/mcp`,
       headers: {

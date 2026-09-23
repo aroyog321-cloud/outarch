@@ -22,6 +22,15 @@ const MOBILE_NONCE_TTL_MS = 5 * 60 * 1000;
 const MAX_MOBILE_REQUEST_BYTES = 256 * 1024;
 const MAX_MOBILE_APPROVALS = 100;
 const MOBILE_EXECUTION_TTL_MS = 5 * 60 * 1000;
+// A pairing code is six digits. Guessing it online is only stopped by making
+// each code good for a handful of wrong tries; after that it is thrown away
+// and the operator makes a new one.
+const MOBILE_PAIRING_ATTEMPTS = 5;
+// A paired phone polls every few seconds. Recording each poll pushed pairings
+// and revocations out of the capped audit trail within minutes, and rewrote the
+// store twice per poll. A routine read is recorded once per window instead.
+const MOBILE_READ_AUDIT_WINDOW_MS = 10 * 60 * 1000;
+const MOBILE_SEEN_WRITE_MS = 30 * 1000;
 // What a paired phone may do without asking, while the operator leaves
 // "run phone requests without asking" on. These start or acknowledge work.
 // Stop and cancel end it, so they keep waiting for the desktop.
@@ -114,6 +123,10 @@ class MobileCompanionGateway extends EventEmitter {
     this.sseClients = new Set();
     // Targets a phone is changing right now, so a double tap is one action.
     this.busyTargets = new Set();
+    // When each phone's routine read was last written to the audit trail, and
+    // when its "last seen" time was last saved.
+    this.readAudits = new Map();
+    this.seenWrites = new Map();
     this.lastError = null;
     this.disposed = false;
     // Whether the operator's plan includes the companion. When it does not,
@@ -189,6 +202,9 @@ class MobileCompanionGateway extends EventEmitter {
     const code = String(this.randomBytes(4).readUInt32BE(0) % 1_000_000).padStart(6, "0");
     const nonce = b64(this.randomBytes(24));
     const record = { pairingId, code, nonce, privateKey, publicKey, createdAt: this.now(), expiresAt: this.now() + MOBILE_PAIRING_TTL_MS };
+    // One code at a time: the one on the desktop's screen. An older code the
+    // operator replaced stops working instead of lingering for five minutes.
+    this.invitations.clear();
     this.invitations.set(pairingId, record);
     this.#audit({ kind: "pairing", outcome: "invitation-created" });
     this.#emitStatus();
@@ -209,7 +225,16 @@ class MobileCompanionGateway extends EventEmitter {
     const deviceName = safeName(value.deviceName);
     const clientPublicKey = String(value.clientPublicKey || "");
     const expected = pairingProof(invitation.code, { pairingId: invitation.pairingId, nonce: invitation.nonce, deviceName, clientPublicKey });
-    if (!timingSafe(value.proof, expected)) throw new Error("Mobile pairing proof is invalid");
+    if (!timingSafe(value.proof, expected)) {
+      invitation.failures = (invitation.failures || 0) + 1;
+      if (invitation.failures >= MOBILE_PAIRING_ATTEMPTS) {
+        this.invitations.delete(invitation.pairingId);
+        this.#audit({ kind: "pairing", outcome: "invitation-locked" });
+        this.#emitStatus();
+        throw new Error("Too many wrong pairing codes were tried. Create a new code on the desktop.");
+      }
+      throw new Error("Mobile pairing proof is invalid");
+    }
     const clientKey = importClientKey(clientPublicKey);
     const pairingKey = derivePairingKey(invitation.privateKey, clientKey, invitation.nonce);
     const deviceId = `mobile-${this.randomUUID()}`;
@@ -231,6 +256,7 @@ class MobileCompanionGateway extends EventEmitter {
     const approvals = this.store.approvals().map(item => item.deviceId === id && item.state === "pending" ? { ...item, state: "revoked", resolvedAt: this.now() } : item);
     this.store.setApprovals(approvals);
     this.seenNonces.delete(String(id));
+    this.seenWrites.delete(String(id));
     this.#audit({ kind: "device", outcome: "revoked", deviceId: id });
     this.#emitStatus();
     return { revoked: true, deviceId: String(id) };
@@ -249,7 +275,8 @@ class MobileCompanionGateway extends EventEmitter {
     if (credential.device.projectKey !== this.#projectIdentity().key) throw new Error("Mobile device is paired to a different project");
     const aad = [MOBILE_API_VERSION, MOBILE_REQUEST_PATH, deviceId, timestamp, requestNonce].join("|");
     const payload = decryptEnvelope(envelopeKey(credential.secret), envelope, aad);
-    nonces.set(requestNonce, this.now()); this.seenNonces.set(deviceId, nonces); this.store.touchDevice(deviceId);
+    nonces.set(requestNonce, this.now()); this.seenNonces.set(deviceId, nonces);
+    if (this.now() - (this.seenWrites.get(deviceId) || 0) >= MOBILE_SEEN_WRITE_MS) { this.seenWrites.set(deviceId, this.now()); this.store.touchDevice(deviceId); }
     return { device: credential.device, secret: credential.secret, payload, aad };
   }
 
@@ -286,7 +313,7 @@ class MobileCompanionGateway extends EventEmitter {
           canReadOutput: scopes.includes("terminal.read") && allowed.scopes.includes("terminal.read")
         };
       }
-      this.#audit({ kind: "read", outcome: "completed", deviceId: device.id, capability: operation });
+      this.#auditRead({ kind: "read", outcome: "completed", deviceId: device.id, capability: operation });
       return result;
     }
     if (operation === "worker") {
@@ -300,8 +327,13 @@ class MobileCompanionGateway extends EventEmitter {
       const context = this.missionContext.snapshot({ includeOutput: outputAllowed, workerIds: [workerId] });
       const worker = (context.workers || []).find(item => item.id === workerId);
       if (!worker) throw new Error("That terminal is no longer in this project");
-      if (outputAllowed) this.#audit({ kind: "read", outcome: "completed", deviceId: device.id, capability: "worker", target: workerId });
+      if (outputAllowed) this.#auditRead({ kind: "read", outcome: "completed", deviceId: device.id, capability: "worker", target: workerId });
       return { generatedAt: context.generatedAt, worker, outputAllowed };
+    }
+    if (operation === "unpair") {
+      // A phone may always remove itself; it proved who it is to get here.
+      this.revokeDevice(device.id);
+      return { revoked: true };
     }
     if (operation === "ask") {
       requireScope("assistant.ask");
@@ -461,12 +493,25 @@ class MobileCompanionGateway extends EventEmitter {
 
   #audit(record) { try { this.store.appendAudit({ ...record, id: `mobile-audit-${this.randomUUID()}`, at: this.now() }); } catch {} }
 
+  #auditRead(record) {
+    const key = [record.deviceId, record.capability, record.target || ""].join("|");
+    const last = this.readAudits.get(key) || 0;
+    if (this.now() - last < MOBILE_READ_AUDIT_WINDOW_MS) return;
+    this.readAudits.set(key, this.now());
+    this.#audit(record);
+  }
+
   #emitStatus() {
     const status = this.status();
     for (const listener of this.rawListeners("status")) try { listener(status); } catch {}
+    // The event stream is not authenticated: anything on the network can open
+    // it. It says only that something changed, and each phone then asks over
+    // its own encrypted channel. It used to carry the whole status, pairing
+    // code included.
+    const nudge = `event: status\ndata: ${JSON.stringify({ at: this.now() })}\n\n`;
     for (const client of this.sseClients) {
       try {
-        client.write(`event: status\ndata: ${JSON.stringify(status)}\n\n`);
+        client.write(nudge);
       } catch {}
     }
   }
@@ -599,4 +644,4 @@ class MobileCompanionGateway extends EventEmitter {
   }
 }
 
-module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_AUTO_ACTIONS, MOBILE_CLOCK_SKEW_MS, MOBILE_EVENTS_PATH, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_PING_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };
+module.exports = { MAX_MOBILE_REQUEST_BYTES, MOBILE_API_VERSION, MOBILE_APPROVAL_TTL_MS, MOBILE_AUTO_ACTIONS, MOBILE_PAIRING_ATTEMPTS, MOBILE_READ_AUDIT_WINDOW_MS, MOBILE_CLOCK_SKEW_MS, MOBILE_EVENTS_PATH, MOBILE_INVITE_PATH, MOBILE_NONCE_TTL_MS, MOBILE_PAIRING_TTL_MS, MOBILE_PAIR_PATH, MOBILE_PING_PATH, MOBILE_REQUEST_PATH, MobileCompanionGateway, decryptEnvelope, derivePairingKey, encryptEnvelope, envelopeKey, pairingMessage, pairingProof, timingSafe };

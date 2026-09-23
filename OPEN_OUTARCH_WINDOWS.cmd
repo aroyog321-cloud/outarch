@@ -6,9 +6,11 @@ title OUTARCH
 where node.exe >nul 2>nul
 if errorlevel 1 goto missing_node
 
-for /f %%V in ('node.exe -p "Number(process.versions.node.split('.')[0])"') do set "OUTARCH_NODE_MAJOR=%%V"
-if %OUTARCH_NODE_MAJOR% LSS 20 goto unsupported_node
-if %OUTARCH_NODE_MAJOR% GTR 22 goto unsupported_node
+for /f %%V in ('node.exe -v') do set "OUTARCH_NODE_VERSION=%%V"
+rem Electron installs only on Node.js 22.12 or newer: its installer loads an
+rem ES module with require(), which earlier releases refuse.
+node.exe -e "const [major, minor] = process.versions.node.split('.').map(Number); process.exit(major === 22 && minor >= 12 ? 0 : 1)" >nul 2>nul
+if errorlevel 1 goto unsupported_node
 
 if not exist "node_modules\.bin\electron.cmd" goto install_dependencies
 rem node-pty ships prebuilt binaries, so ask Node whether it loads rather than
@@ -42,9 +44,9 @@ goto failed
 
 :unsupported_node
 echo.
-echo OUTARCH requires Node.js 20 or 22 LTS.
-echo Detected major version: %OUTARCH_NODE_MAJOR%
-echo Install Node.js 22 LTS, then run this file again.
+echo OUTARCH requires Node.js 22 LTS, version 22.12 or newer.
+echo Detected version: %OUTARCH_NODE_VERSION%
+echo Install the latest Node.js 22 LTS, then run this file again.
 goto failed
 
 :install_failed

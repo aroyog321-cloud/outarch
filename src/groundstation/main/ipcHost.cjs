@@ -23,6 +23,7 @@ class GroundstationIpcHost {
   #sessionRecoveryService;
   #missionAiConversation;
   #aiAssistant;
+  #projectMemory;
   #agentActivityService;
   #semanticEventRouter;
   #onProjectSwitched;
@@ -62,6 +63,7 @@ class GroundstationIpcHost {
     this.#sessionRecoveryService = options.sessionRecoveryService || null;
     this.#missionAiConversation = options.missionAiConversation || null;
     this.#aiAssistant = options.aiAssistant || null;
+    this.#projectMemory = options.projectMemory || null;
     this.#agentActivityService = options.agentActivityService || null;
     this.#semanticEventRouter = options.semanticEventRouter || null;
     this.#onProjectSwitched = typeof options.onProjectSwitched === "function" ? options.onProjectSwitched : null;
@@ -144,6 +146,7 @@ class GroundstationIpcHost {
       sessionRecoveryService: this.#sessionRecoveryService,
       missionAiConversation: this.#missionAiConversation,
       aiAssistant: this.#aiAssistant,
+      projectMemory: this.#projectMemory,
       agentActivityService: this.#agentActivityService,
       semanticEventRouter: this.#semanticEventRouter,
       openServiceUrl: this.#openServiceUrl,

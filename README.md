@@ -107,11 +107,11 @@ behavior as verified.
 Install the optional extension included with this release:
 
 ```powershell
-code --install-extension integrations\vscode\mission-control-bridge-0.2.0.vsix
+code --install-extension integrations\vscode\outarch-bridge-1.0.0.vsix
 ```
 
 Open the same project in OUTARCH and VS Code, then choose **Connect VS
-Code** in OUTARCH Settings. The app sends a one-time launch invitation
+Code** under **Integrations → VS Code Bridge**. The app sends a one-time launch invitation
 to the extension and begins synchronization only after the extension proves it
 has the exact active project.
 
@@ -255,6 +255,33 @@ recovery are bounded configuration—not renderer timers. Optional rollback send
 stop requests only to workers started by that recipe; it never stops a worker
 that was already running before launch.
 
+## Project memory
+
+When a saved project opens without one, OUTARCH offers to create
+`arch_memory.md` in the project folder, and writes nothing until you agree.
+**Not now** asks again on the next launch. **Don't ask me again** stops the
+offer; **Settings → Project defaults** can still set it up at any time.
+
+The file holds the rules every AI agent follows, an About summary written by
+Mission AI, the project facts OUTARCH works out itself (languages, frameworks,
+terminals, servers and ports, scripts), and a change log. The facts are
+refreshed when the project's terminals change, and the file is only written
+when a fact actually changed. When you allow it, a short note is added to
+`CLAUDE.md` and `AGENTS.md` (and to `GEMINI.md` if the project has one) so
+agents find the file on their own. Nothing already in those files is changed.
+
+The rules tell agents to read the file first and, when they finish, to add one
+entry with what changed, why, the files involved, and their tool and exact
+model. Entries are only ever added. When you close OUTARCH after changing
+things yourself, it asks whether Mission AI should record the work. Mission AI
+reads the git changes and recent terminal output, with secrets removed, and
+OUTARCH formats and appends the entry. It asks only when something changed
+since the last update. Mission AI uses the model chosen for project memory in
+Settings. Its built-in models write with project memory's own AI keys, kept on
+OUTARCH's server apart from the Mission AI chat keys (see
+[OUTARCH_ACCOUNTS_AND_UPDATES.md](OUTARCH_ACCOUNTS_AND_UPDATES.md), step 1a-2);
+people can pick one of their own keys instead. The service is `src/service/projectMemoryFile.cjs`.
+
 ## Current capabilities
 
 - Snapshot list with `idle`, `starting`, `running`, `exited`, and `failed` lifecycle state
@@ -325,11 +352,11 @@ interaction ladder is Snapshot → Tail → Full Attach.
 ## Requirements
 
 - Windows 11
-- Node.js 22.12+ LTS recommended for Groundstation
+- Node.js 22 LTS, version 22.12 or newer
 - PowerShell, cmd, or another configured terminal command
 
-`node-pty` is the only native dependency. Use Node.js 20 or 22 LTS; Node 22 is
-recommended for Windows. The previous unused `better-sqlite3` dependency was
+`node-pty` is the only native dependency. Electron's installer needs Node.js
+22.12 or newer, so earlier releases, including Node 20, cannot install the app. The previous unused `better-sqlite3` dependency was
 removed so persistence does not add a second native build failure surface.
 
 ## Install and run

@@ -1,4 +1,5 @@
 import React from "react";
+import Chevron from "./Chevron.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -50,13 +51,6 @@ function PaneIcon({ name, size = 14 }) {
     power: <><path d="M12 4v8"/><path d="M18.4 7.6a9 9 0 1 1-12.8 0"/></>
   };
   return <svg className="pane-icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
-}
-
-function actionLabel(session) {
-  if (session?.status === "idle" || session?.status === "exited" || session?.status === "failed") {
-    return "Start";
-  }
-  return "Restart";
 }
 
 // Uptime derived from the engine-reported runtime. Never invented: an idle or
@@ -545,7 +539,7 @@ export default function TerminalPane({ session, sessions, profile, active, expan
 ${ownership(session)} · ${session.cwd || "."}
 Switch pane`}
             >
-              <strong>{session.name}</strong><span aria-hidden="true">⌄</span>
+              <strong>{session.name}</strong><span aria-hidden="true"><Chevron/></span>
             </button>
             {chooserOpen && <div ref={chooserRef} className="terminal-session-menu" role="menu" onMouseDown={event => event.stopPropagation()}>
               <div className="terminal-session-menu__label">{canEmpty ? "SHOW IN THIS PANE" : "MOVE A TERMINAL HERE"}</div>

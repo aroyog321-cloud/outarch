@@ -1,11 +1,12 @@
 import React from "react";
+import Chevron from "./Chevron.jsx";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Select from "@radix-ui/react-select";
 import { missionApi } from "./missionApi.js";
 import { describeLaunch } from "./launchLabel.js";
 import { TERMINAL_LAYOUTS } from "./useTerminalLayout.js";
-import { RECIPE_TEMPLATES, applyRecipeTemplate, dependencyCycle, toggleStepDependency } from "./recipeBuilderModel.js";
+import { RECIPE_TEMPLATES, applyRecipeTemplate, dependencyCycle, matchRecipeTemplate, toggleStepDependency } from "./recipeBuilderModel.js";
 
 const GATES = [
   { value: "running", label: "Process running" },
@@ -28,28 +29,29 @@ const MODE_COPY = {
 };
 
 function RecipeSelect({ value, onChange, options, label = "Recipe policy" }) {
-  return <Select.Root value={String(value)} onValueChange={onChange}><Select.Trigger className="recipe-select" aria-label={label}><Select.Value/><Select.Icon>⌄</Select.Icon></Select.Trigger><Select.Portal><Select.Content className="recipe-select-content" position="popper" sideOffset={6}><Select.Viewport>{options.map(option => <Select.Item className="recipe-select-item" value={String(option.value)} key={option.value}><Select.ItemText>{option.label}</Select.ItemText><Select.ItemIndicator>✓</Select.ItemIndicator></Select.Item>)}</Select.Viewport></Select.Content></Select.Portal></Select.Root>;
+  return <Select.Root value={String(value)} onValueChange={onChange}><Select.Trigger className="recipe-select" aria-label={label}><Select.Value/><Select.Icon><Chevron/></Select.Icon></Select.Trigger><Select.Portal><Select.Content className="recipe-select-content" position="popper" sideOffset={6}><Select.Viewport>{options.map(option => <Select.Item className="recipe-select-item" value={String(option.value)} key={option.value}><Select.ItemText>{option.label}</Select.ItemText><Select.ItemIndicator>✓</Select.ItemIndicator></Select.Item>)}</Select.Viewport></Select.Content></Select.Portal></Select.Root>;
 }
 
 function DependencyPicker({ step, steps, sessionsById, onChange }) {
   const available = steps.filter(candidate => candidate.workerId !== step.workerId);
   const label = step.dependsOn.length ? `After ${step.dependsOn.length}` : "Starts first";
-  return <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="recipe-dependency-trigger"><span>{label}</span><b>⌄</b></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="recipe-dependency-menu" align="end" sideOffset={6}><DropdownMenu.Label>START ONLY AFTER</DropdownMenu.Label>{available.length ? available.map(candidate => <DropdownMenu.CheckboxItem key={candidate.workerId} checked={step.dependsOn.includes(candidate.workerId)} onCheckedChange={() => onChange(candidate.workerId)} onSelect={event => event.preventDefault()}><DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator><span>{sessionsById.get(candidate.workerId)?.name || candidate.workerId}</span></DropdownMenu.CheckboxItem>) : <DropdownMenu.Item disabled>No other selected workers</DropdownMenu.Item>}</DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>;
+  return <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="recipe-dependency-trigger"><span>{label}</span><b><Chevron/></b></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="recipe-dependency-menu" align="end" sideOffset={6}><DropdownMenu.Label>START ONLY AFTER</DropdownMenu.Label>{available.length ? available.map(candidate => <DropdownMenu.CheckboxItem key={candidate.workerId} checked={step.dependsOn.includes(candidate.workerId)} onCheckedChange={() => onChange(candidate.workerId)} onSelect={event => event.preventDefault()}><DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator><span>{sessionsById.get(candidate.workerId)?.name || candidate.workerId}</span></DropdownMenu.CheckboxItem>) : <DropdownMenu.Item disabled>No other selected workers</DropdownMenu.Item>}</DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>;
 }
 
 // Persisted recipe -> builder form state. Falls back to a session-derived draft
 // for the create flow so a first recipe still starts populated.
 function draftFromRecipe(recipe, sessions) {
   if (recipe && Array.isArray(recipe.steps) && recipe.steps.length) {
+    const steps = recipe.steps.map(step => ({
+      workerId: step.workerId,
+      dependsOn: Array.isArray(step.dependsOn) ? [...step.dependsOn] : [],
+      readiness: step.readiness || "running",
+      timeoutMs: Number(step.timeoutMs) || Number(recipe.readinessTimeoutMs) || 10000
+    }));
     return {
       name: String(recipe.name || ""),
-      steps: recipe.steps.map(step => ({
-        workerId: step.workerId,
-        dependsOn: Array.isArray(step.dependsOn) ? [...step.dependsOn] : [],
-        readiness: step.readiness || "running",
-        timeoutMs: Number(step.timeoutMs) || Number(recipe.readinessTimeoutMs) || 10000
-      })),
-      templateId: "custom",
+      steps,
+      templateId: matchRecipeTemplate(steps),
       failurePolicy: recipe.failurePolicy || "stop",
       recoveryPolicy: recipe.recoveryPolicy || "keep-running",
       restartPolicy: recipe.restartPolicy || "reuse-running",
@@ -151,7 +153,9 @@ export default function WorkspaceRecipes({ open, mode = "create", editRecipe = n
     if (nextIndex < 0 || nextIndex >= current.length) return current;
     const next = [...current];
     [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-    return next;
+    // In a template the arrows change the launch order itself; a custom order
+    // keeps each worker's own dependencies.
+    return templateId === "custom" ? next : applyRecipeTemplate(templateId, next);
   });
   const changeDependency = (workerId, dependencyId) => setSteps(current => {
     const next = toggleStepDependency(current, workerId, dependencyId);
@@ -232,7 +236,7 @@ export default function WorkspaceRecipes({ open, mode = "create", editRecipe = n
         <form className="recipe-builder pm-card pm-card--feat-recipe" onSubmit={save}>
           <div className="recipe-builder__intro"><div><span>{mode === "edit" ? "EDITING RECIPE" : mode === "duplicate" ? "DUPLICATING RECIPE" : "NEW RECIPE"}</span><strong>Choose what should open together</strong><small>{TERMINAL_LAYOUTS.find(item => item.id === layoutId)?.label || layoutId} layout · {workerIds.length} selected{dirty ? " · unsaved changes" : ""}</small></div><button type="button" className="recipe-ai-design" onClick={askMissionAiToDesign} title="Ask Mission AI to propose the workers, order and readiness gates for this recipe"><span aria-hidden="true">AI</span> Ask Mission AI</button></div>
           <label><span>Recipe name</span><input autoFocus maxLength="60" value={name} onChange={event => setName(event.target.value)} placeholder="Morning development stack" /></label>
-          <div className="recipe-template-strip" role="group" aria-labelledby="recipe-template-label"><span id="recipe-template-label">How should it start?</span><div>{RECIPE_TEMPLATES.map(template => <button type="button" key={template.id} aria-pressed={templateId === template.id} className={templateId === template.id ? "is-current" : ""} onClick={() => applyTemplate(template.id)}><strong>{template.label}</strong><small>{template.detail}</small></button>)}</div></div>
+          <div className="recipe-template-strip" role="group" aria-labelledby="recipe-template-label"><span id="recipe-template-label">How should it start?</span><div>{RECIPE_TEMPLATES.map(template => <button type="button" key={template.id} aria-pressed={templateId === template.id} className={templateId === template.id ? "is-current" : ""} onClick={() => applyTemplate(template.id)}><strong>{template.label}</strong><small>{template.detail}</small></button>)}</div>{templateId === "custom" && <p>Custom order: each worker below shows what it starts after.</p>}</div>
           <section className="recipe-simple-workers"><header><div><span>WORKERS IN THIS RECIPE</span><strong>Select terminals and arrange the launch order</strong></div><small>Running workers are reused by default</small></header><div>{sessions.map(session => { const selectedIndex = workerIds.indexOf(session.id); const step = steps.find(item => item.workerId === session.id); const dependencyNames = (step?.dependsOn || []).map(id => sessionById.get(id)?.name || id); return <article key={session.id} className={selectedIndex >= 0 ? "is-selected" : ""}><label><input type="checkbox" checked={selectedIndex >= 0} onChange={() => toggleWorker(session.id)}/><span><strong>{session.name}</strong><small title={describeLaunch(session.command, session.args).full || undefined}>{describeLaunch(session.command, session.args).label}</small></span></label>{selectedIndex >= 0 && <><span className="recipe-simple-order"><b>{selectedIndex + 1}</b><small>{dependencyNames.length ? `Starts after ${dependencyNames.join(", ")}` : "Starts first"}</small></span><div><button type="button" aria-label={`Move ${session.name} earlier`} disabled={selectedIndex === 0} onClick={() => moveWorker(selectedIndex, -1)}>↑</button><button type="button" aria-label={`Move ${session.name} later`} disabled={selectedIndex === workerIds.length - 1} onClick={() => moveWorker(selectedIndex, 1)}>↓</button></div></>}</article>; })}</div></section>
           <button type="button" className={`recipe-advanced-toggle ${advanced ? "is-open" : ""}`} onClick={() => setAdvanced(value => !value)}><span><strong>{advanced ? "Hide advanced controls" : "Advanced startup controls"}</strong><small>Readiness checks, dependencies, retries, failure and recovery</small></span><b>{advanced ? "−" : "+"}</b></button>
           {advanced && <><div className="recipe-policy-grid recipe-policy-grid-v2"><label><span>Parallel workers</span><RecipeSelect value={maxParallel} onChange={setMaxParallel} label="Maximum parallel workers" options={[1,2,3,4].map(value => ({ value, label: `${value} at once` }))}/></label><label><span>Readiness retries</span><RecipeSelect value={retryAttempts} onChange={setRetryAttempts} label="Readiness retries" options={[0,1,2,3].map(value => ({ value, label: value ? `${value} retr${value === 1 ? "y" : "ies"}` : "No retry" }))}/></label><label><span>Gate timeout</span><RecipeSelect value={readinessTimeoutMs} onChange={setReadinessTimeoutMs} label="Readiness timeout" options={[5000,10000,20000,30000].map(value => ({ value, label: `${value / 1000} seconds` }))}/></label><label><span>Running workers</span><RecipeSelect value={restartPolicy} onChange={setRestartPolicy} label="Running worker policy" options={[{value:"reuse-running",label:"Reuse current process"},{value:"restart-running",label:"Restart on launch"}]}/></label><label><span>On failure</span><RecipeSelect value={failurePolicy} onChange={setFailurePolicy} label="Failure policy" options={[{value:"stop",label:"Stop scheduling"},{value:"continue",label:"Continue independent branches"}]}/></label><label><span>Recovery</span><RecipeSelect value={recoveryPolicy} onChange={setRecoveryPolicy} label="Recovery policy" options={[{value:"keep-running",label:"Keep started workers"},{value:"rollback-started",label:"Stop recipe-started workers"}]}/></label></div>

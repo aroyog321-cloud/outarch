@@ -63,7 +63,7 @@ function BrandPanel({ desktopFlow }) {
   return <div className="relative hidden overflow-hidden rounded-[28px] bg-[linear-gradient(150deg,rgba(47,123,255,0.28),rgba(155,123,255,0.14)_50%,rgba(63,208,181,0.18))] p-10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] lg:flex lg:flex-col">
     <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,0.18),transparent)]"/>
     <motion.div initial={{ rotate: -8, scale: 0.9, opacity: 0 }} animate={{ rotate: 0, scale: 1, opacity: 1 }} transition={{ duration: 1, ease: EASE }}><BrandIcon size={72}/></motion.div>
-    <h2 className="display mt-10 text-[34px]">{desktopFlow ? 'Almost there. Sign in to open OUTARCH.' : 'Your cockpit, one sign-in away.'}</h2>
+    <h2 className="display mt-10 text-[34px]">{desktopFlow ? 'Almost there. Sign in to open OUTARCH.' : 'Your command center, one sign-in away.'}</h2>
     <div className="mt-10 flex flex-col gap-6">
       {points.map(([Icon, title, body], index) => <motion.div key={title} className="flex gap-4" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + index * 0.1, duration: 0.6, ease: EASE }}>
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.15)]"><Icon size={19} weight="duotone"/></span>
@@ -275,7 +275,9 @@ export default function AuthPage() {
         {mode === 'signup' ? <>Already have an account? <button type="button" className="font-medium text-brand-sky hover:text-fg" onClick={() => switchMode('signin')}>Sign in</button></> : null}
         {mode === 'reset-request' ? <button type="button" className="inline-flex items-center gap-1.5 font-medium text-brand-sky hover:text-fg" onClick={() => switchMode('signin')}><ArrowLeft size={14}/>Back to sign in</button> : null}
       </p>
-      {mode === 'signup' ? <p className="mt-5 text-center text-[12.5px] text-fg-dim">By creating an account you agree to the <a className="underline hover:text-fg" href="/terms">terms</a> and <a className="underline hover:text-fg" href="/privacy">privacy policy</a>.</p> : null}
+      {mode === 'signup'
+        ? <p className="mt-5 text-center text-[12.5px] leading-relaxed text-fg-dim">By creating an account you agree to the <a className="underline hover:text-fg" href="/terms" target="_blank" rel="noopener">Terms of service</a>, <a className="underline hover:text-fg" href="/eula" target="_blank" rel="noopener">licence</a> and <a className="underline hover:text-fg" href="/acceptable-use" target="_blank" rel="noopener">acceptable use policy</a>. The <a className="underline hover:text-fg" href="/privacy" target="_blank" rel="noopener">privacy policy</a> explains how we handle your data. You must be 18 or older.</p>
+        : mode === 'signin' ? <p className="mt-5 text-center text-[12.5px] text-fg-dim"><a className="underline hover:text-fg" href="/terms" target="_blank" rel="noopener">Terms</a> · <a className="underline hover:text-fg" href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a className="underline hover:text-fg" href="/legal" target="_blank" rel="noopener">All policies</a></p> : null}
     </>;
   }
 

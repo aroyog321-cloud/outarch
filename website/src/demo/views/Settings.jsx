@@ -2,7 +2,19 @@ import React, { useState } from 'react';
 import { Code, Crown, DeviceMobile, Key, Plugs } from '@phosphor-icons/react';
 import { useDemo } from '../useDemo.js';
 
-const SECTIONS = ['Account', 'Notifications', 'Intelligence', 'Mobile companion', 'Connections', 'Automation workflows', 'About'];
+const SECTIONS = ['Account', 'Notifications', 'Project memory', 'Intelligence', 'Mobile companion', 'Connections', 'Automation workflows', 'About'];
+
+// The app's Project memory panel: the arch_memory.md it keeps in the project,
+// the latest entries agents and Mission AI added, and when OUTARCH asks.
+const MEMORY_ENTRIES = [
+  ['session', 'Moved the API address into .env.example.', 'OUTARCH Mission AI (gemini-2.5-flash)'],
+  ['fix', 'Session tokens now expire after 24 hours.', 'Claude Code (claude-sonnet-4-5)'],
+  ['feature', 'Added CSV export to the reports page.', 'Codex CLI (gpt-5-codex)'],
+];
+const MEMORY_ROWS = [
+  ['Ask to update when I close OUTARCH', 'Only when something changed since the last update.', true],
+  ['Offer project memory when I open a project without one', 'Turn off to never be asked; you can still set it up here.', true],
+];
 
 // The app's notification preferences: sound, desktop notifications, quiet
 // hours and a minimum importance.
@@ -17,6 +29,7 @@ export function SettingsView() {
   const { dispatch } = useDemo();
   const [section, setSection] = useState('Notifications');
   const [values, setValues] = useState(() => NOTIFICATION_ROWS.map(row => row[2]));
+  const [memoryValues, setMemoryValues] = useState(() => MEMORY_ROWS.map(row => row[2]));
   return <div className="rx-scroll" data-lenis-prevent="">
     <div className="rx-head"><span className="rx-caps mono rx-head__label">Settings</span><h3>{section}</h3><p>Changes save as you make them.</p></div>
     <div className="st-body">
@@ -26,6 +39,12 @@ export function SettingsView() {
           <h4>Notifications</h4><p>How OUTARCH tells you something happened.</p>
           {NOTIFICATION_ROWS.map(([title, text], index) => <div key={title} className="st-row"><div><b>{title}</b><small>{text}</small></div><button type="button" className="rx-toggle" role="switch" aria-checked={values[index]} aria-label={title} onClick={() => setValues(list => list.map((value, at) => (at === index ? !value : value)))}/></div>)}
           <div style={{ marginTop: 16 }}><button type="button" className="rx-btn" onClick={() => dispatch({ type: 'TOAST', toast: { tone: 'warn', title: 'This is a test notification', detail: 'It looks and sounds like a real one' } })}>Send a test notification</button></div>
+        </> : section === 'Project memory' ? <>
+          <h4>Project memory</h4><p>An arch_memory.md that you and every AI agent keep up to date: what the project is for, how it runs, and every change with who made it and why.</p>
+          <div className="st-row"><div><b className="mono">arch_memory.md</b><small>acme-console · 14 entries · Claude Code and Codex are pointed to it</small></div></div>
+          {MEMORY_ENTRIES.map(([kind, changed, who]) => <div key={changed} className="st-row"><div><b>{changed}</b><small>{kind} · {who}</small></div></div>)}
+          {MEMORY_ROWS.map(([title, text], index) => <div key={title} className="st-row"><div><b>{title}</b><small>{text}</small></div><button type="button" className="rx-toggle" role="switch" aria-checked={memoryValues[index]} aria-label={title} onClick={() => setMemoryValues(list => list.map((value, at) => (at === index ? !value : value)))}/></div>)}
+          <div style={{ marginTop: 16 }}><button type="button" className="rx-btn" onClick={() => dispatch({ type: 'TOAST', toast: { tone: 'info', title: 'Mission AI added an entry', detail: 'arch_memory.md · what changed and why' } })}>Update memory now</button></div>
         </> : <>
           <h4>{section}</h4>
           <p>{{
@@ -43,7 +62,7 @@ export function SettingsView() {
 }
 
 const INTEGRATIONS = [
-  { icon: Code, name: 'VS Code bridge', status: 'Ultimate', tone: '#b3b0ff', text: 'Active file, diagnostics, Git state and task results from VS Code. It never reads or types into your terminals.' },
+  { icon: Code, name: 'VS Code bridge', status: 'Ultimate', tone: '#b3b0ff', text: 'Active file, diagnostics, Git state, task results and terminal activity from VS Code. It types only into terminals OUTARCH created.' },
   { icon: Plugs, name: 'Secure MCP gateway', status: 'Localhost', tone: '#63a9ff', text: 'Lets MCP clients read Mission Context on 127.0.0.1 with a token and scopes. Changes wait in Needs You.' },
   { icon: DeviceMobile, name: 'Mobile companion', status: 'Pro', tone: '#63a9ff', text: 'Encrypted supervision from your phone over your own network. Start and restart from the phone; stopping still asks you.' },
   { icon: Key, name: 'Mission AI keys', status: 'Ready', tone: '#4ade80', text: 'Built-in models through the OUTARCH proxy, or your own key. Keys are sealed by Windows.' },

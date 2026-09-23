@@ -19,6 +19,10 @@
 //
 // A development checkout (a folder with .git) is never overwritten: it is told
 // an update exists and pointed at git instead.
+//
+// A Microsoft Store install (managedBy: "microsoft-store") is updated by the
+// Store alone. The service then never checks, downloads or installs; it only
+// reports who keeps the app current.
 
 const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
@@ -27,6 +31,11 @@ const path = require("node:path");
 const { spawn: nodeSpawn, execFile: nodeExecFile } = require("node:child_process");
 const { verifyUpdateManifest, verifyUpdateArtifact } = require("./updateVerifier.cjs");
 const { UPDATE_CHECK_INTERVAL_MS, UPDATE_FIRST_CHECK_DELAY_MS } = require("./updateConfig.cjs");
+
+// Who else may own updates, and the line the app shows for each.
+const UPDATE_MANAGERS = Object.freeze({
+  "microsoft-store": "Microsoft Store keeps OUTARCH up to date. New versions install from the Store automatically."
+});
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
@@ -119,6 +128,7 @@ class UpdateService extends EventEmitter {
   #busy;
   #lastEmitAt;
   #blocked;
+  #managedBy;
 
   constructor(options = {}) {
     super();
@@ -147,6 +157,25 @@ class UpdateService extends EventEmitter {
     this.#busy = null;
     this.#lastEmitAt = 0;
     this.#blocked = undefined;
+    this.#managedBy = Object.hasOwn(UPDATE_MANAGERS, options.managedBy) ? options.managedBy : null;
+  }
+
+  get managedBy() {
+    return this.#managedBy;
+  }
+
+  #managedStatus() {
+    return {
+      state: "managed",
+      managedBy: this.#managedBy,
+      currentVersion: this.#currentVersion,
+      available: null,
+      progress: null,
+      error: null,
+      checkedAt: null,
+      canInstall: false,
+      installBlockedReason: UPDATE_MANAGERS[this.#managedBy]
+    };
   }
 
   // ------------------------------------------------------------------ status
@@ -171,6 +200,7 @@ class UpdateService extends EventEmitter {
   }
 
   status() {
+    if (this.#managedBy) return this.#managedStatus();
     const blocked = this.#release ? this.#blockedReason() : null;
     return {
       state: this.#state,
@@ -206,6 +236,7 @@ class UpdateService extends EventEmitter {
   // ------------------------------------------------------------------ check
 
   async check() {
+    if (this.#managedBy) return this.status();
     if (this.#busy) return this.status();
     if (["downloading", "installing"].includes(this.#state)) return this.status();
     this.#set("checking");
@@ -269,6 +300,7 @@ class UpdateService extends EventEmitter {
   // --------------------------------------------------------------- download
 
   async download() {
+    if (this.#managedBy) throw new Error(UPDATE_MANAGERS[this.#managedBy]);
     if (!this.#release) throw new Error("There is no update to download");
     if (this.#archivePath && this.#state === "ready") return this.status();
     if (this.#busy) return this.#busy;
@@ -361,6 +393,7 @@ class UpdateService extends EventEmitter {
    * are stopped cleanly.
    */
   async install({ quit } = {}) {
+    if (this.#managedBy) throw new Error(UPDATE_MANAGERS[this.#managedBy]);
     if (!this.#release) throw new Error("There is no update to install");
     this.#blocked = undefined;
     const blocked = this.#blockedReason();
@@ -408,6 +441,7 @@ class UpdateService extends EventEmitter {
 
   start() {
     this.stop();
+    if (this.#managedBy) return;
     this.#firstTimer = setTimeout(() => { void this.check(); }, UPDATE_FIRST_CHECK_DELAY_MS);
     this.#firstTimer.unref?.();
     this.#timer = setInterval(() => { void this.check(); }, UPDATE_CHECK_INTERVAL_MS);
@@ -427,4 +461,4 @@ class UpdateService extends EventEmitter {
   }
 }
 
-module.exports = { APPLY_SCRIPT, UpdateService, compareVersions };
+module.exports = { APPLY_SCRIPT, UPDATE_MANAGERS, UpdateService, compareVersions };

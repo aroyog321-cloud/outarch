@@ -106,6 +106,14 @@ const account = Object.freeze({
   onChange: callback => listen(accountListeners, callback)
 });
 
+// The record of which terms this user agreed to, and when. Kept by the main
+// process in OUTARCH's data folder so it survives a reinstall of the app files.
+const LEGAL_CHANNEL = "mission-control:legal";
+const legal = Object.freeze({
+  status: () => ipcRenderer.invoke(LEGAL_CHANNEL, { action: "status" }),
+  accept: ({ version, documents } = {}) => ipcRenderer.invoke(LEGAL_CHANNEL, { action: "accept", version: String(version || ""), documents: Array.isArray(documents) ? documents.map(String) : [] })
+});
+
 const updates = Object.freeze({
   status: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "status" }),
   check: () => ipcRenderer.invoke(UPDATE_CHANNEL, { action: "check" }),
@@ -138,6 +146,7 @@ contextBridge.exposeInMainWorld("missionControl", Object.freeze({
   version: PROTOCOL_VERSION,
   account,
   updates,
+  legal,
   request,
   copyText,
   openExternal,

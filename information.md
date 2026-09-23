@@ -114,7 +114,7 @@ nvkh-main/
 
 ### 6. Integrations Hub
 - **Mission AI:** Configure LLM keys (Gemini, OpenAI, Anthropic, Groq, OpenRouter, NVIDIA NIM, Local Ollama/vLLM) with OS-level credential encryption.
-- **VS Code Bridge:** Two-way sync with the included VS Code extension (`mission-control-bridge-0.2.0.vsix`) for active editor file, cursor position, problems/diagnostics, Git branch/status, and managed editor terminals.
+- **VS Code Bridge:** Two-way sync with the included VS Code extension (`outarch-bridge-1.0.0.vsix`) for active editor file, cursor position, problems/diagnostics, Git branch/status, and managed editor terminals.
 - **Secure MCP Gateway:** Runs a local Model Context Protocol server enabling Claude Code, Cursor, Codex, and external AI agents to securely read supervised terminal logs, inspect ports, and request actions via the Needs You approval queue.
 - **Mobile Companion:** Encrypted LAN gateway pairing with the native Android supervision client.
 

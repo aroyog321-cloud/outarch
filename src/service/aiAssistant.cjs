@@ -38,6 +38,11 @@ const MISSION_MODELS_TTL_MS = 6 * 60 * 60 * 1000;
 const SETTLE_AFTER_ACTION_MS = 1500;
 const CONVERSATION_ID = /^[A-Za-z0-9:._/-]{1,160}$/;
 const SURFACES = Object.freeze(["missionAi", "workspace"]);
+// Each of these keeps its own model choice. "memory" is the model that writes
+// project memory, so it can run on a different key from the chats.
+const SELECTION_SURFACES = Object.freeze(["missionAi", "workspace", "memory"]);
+const COMPOSE_TIMEOUT_MS = 120_000;
+const MAX_COMPOSE_LENGTH = 60_000;
 
 // ------------------------------------------------------------------ tools
 
@@ -183,6 +188,11 @@ const TOOL_BY_NAME = new Map(TOOLS.map(tool => [tool.name, tool]));
 
 // ------------------------------------------------------------------ helpers
 
+// Which built-in provider serves a Mission AI model.
+function missionProvider(model) {
+  return model?.provider === "nvidia" || String(model?.id || "").includes("/") ? "nvidia" : "gemini";
+}
+
 function clip(value, limit) {
   const text = String(value == null ? "" : value).replace(/\s+/g, " ").trim();
   return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
@@ -242,6 +252,7 @@ function systemPrompt({ surface, snapshot, focused, autoApprove, readOnly = fals
     "- Everything you say about this project must come from what your tools return. If you have not looked, look first — call a tool rather than guess. Never invent workers, output, errors, ports or results.",
     "- When something is broken, say what failed, the most likely cause judging by the output, and the concrete fix.",
     "- Refer to workers by their names. Do not mention tool names, ids, snapshots, evidence or citations.",
+    "- The project may keep a shared memory in `arch_memory.md` at its root: what it is for, how it runs, and earlier changes, errors and fixes with who made them. When a question is about the project's history, setup or an earlier fix, read it first if your tools can.",
     "- If a question has nothing to do with this project, answer it normally as a capable engineering assistant.",
     ""
   ];
@@ -359,6 +370,30 @@ class AiAssistant extends EventEmitter {
     return Boolean(this.#builtin?.hasKey?.("primary") || this.#builtin?.hasKey?.("fallback"));
   }
 
+  // Project memory (arch_memory.md) writes with keys of its own. Every other
+  // surface uses Mission AI's.
+  #purposeFor(surface) {
+    return surface === "memory" ? "memory" : "mission";
+  }
+
+  #builtinAvailable(purpose = "mission") {
+    if (purpose !== "memory") return this.#missionAvailable();
+    return Boolean(this.#builtin?.hasKey?.("primary", null, "memory") || this.#builtin?.hasKey?.("fallback", null, "memory"));
+  }
+
+  // The built-in models a purpose can use. When the server keeps memory keys
+  // apart, memory gets the models of the providers that have a memory key,
+  // taken from Mission AI's list where it has them.
+  #builtinModelList(purpose = "mission") {
+    if (purpose !== "memory" || !this.#builtin?.separateMemoryKeys?.()) return this.#missionModelList();
+    const has = provider => Boolean(this.#builtin.hasKey("primary", provider, "memory") || this.#builtin.hasKey("fallback", provider, "memory"));
+    const allowed = ["gemini", "nvidia"].filter(has);
+    const listed = this.#missionModelList().filter(model => allowed.includes(missionProvider(model)));
+    const missing = allowed.filter(provider => !listed.some(model => missionProvider(model) === provider));
+    if (!missing.length) return listed;
+    return [...listed, ...providers.missionFallbackModels({ gemini: missing.includes("gemini"), nvidia: missing.includes("nvidia") })];
+  }
+
   async refreshMissionModels({ force = false } = {}) {
     if (!this.#missionAvailable()) {
       this.#missionModels = { models: [], checkedAt: this.#now(), error: null };
@@ -408,7 +443,7 @@ class AiAssistant extends EventEmitter {
   }
 
   #readSelections() {
-    const empty = { missionAi: null, workspace: null, autoApprove: {} };
+    const empty = { missionAi: null, workspace: null, memory: null, autoApprove: {} };
     if (!this.#preferencesPath) return empty;
     try {
       const value = JSON.parse(this.#fs.readFileSync(this.#preferencesPath, "utf8"));
@@ -418,6 +453,7 @@ class AiAssistant extends EventEmitter {
       return {
         missionAi: pick(value?.selections?.missionAi),
         workspace: pick(value?.selections?.workspace),
+        memory: pick(value?.selections?.memory),
         autoApprove: value?.autoApprove && typeof value.autoApprove === "object" ? Object.fromEntries(Object.entries(value.autoApprove).filter(([key, on]) => CONVERSATION_ID.test(key) && on === true)) : {}
       };
     } catch {
@@ -430,7 +466,7 @@ class AiAssistant extends EventEmitter {
     try {
       this.#fs.mkdirSync(path.dirname(this.#preferencesPath), { recursive: true });
       const temporary = `${this.#preferencesPath}.${process.pid}.${Date.now()}.tmp`;
-      this.#fs.writeFileSync(temporary, `${JSON.stringify({ version: 1, selections: { missionAi: this.#selections.missionAi, workspace: this.#selections.workspace }, autoApprove: this.#selections.autoApprove }, null, 2)}\n`, "utf8");
+      this.#fs.writeFileSync(temporary, `${JSON.stringify({ version: 1, selections: { missionAi: this.#selections.missionAi, workspace: this.#selections.workspace, memory: this.#selections.memory }, autoApprove: this.#selections.autoApprove }, null, 2)}\n`, "utf8");
       this.#fs.renameSync(temporary, this.#preferencesPath);
     } catch {
       // A preference that fails to persist still applies for this session.
@@ -459,11 +495,15 @@ class AiAssistant extends EventEmitter {
     return { source: "byok", keyId: key.id, keyLabel: key.label, provider: key.provider, model: model.id, label: model.label, family: model.family, tier: model.tier };
   }
 
-  #validTarget(target) {
+  #validTarget(target, surface = "missionAi") {
     if (!target) return false;
     // A built-in model must be one Mission AI offers. A stored or requested
     // Pro or preview model is not quietly allowed onto the free-tier keys.
-    if (target.source === "mission") return this.#missionAvailable() && this.#missionModelList().some(item => item.id === target.model);
+    // For project memory it must also be one its own keys can serve.
+    if (target.source === "mission") {
+      const purpose = this.#purposeFor(surface);
+      return this.#builtinAvailable(purpose) && this.#builtinModelList(purpose).some(item => item.id === target.model);
+    }
     const key = this.#byok?.get(target.keyId);
     if (key && !this.#byokAllowed(key.id)) return false;
     return Boolean(key && (key.models.some(item => item.id === target.model) || !key.models.length));
@@ -473,9 +513,10 @@ class AiAssistant extends EventEmitter {
   // Mission AI's best model; otherwise the first key the operator brought.
   resolveSelection(surface) {
     const stored = this.#selections[surface];
-    if (this.#validTarget(stored)) return this.#describeTarget(stored);
-    if (this.#missionAvailable()) {
-      const models = this.#missionModelList();
+    if (this.#validTarget(stored, surface)) return this.#describeTarget(stored);
+    const purpose = this.#purposeFor(surface);
+    if (this.#builtinAvailable(purpose)) {
+      const models = this.#builtinModelList(purpose);
       const defaultGemini = models.find(m => m.id === "gemini-2.5-flash");
       const model = defaultGemini || providers.defaultModel(models);
       if (model) return this.#describeTarget({ source: "mission", model: model.id });
@@ -489,11 +530,11 @@ class AiAssistant extends EventEmitter {
   }
 
   setSelection(surface, target) {
-    if (!SURFACES.includes(surface)) throw new TypeError("Unknown chat surface");
+    if (!SELECTION_SURFACES.includes(surface)) throw new TypeError("Unknown chat surface");
     const clean = target && typeof target === "object"
       ? { source: target.source === "byok" ? "byok" : "mission", keyId: target.source === "byok" ? String(target.keyId || "") : null, model: String(target.model || "").slice(0, 160) }
       : null;
-    if (!this.#validTarget(clean)) throw new Error("That model is not available any more. Pick another one.");
+    if (!this.#validTarget(clean, surface)) throw new Error(surface === "memory" && clean?.source === "mission" ? "Project memory has no AI key for that model. Pick another one, or one of your own keys." : "That model is not available any more. Pick another one.");
     this.#selections[surface] = clean;
     this.#writeSelections();
     this.emit("change", { scope: "selection", surface });
@@ -516,13 +557,21 @@ class AiAssistant extends EventEmitter {
         models: this.#missionModelList(),
         modelsCheckedAt: this.#missionModels.checkedAt,
         modelsError: this.#missionModels.error,
-        loadingModels: Boolean(this.#missionRefresh)
+        loadingModels: Boolean(this.#missionRefresh),
+        // arch_memory.md's own keys: whether any is set up, and the built-in
+        // models they can serve. separateKeys is false when one set of keys
+        // serves both (a development build with keys of its own).
+        memory: {
+          available: this.#builtinAvailable("memory"),
+          separateKeys: Boolean(this.#builtin?.separateMemoryKeys?.()),
+          models: this.#builtinModelList("memory")
+        }
       },
       keys,
       keysError,
       keyProtection: this.#byok ? this.#byok.protectionStatus().available : false,
       providers: Object.values(providers.PROVIDERS).map(item => ({ id: item.id, label: item.label, needsBaseUrl: item.id === "custom" })),
-      selections: { missionAi: this.resolveSelection("missionAi"), workspace: this.resolveSelection("workspace") }
+      selections: { missionAi: this.resolveSelection("missionAi"), workspace: this.resolveSelection("workspace"), memory: this.resolveSelection("memory") }
     };
   }
 
@@ -586,7 +635,7 @@ class AiAssistant extends EventEmitter {
     });
     const targetModel = saved.defaultModel || saved.models[0]?.id || null;
     if (targetModel) {
-      for (const surface of SURFACES) {
+      for (const surface of SELECTION_SURFACES) {
         if (!this.#selections[surface] || this.#selections[surface].source === "mission") {
           this.#selections[surface] = { source: "byok", keyId: saved.id, model: targetModel };
         }
@@ -604,7 +653,7 @@ class AiAssistant extends EventEmitter {
   removeKey(keyId) {
     if (!this.#byok) throw new Error("Key storage is not available on this connection");
     const removed = this.#byok.remove(keyId);
-    for (const surface of SURFACES) {
+    for (const surface of SELECTION_SURFACES) {
       if (this.#selections[surface]?.keyId === keyId) this.#selections[surface] = null;
     }
     this.#writeSelections();
@@ -629,7 +678,7 @@ class AiAssistant extends EventEmitter {
       const defaultMod = (key.defaultModel && listed.has(key.defaultModel) ? key.defaultModel : null) || providers.defaultModel(models)?.id || null;
       this.#byok.setModels(keyId, models, null, defaultMod);
       let changed = false;
-      for (const surface of SURFACES) {
+      for (const surface of SELECTION_SURFACES) {
         const current = this.#selections[surface];
         if (current?.source === "byok" && current.keyId === keyId && !listed.has(current.model) && defaultMod) {
           this.#selections[surface] = { source: "byok", keyId: key.id, model: defaultMod };
@@ -663,7 +712,7 @@ class AiAssistant extends EventEmitter {
         }
       }
       this.#byokCheckedAt = this.#now();
-      for (const surface of SURFACES) {
+      for (const surface of SELECTION_SURFACES) {
         const current = this.#selections[surface];
         if (current?.source === "byok") {
           const targetKey = this.#byok.get(current.keyId);
@@ -1083,6 +1132,32 @@ class AiAssistant extends EventEmitter {
     };
   }
 
+
+  // One answer to one prompt, with no tools: the model can only reply. Used to
+  // write project memory, on the model chosen for it, through the same keys,
+  // fallbacks and plan metering as the chats.
+  async compose({ surface = "memory", system, text, timeoutMs = COMPOSE_TIMEOUT_MS } = {}) {
+    if (!SELECTION_SURFACES.includes(surface)) throw new TypeError("Unknown model surface");
+    const prompt = typeof text === "string" ? text.trim() : "";
+    if (!prompt) throw new TypeError("Nothing to write about");
+    if (typeof system !== "string" || !system.trim()) throw new TypeError("A system prompt is required");
+    const target = this.resolveSelection(surface);
+    if (!target) throw new Error("Mission AI has no model available. Add a key under Keys & models, or choose a model in Settings.");
+    const conversation = { id: `compose-${surface}`, surface, readOnly: true, allowedTools: new Set(), focusWorkerId: null, turn: { id: null, surface }, systemOverride: system.trim(), model: [{ role: "user", text: prompt.slice(0, MAX_COMPOSE_LENGTH) }] };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || COMPOSE_TIMEOUT_MS));
+    try {
+      const response = await this.#call(conversation, target, controller.signal);
+      if (response.blocked) throw new Error("The model declined to write this");
+      return { text: String(response.text || ""), model: { id: response.servedModel || target.model, label: target.label, source: target.source, keyLabel: target.keyLabel }, at: this.#now() };
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("Mission AI took too long to answer");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async resolve({ conversationId, decision } = {}) {
     const conversation = this.#conversations.get(String(conversationId || ""));
     if (!conversation?.pending) throw new Error("There is nothing waiting for approval");
@@ -1175,29 +1250,31 @@ class AiAssistant extends EventEmitter {
     // on the free tier degrades to a quicker model instead of to no answer.
     const attempts = [];
     if (target.source === "mission") {
+      // Writing arch_memory.md uses project memory's own keys, never Mission AI's.
+      const purpose = this.#purposeFor(conversation.surface);
       const isNvidia = target.provider === "nvidia" || target.model.includes("/");
       const provider = isNvidia ? "nvidia" : "gemini";
-      const slots = ["primary", "fallback"].filter(slot => this.#builtin.hasKey(slot, provider));
+      const slots = ["primary", "fallback"].filter(slot => this.#builtin.hasKey(slot, provider, purpose));
       if (isNvidia) {
         for (const slot of (slots.length ? slots : ["primary", "fallback"])) {
           attempts.push({
             slot,
             model: target.model,
             provider: "nvidia",
-            apiKey: () => this.#builtin.apiKey(slot, "nvidia"),
+            apiKey: () => this.#builtin.apiKey(slot, "nvidia", purpose),
             baseUrl: null,
             fetch: this.#fetchForMission(conversation.turn || null)
           });
         }
       } else {
-        const lighter = this.#missionModelList().find(item => item.tier === "fast" && item.provider === "gemini" && item.id !== target.model);
+        const lighter = this.#builtinModelList(purpose).find(item => item.tier === "fast" && item.provider === "gemini" && item.id !== target.model);
         for (const model of [target.model, ...(lighter ? [lighter.id] : [])]) {
           for (const slot of (slots.length ? slots : ["primary", "fallback"])) {
             attempts.push({
               slot,
               model,
               provider: "gemini",
-              apiKey: () => this.#builtin.apiKey(slot, "gemini"),
+              apiKey: () => this.#builtin.apiKey(slot, "gemini", purpose),
               baseUrl: null,
               fetch: this.#fetchForMission(conversation.turn || null)
             });
@@ -1211,7 +1288,7 @@ class AiAssistant extends EventEmitter {
     for (let index = 0; index < attempts.length; index += 1) {
       const attempt = attempts[index];
       const toolsAvailable = !this.#noTools.has(this.#toolsKey(target, attempt.model));
-      const system = systemPrompt({ surface: conversation.surface, snapshot: this.#snapshot(), focused, autoApprove: this.#selections.autoApprove[conversation.id] === true, readOnly: conversation.readOnly === true, toolsAvailable, platform: this.#platform });
+      const system = conversation.systemOverride || systemPrompt({ surface: conversation.surface, snapshot: this.#snapshot(), focused, autoApprove: this.#selections.autoApprove[conversation.id] === true, readOnly: conversation.readOnly === true, toolsAvailable, platform: this.#platform });
       const startedAt = this.#now();
       try {
         const response = await providers.chat({ provider: attempt.provider, apiKey: attempt.apiKey(), baseUrl: attempt.baseUrl, model: attempt.model, system, messages, tools: toolsAvailable ? toolDefinitions : [], fetch: attempt.fetch || this.#fetch, signal });

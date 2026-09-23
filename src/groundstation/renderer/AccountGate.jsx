@@ -1,6 +1,8 @@
 import React from "react";
 import { BrandWordmark, PRODUCT_VERSION } from "./BrandMark.jsx";
 import { useAccount } from "./useAccount.js";
+import { PolicyDocument, useLegalAcceptance, usePolicyValues } from "./LegalDocuments.jsx";
+import { LEGAL_VERSION, policyById } from "./legal/outarchPolicies.js";
 
 // OUTARCH runs only for a signed-in account. Signing in happens on the OUTARCH
 // website (email and password, or Google); this screen starts that round trip
@@ -96,11 +98,79 @@ export function AccountGate({ status, api }) {
   </GateShell>;
 }
 
+const AGREEMENT_LINKS = [
+  ["terms", "Terms of service"],
+  ["eula", "Licence agreement"],
+  ["privacy", "Privacy policy"],
+  ["ai-data", "AI & developer data"]
+];
+
+// The first-launch agreement. The terms and the licence are agreed to with one
+// deliberate tick; the privacy policy is a notice, so it is offered to read,
+// not to agree. Each document opens right here, so nothing needs the website.
+// When the policies change version, the same screen asks again.
+export function LegalAgreement({ legal }) {
+  const values = usePolicyValues();
+  const [agreed, setAgreed] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [reading, setReading] = React.useState(null);
+  const reader = React.useRef(null);
+  const changed = Boolean(legal.acceptance);
+  const policy = reading ? policyById(reading) : null;
+
+  React.useEffect(() => { if (policy) reader.current?.focus(); }, [policy]);
+
+  const accept = async () => {
+    setBusy(true);
+    setError("");
+    try { await legal.accept(); }
+    catch (reason) { setError(reason?.message || "Your agreement could not be saved. Try again."); setBusy(false); }
+  };
+
+  if (policy) {
+    return <GateShell label={policy.title}>
+      <section className="account-gate__card account-gate__card--legal">
+        <button type="button" className="legal-back" onClick={() => setReading(null)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Back</button>
+        <div className="legal-reader legal-reader--gate" ref={reader} tabIndex={-1}><PolicyDocument policy={policy} values={values}/></div>
+      </section>
+    </GateShell>;
+  }
+
+  return <GateShell label="Review OUTARCH's terms">
+    <section className="account-gate__card account-gate__card--legal">
+      <h1>{changed ? "OUTARCH's terms have changed" : "Before you start"}</h1>
+      <p>{changed ? "Please read the updated terms and agree to them to keep using OUTARCH." : "OUTARCH runs your terminals, dev servers and AI agents on this computer. Please read its terms and agree to them to continue."}</p>
+      <ul className="legal-points">
+        <li>Your code stays on this computer. Mission AI sends what it needs to the AI provider you choose, and only when you ask it something.</li>
+        <li>Mission AI&apos;s actions wait for your approval, unless you allow them for a conversation.</li>
+        <li>No analytics, advertising or crash reporting.</li>
+      </ul>
+      <div className="legal-links">
+        {AGREEMENT_LINKS.map(([id, label]) => <button key={id} type="button" onClick={() => setReading(id)}>{label}</button>)}
+      </div>
+      <label className="legal-check">
+        <input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)}/>
+        <span>I have read and agree to the Terms of service and the End user licence agreement. I am 18 or older.</span>
+      </label>
+      {error ? <p className="account-gate__error" role="alert">{error}</p> : null}
+      <div className="account-gate__actions">
+        <button type="button" className="account-gate__primary" disabled={!agreed || busy} onClick={() => void accept()}>{busy ? "Saving…" : "Agree and continue"}</button>
+        <button type="button" className="account-gate__ghost" onClick={() => window.close()}>Quit</button>
+      </div>
+      <p className="account-gate__hint">Version {LEGAL_VERSION}. You can read these any time in Settings, Legal &amp; privacy.</p>
+    </section>
+  </GateShell>;
+}
+
 // Everything under this renders only for a signed-in account whose workspace
-// is open. Before that: the sign-in screen, or the boot line while the engine
-// comes up.
+// is open. Before that: the agreement on first launch, the sign-in screen, or
+// the boot line while the engine comes up.
 export function AccountBoundary({ children }) {
   const { status, api } = useAccount();
+  const legal = useLegalAcceptance();
+  if (!legal.ready) return <AccountChecking message="Starting OUTARCH"/>;
+  if (!legal.current) return <LegalAgreement legal={legal}/>;
   if (!status) return <AccountChecking/>;
   if (!status.authorized) {
     if (status.state === "checking") return <AccountChecking message="Signing you in"/>;

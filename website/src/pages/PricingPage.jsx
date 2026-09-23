@@ -4,7 +4,7 @@ import { CompareTable, PlanCards, PricingControls } from '../components/Pricing.
 import { Reveal } from '../components/ui.jsx';
 import { useCatalog } from '../lib/catalog.js';
 import { useCurrency } from '../lib/currency.js';
-import { useRouter } from '../lib/router.jsx';
+import { Link, useRouter } from '../lib/router.jsx';
 import { useSession } from '../lib/session.js';
 import { website } from '../lib/supabase.js';
 import { FaqSection } from '../sections/Closing.jsx';
@@ -38,16 +38,16 @@ export default function PricingPage() {
     <section className="mx-auto max-w-page px-5 pb-12 pt-36 text-center md:px-8">
       {feature ? <Reveal><p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full bg-brand-violet/10 px-4 py-2 text-[14px] text-[#d6ccff] shadow-[inset_0_0_0_1px_rgba(155,123,255,0.35)]"><Crown size={15} weight="fill"/>You were looking for {feature}{wanted ? `, which comes with ${wanted.name}` : ''}.</p></Reveal> : null}
       <Reveal><h1 className="display mx-auto max-w-[16ch] text-[clamp(2.6rem,6vw,4.6rem)]">Plans that grow with your stack.</h1></Reveal>
-      <Reveal delay={0.08}><p className="lede mx-auto mt-5 text-[17px]">Every plan runs entirely on your computer. Plans decide how much of OUTARCH you can use at once. Pay for a month or a year; nothing renews by itself.</p></Reveal>
+      <Reveal delay={0.08}><p className="lede mx-auto mt-5 text-[17px]">OUTARCH runs on your computer on every plan. Plans set how much you can run at once. Pay for a month or a year; nothing renews automatically.</p></Reveal>
       <Reveal delay={0.14} className="mt-10"><PricingControls period={period} setPeriod={setPeriod} currency={currency} setCurrency={setCurrency}/></Reveal>
     </section>
     <section className="mx-auto max-w-page px-5 md:px-8">
       <PlanCards plans={catalog.plans} prices={catalog.prices} period={period} currency={currency} current={current}/>
-      <p className="mt-6 flex items-start justify-center gap-2 text-center text-[13.5px] text-fg-dim"><Info size={16} className="mt-0.5 shrink-0"/>*Unlimited Mission AI has a fair-use ceiling of 2,000 messages a day. Upgrading from Pro to Ultimate carries over the Pro time you have left.</p>
+      <p className="mt-6 flex items-start justify-center gap-2 text-center text-[13.5px] text-fg-dim"><Info size={16} className="mt-0.5 shrink-0"/>*Unlimited Mission AI has a fair-use limit of 2,000 messages a day. Moving from Pro to Ultimate carries over the Pro time you have left. Plans are covered by the <Link to="/terms" className="link-underline text-fg-muted hover:text-fg">Terms of service</Link> and the <Link to="/privacy" className="link-underline text-fg-muted hover:text-fg">privacy policy</Link>.</p>
     </section>
     <section id="compare" className="mx-auto max-w-page scroll-mt-28 px-5 pt-24 md:px-8">
       <Reveal><h2 className="display text-[clamp(1.8rem,3.6vw,2.8rem)]">Compare every limit.</h2></Reveal>
-      <Reveal delay={0.06}><p className="lede mt-3 text-[16px]">Read from the same record the app enforces, so this table is exactly what you get.</p></Reveal>
+      <Reveal delay={0.06}><p className="lede mt-3 text-[16px]">These are the same limits the app enforces, so this table is exactly what you get.</p></Reveal>
       <Reveal delay={0.1} className="mt-8"><CompareTable plans={catalog.plans}/></Reveal>
     </section>
     <FaqSection/>

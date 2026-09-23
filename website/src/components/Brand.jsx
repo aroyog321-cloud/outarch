@@ -3,7 +3,8 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 // OUTARCH's logo, drawn from the same letterform paths as the app's vector
 // marks (scripts/brand/build-vector-marks.cjs). As inline SVG the glitch
 // layers can move: the mint and blue ghosts shift and the cut band slides,
-// on hover and now and then on its own.
+// on hover and now and then on its own. `live` keeps a quieter glitch running
+// all the time (the navigation uses it); hover still plays the full burst.
 
 const LETTERS = [
   ['0 0', 'M22 0H42A22 22 0 0 1 64 22V78A22 22 0 0 1 42 100H22A22 22 0 0 1 0 78V22A22 22 0 0 1 22 0Z M31 24A5 5 0 0 0 26 29V71A5 5 0 0 0 31 76H33A5 5 0 0 0 38 71V29A5 5 0 0 0 33 24Z'],
@@ -33,12 +34,12 @@ function useGlitch(auto) {
   return [on, trigger];
 }
 
-export function Wordmark({ className = '', auto = false, title = 'OUTARCH' }) {
+export function Wordmark({ className = '', auto = false, live = false, title = 'OUTARCH' }) {
   const raw = useId().replace(/:/g, '');
   const ids = { w: `w${raw}`, keep: `k${raw}`, band: `b${raw}`, cuts: `c${raw}` };
   const [glitching, trigger] = useGlitch(auto);
   return <svg
-    className={`wordmark ${glitching ? 'is-glitching' : ''} ${className}`}
+    className={`wordmark ${live ? 'wordmark--live' : ''} ${glitching ? 'is-glitching' : ''} ${className}`}
     viewBox="-22 -2 536 112"
     role="img"
     aria-label={title}

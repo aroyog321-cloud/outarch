@@ -19,7 +19,7 @@ const INTEGRATIONS = [
   { id: "intelligence", mark: "AI", role: "ENGINE", name: "Mission AI", detail: "Reads terminals and acts with your approval", request: "missionAi.status" },
   { id: "vscode", mark: "VS", role: "EDITOR", name: "VS Code Bridge", detail: "Editor context and managed terminals", request: "vscode.status" },
   { id: "mcp", mark: "MC", role: "GATEWAY", name: "Secure MCP", detail: "Claude Code, Codex and other AI tools on this computer", request: "mcp.status" },
-  { id: "companion", mark: "MB", role: "CLIENT", name: "Mobile Companion", detail: "Encrypted Android supervision", request: "mobile.status" }
+  { id: "companion", mark: "MB", role: "CLIENT", name: "Mobile Companion", detail: "Watch and control this project from your phone", request: "mobile.status" }
 ];
 
 // The plan feature each integration is, when a plan can leave it out.

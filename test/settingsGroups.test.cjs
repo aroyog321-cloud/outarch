@@ -35,6 +35,7 @@ test("T120 - the groups exist, in the documented order, with the account first",
     "project",
     "integrations",
     "security",
+    "legal",
     "diagnostics",
     "about"
   ]);
@@ -49,6 +50,7 @@ test("T120 - the groups exist, in the documented order, with the account first",
     ["notifications", "NotificationSettings"],
     ["project", "ProjectDefaultSettings"],
     ["security", "SecuritySettings"],
+    ["legal", "LegalSettings"],
     ["diagnostics", "DiagnosticsSettings"],
     ["about", "AboutSettings"]
   ]) {
@@ -115,7 +117,11 @@ test("T120 - the new groups report facts and route elsewhere to change them", ()
   assert.doesNotMatch(project, /onPreference/, "a second place to edit a worker would be free to disagree with the first");
 
   // Security states behaviour, and every line is something the code keeps.
-  assert.match(security, /Never sent to a model or an export/);
+  // Mission AI's read tool can send recent terminal output to its provider, so
+  // the old "never sent to a model" line was false and must not come back.
+  assert.doesNotMatch(security, /Never sent to a model/);
+  assert.match(security, /Leaves only when Mission AI reads it for you, or a tool you granted access does/);
+  assert.match(security, /Wait for your approval unless you allow them for a conversation/);
   assert.match(security, /OS-encrypted; never written to project files/);
   assert.match(security, /workspace\?\.persistent \? "Stored in this project folder" : "Held in memory only"/);
 });

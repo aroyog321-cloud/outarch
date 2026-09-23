@@ -52,7 +52,7 @@ function PresetList({ commands, busy, onInstantiate }) {
   );
 }
 
-export default function WorkerDialog({ initialMode = "create", configuration, seed = null, savedCommands, existingIds = [], projectName = "", onClose, onSave, onInstantiate, onAskAI }) {
+export default function WorkerDialog({ initialMode = "create", configuration, seed = null, prefill = null, savedCommands, existingIds = [], projectName = "", onClose, onSave, onInstantiate, onAskAI }) {
   const editing = Boolean(configuration);
   // A duplicate is a create, but it carries a real command that has to be
   // reviewed before a second copy of a process starts — so it gets the full
@@ -66,6 +66,11 @@ export default function WorkerDialog({ initialMode = "create", configuration, se
     // before a second copy of a process starts.
     const initial = initialWorkerDraft(configuration || seed);
     if (!configuration && seed) initial.id = nextAvailableWorkerId(initial.id, existingIds);
+    // A first-run starter fills the two simple fields; the operator still presses Start.
+    if (!configuration && !seed && prefill) {
+      initial.name = prefill.name || "";
+      initial.startCommand = prefill.startCommand || "";
+    }
     return initial;
   });
   const [busy, setBusy] = React.useState(false);

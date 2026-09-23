@@ -1,0 +1,16 @@
+{
+  "$comment": "Microsoft Store package identity for OUTARCH. identityName, publisher and publisherDisplayName MUST be copied from Partner Center > your app > Product management > Product identity (Package/Identity/Name, Package/Identity/Publisher, Package/Properties/PublisherDisplayName). A Store build (npm run package:store) refuses the placeholders below. See MICROSOFT_STORE.md.",
+  "identityName": "OUTARCH.Desktop.Placeholder",
+  "publisher": "CN=00000000-0000-0000-0000-000000000000",
+  "publisherDisplayName": "OUTARCH",
+  "displayName": "OUTARCH",
+  "applicationId": "OUTARCH",
+  "executableName": "OUTARCH",
+  "description": "OUTARCH is a local-first developer command center: run and supervise every terminal, dev server and AI coding agent of a project from one window.",
+  "shortDescription": "Developer command center for terminals and AI coding agents",
+  "backgroundColor": "transparent",
+  "minVersion": "10.0.19041.0",
+  "maxVersionTested": "10.0.26100.0",
+  "architectures": ["x64"],
+  "protocols": ["outarch"]
+}

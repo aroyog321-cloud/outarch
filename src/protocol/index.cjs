@@ -91,6 +91,18 @@ const METHODS = Object.freeze([
   "mcp.approval.list",
   "mcp.approval.resolve",
   "mcp.audit.list",
+  "projectMemory.status",
+  "projectMemory.preview",
+  "projectMemory.enable",
+  "projectMemory.decline",
+  "projectMemory.disable",
+  "projectMemory.configure",
+  "projectMemory.update",
+  "projectMemory.summarize",
+  "projectMemory.refreshFacts",
+  "projectMemory.pointers",
+  "projectMemory.open",
+  "projectMemory.closePrompt",
   "mobile.status",
   "mobile.configure",
   "mobile.invite",
@@ -478,6 +490,8 @@ function createProtocolConnection(engineApi, options = {}) {
   // Mission AI and the Workspace chat: one assistant, any model, tool access
   // gated by operator approval inside the conversation itself.
   const aiAssistant = options.aiAssistant || null;
+  // arch_memory.md: the file, its facts, and the entries Mission AI writes.
+  const projectMemory = options.projectMemory || null;
   const agentActivityService = options.agentActivityService || null;
   const semanticEventRouter = options.semanticEventRouter || null;
   const openServiceUrl = typeof options.openServiceUrl === "function" ? options.openServiceUrl : null;
@@ -921,6 +935,17 @@ function createProtocolConnection(engineApi, options = {}) {
     }
   }
 
+  async function callProjectMemory(method, operation) {
+    if (!projectMemory || typeof projectMemory[method] !== "function") {
+      throw new ProtocolError("UNAVAILABLE", "Project memory is not available on this connection");
+    }
+    try { return await operation(projectMemory[method].bind(projectMemory)); }
+    catch (error) {
+      if (error instanceof ProtocolError) throw error;
+      throw new ProtocolError(error instanceof TypeError ? "INVALID_PARAMS" : "PROJECT_MEMORY_ERROR", error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function refuseForPlan(refusal) {
     if (!refusal) return;
     throw new ProtocolError("PLAN_REQUIRED", refusal.message, typeof refusal.toJSON === "function" ? refusal.toJSON() : null);
@@ -1282,6 +1307,35 @@ function createProtocolConnection(engineApi, options = {}) {
         requireConfirmation("mobile.approval.resolve", params);
         return { result: await callMobile("resolveApproval", resolveApproval => resolveApproval(approvalId, decision)) };
       }
+      case "projectMemory.status":
+        return { result: await callProjectMemory("status", status => status()) };
+      case "projectMemory.preview":
+        return { result: await callProjectMemory("preview", preview => preview()) };
+      case "projectMemory.enable":
+        return { result: await callProjectMemory("enable", enable => enable({ pointers: params?.pointers !== false })) };
+      case "projectMemory.decline":
+        return { result: await callProjectMemory("decline", decline => decline({ never: params?.never === true })) };
+      case "projectMemory.disable":
+        return { result: await callProjectMemory("disable", disable => disable()) };
+      case "projectMemory.configure": {
+        if (!isPlainObject(params.configuration)) throw new ProtocolError("INVALID_PARAMS", "configuration is required");
+        return { result: await callProjectMemory("configure", configure => configure(params.configuration)) };
+      }
+      case "projectMemory.update": {
+        const reason = params?.reason === "close" ? "close" : "manual";
+        const note = typeof params?.note === "string" ? params.note.slice(0, 2000) : "";
+        return { result: await callProjectMemory("update", update => update({ reason, note })) };
+      }
+      case "projectMemory.summarize":
+        return { result: await callProjectMemory("summarize", summarize => summarize()) };
+      case "projectMemory.refreshFacts":
+        return { result: await callProjectMemory("refreshFacts", refreshFacts => refreshFacts()) };
+      case "projectMemory.pointers":
+        return { result: await callProjectMemory("addPointers", addPointers => addPointers()) };
+      case "projectMemory.open":
+        return { result: await callProjectMemory("reveal", reveal => reveal()) };
+      case "projectMemory.closePrompt":
+        return { result: await callProjectMemory("closePrompt", closePrompt => closePrompt(requireString(params, "state"))) };
       case "mobile.audit.list":
         return { result: await callMobile("listAudit", listAudit => listAudit(params.limit)) };
       case "recipe.list":

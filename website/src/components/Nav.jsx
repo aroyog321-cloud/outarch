@@ -3,13 +3,14 @@ import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-
 import { DownloadSimple, List, UserCircle, X } from '@phosphor-icons/react';
 import { Link, useRouter } from '../lib/router.jsx';
 import { useSession } from '../lib/session.js';
-import { Lockup } from './Brand.jsx';
+import { Wordmark } from './Brand.jsx';
 import { Button, EASE } from './ui.jsx';
 
 const LINKS = [
   ['Live demo', '/#demo'],
   ['Features', '/#features'],
   ['How it works', '/#how'],
+  ['Memory', '/#memory'],
   ['Mobile', '/#mobile'],
   ['Pricing', '/pricing'],
 ];
@@ -29,7 +30,8 @@ export default function Nav() {
 
   return <header className="fixed inset-x-0 top-0 z-40">
     <div className={`mt-3 flex h-[60px] items-center justify-between gap-4 rounded-full px-3 pl-4 transition-all duration-500 ${raised ? 'bg-ink-900/70 shadow-[0_0_0_1px_rgba(255,255,255,0.09),0_18px_50px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl' : ''}`} style={{ marginInline: 'max(12px, calc((100vw - 1240px) / 2))' }}>
-      <Link to="/" className="shrink-0 rounded-full" aria-label="OUTARCH home"><Lockup/></Link>
+      {/* The name alone, at a size that reads from across the page; it glitches all the time, with a bigger burst now and then and on hover. */}
+      <Link to="/" className="flex h-11 shrink-0 items-center rounded-full px-1.5" aria-label="OUTARCH home"><Wordmark auto live className="block h-[22px] w-auto sm:h-[26px]"/></Link>
 
       <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
         {LINKS.map(([label, to]) => <Link key={to} to={to} className={`rounded-full px-3.5 py-2 text-[14px] transition-colors hover:bg-white/[0.06] hover:text-fg ${path === to ? 'text-fg' : 'text-fg-muted'}`}>{label}</Link>)}

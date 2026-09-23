@@ -10,12 +10,12 @@ export const SITE = {
   address: '',
   // Shown on the contact page. When empty, the support email saved in
   // Supabase (app_config.support_email) is used instead.
-  supportEmail: '',
+  supportEmail: 'outarch54@gmail.com',
   supportPhone: '',
   // The courts and law that apply to the terms.
   jurisdiction: 'India',
   // The date the policies below were last changed.
-  policiesUpdated: '19 September 2026',
+  policiesUpdated: '22 September 2026',
 };
 
 export function operatorName() {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion';
 import { ArrowDown, BellRinging, CheckCircle, DownloadSimple, Play, ShieldCheck, Sparkle, WarningDiamond } from '@phosphor-icons/react';
 import { Button, EASE, Reveal } from '../components/ui.jsx';
 import DemoApp from '../demo/DemoApp.jsx';
@@ -15,15 +15,19 @@ const NOTICES = [
 
 function NoticeStack() {
   const reduce = useReducedMotion();
+  const stack = useRef(null);
+  // The cards cycle only while they are on screen; off screen the timer would
+  // keep re-laying them out under everything else on the page.
+  const inView = useInView(stack, { margin: '120px 0px' });
   const [start, setStart] = useState(0);
   useEffect(() => {
-    if (reduce) return undefined;
+    if (reduce || !inView) return undefined;
     const timer = window.setInterval(() => setStart(value => (value + 1) % NOTICES.length), 2600);
     return () => window.clearInterval(timer);
-  }, [reduce]);
+  }, [reduce, inView]);
   const shown = [0, 1, 2].map(offset => NOTICES[(start + offset) % NOTICES.length]);
 
-  return <div className="relative mx-auto w-full max-w-[400px]" aria-hidden="true">
+  return <div ref={stack} className="relative mx-auto w-full max-w-[400px]" aria-hidden="true">
     <div className="absolute -inset-10 rounded-[40px] bg-[radial-gradient(closest-side,rgba(47,123,255,0.28),transparent)] blur-2xl"/>
     <div className="relative flex flex-col gap-3">
       <AnimatePresence initial={false} mode="popLayout">
@@ -59,7 +63,7 @@ export function Hero() {
   return <section className="relative z-[1] mx-auto grid grid-cols-1 min-h-[100dvh] max-w-page items-center gap-14 px-5 pb-16 pt-28 md:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:pt-24">
     <div>
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
-        <span className="chip">Works with Claude Code, Codex, Gemini CLI and OpenCode</span>
+        <span className="chip">Works with Claude Code, Codex, Gemini CLI, OpenCode and more</span>
       </motion.div>
       <motion.h1
         className="display mt-6 text-[clamp(2.9rem,7vw,5.6rem)]"
@@ -67,7 +71,7 @@ export function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, delay: 0.08, ease: EASE }}
       >
-        Your AI agents, <span className="ghost-ink whitespace-nowrap">supervised.</span>
+        Your dev stack, <span className="ghost-ink whitespace-nowrap">supervised.</span>
       </motion.h1>
       <motion.p
         className="lede mt-6 text-[clamp(1.05rem,1.6vw,1.25rem)]"
@@ -75,7 +79,7 @@ export function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, delay: 0.18, ease: EASE }}
       >
-        OUTARCH runs dev servers, tests and coding agents side by side on Windows, and tells you the moment one needs you.
+        Run your dev servers, tests and AI coding agents side by side in one window. OUTARCH watches them all and tells you the moment one needs you.
       </motion.p>
       <motion.div
         className="mt-9 flex flex-wrap items-center gap-3"
@@ -95,21 +99,23 @@ export function Hero() {
 
 export function DemoStage() {
   const reduce = useReducedMotion();
-  const stage = useRef(null);
-  const { scrollYProgress } = useScroll({ target: stage, offset: ['start end', 'start 0.25'] });
-  const smooth = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
-  const rotateX = useTransform(smooth, [0, 1], [reduce ? 0 : 22, 0]);
-  const scale = useTransform(smooth, [0, 1], [reduce ? 1 : 0.9, 1]);
-  const y = useTransform(smooth, [0, 1], [reduce ? 0 : 60, 0]);
-
+  // The window tilts up into place once, the first time it comes into view.
+  // It used to follow every scroll frame, which redrew the whole replica each
+  // frame and was the heaviest thing on the page to scroll past.
   return <section id="demo" className="relative z-[1] mx-auto max-w-page scroll-mt-24 px-4 pb-24 md:px-8">
     <div className="mb-10 max-w-3xl">
-      <Reveal><h2 className="display text-[clamp(2rem,4.4vw,3.4rem)]">Take the cockpit for a spin.</h2></Reveal>
-      <Reveal delay={0.08}><p className="lede mt-4 text-[17px]">A working replica of the desktop app. The terminals are simulated in your browser; the layout, the alerts and the decisions work the way they do in OUTARCH.</p></Reveal>
-      <Reveal delay={0.14}><p className="mt-5 inline-flex items-center gap-2 text-[14px] text-fg-muted"><ArrowDown size={15}/>Click a terminal, switch layouts, press Ctrl K inside the window.</p></Reveal>
+      <Reveal><h2 className="display text-[clamp(2rem,4.4vw,3.4rem)]">See it running, right here.</h2></Reveal>
+      <Reveal delay={0.08}><p className="lede mt-4 text-[17px]">This is a working simulation of the OUTARCH desktop app. The terminals are simulated in your browser; the alerts, decisions and layouts behave as they do in the app.</p></Reveal>
+      <Reveal delay={0.14}><p className="mt-5 inline-flex items-center gap-2 text-[14px] text-fg-muted"><ArrowDown size={15}/>Start on Groundstation, open a terminal, or press Ctrl K inside the window.</p></Reveal>
     </div>
-    <div ref={stage} style={{ perspective: 1600 }}>
-      <motion.div style={{ rotateX, scale, y, transformOrigin: '50% 0%' }}>
+    <div style={{ perspective: 1600 }}>
+      <motion.div
+        initial={reduce ? false : { rotateX: 22, scale: 0.9, y: 60 }}
+        whileInView={{ rotateX: 0, scale: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.12 }}
+        transition={{ duration: 1.1, ease: EASE }}
+        style={{ transformOrigin: '50% 0%' }}
+      >
         <DemoApp/>
       </motion.div>
     </div>

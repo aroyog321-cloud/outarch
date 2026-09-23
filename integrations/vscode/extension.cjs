@@ -63,7 +63,7 @@ function setStatus(state, detail = "") {
     statusItem.backgroundColor = undefined;
   } else if (state === "connecting") {
     statusItem.text = "$(sync~spin) OUTARCH";
-    statusItem.tooltip = "Authenticating with the local Groundstation";
+    statusItem.tooltip = "Connecting to OUTARCH on this computer";
     statusItem.backgroundColor = undefined;
   } else {
     statusItem.text = "$(debug-disconnect) OUTARCH";
@@ -335,7 +335,7 @@ function handleFrame(message) {
   if (!message || typeof message !== "object") return;
   if (!authenticated) {
     if (message.type !== "hello:ack" || message.protocolVersion !== PROTOCOL_VERSION) {
-      disconnect("Groundstation rejected the handshake");
+      disconnect("OUTARCH rejected the connection");
       return;
     }
     authenticated = true;
@@ -364,7 +364,7 @@ function handleData(chunk) {
     buffer = buffer.slice(newline + 1);
     if (!line.trim()) continue;
     try { handleFrame(JSON.parse(line)); }
-    catch { disconnect("Groundstation sent an invalid bridge message"); }
+    catch { disconnect("OUTARCH sent an invalid bridge message"); }
   }
 }
 
@@ -392,7 +392,7 @@ async function connectFromUri(uri) {
   connection.setEncoding("utf8");
   connection.setNoDelay(true);
   const timeout = setTimeout(() => {
-    if (!authenticated && socket === connection) disconnect("Groundstation handshake timed out");
+    if (!authenticated && socket === connection) disconnect("OUTARCH did not answer in time");
   }, 10_000);
   connection.on("connect", () => send({
     type: "hello",
@@ -409,7 +409,7 @@ async function connectFromUri(uri) {
   });
   connection.on("close", () => {
     clearTimeout(timeout);
-    if (socket === connection) disconnect("Groundstation connection closed");
+    if (socket === connection) disconnect("OUTARCH closed the connection");
   });
 }
 
@@ -454,7 +454,7 @@ function activate(context) {
   context.subscriptions.push(
     statusItem,
     vscode.window.registerUriHandler({ handleUri: connectFromUri }),
-    vscode.commands.registerCommand("missionControlBridge.connect", () => vscode.window.showInformationMessage("Use Connect VS Code in OUTARCH Settings to create a secure invitation.")),
+    vscode.commands.registerCommand("missionControlBridge.connect", () => vscode.window.showInformationMessage("In OUTARCH, open Integrations, then VS Code Bridge, and choose Connect VS Code to create a secure invitation.")),
     vscode.commands.registerCommand("missionControlBridge.disconnect", () => disconnect("Disconnected by you")),
     vscode.window.onDidChangeActiveTextEditor(scheduleSnapshot),
     vscode.window.onDidChangeTextEditorSelection(scheduleSnapshot),

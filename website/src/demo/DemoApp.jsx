@@ -89,6 +89,7 @@ export default function DemoApp() {
   const hovering = useRef(false);
   const chime = useChime(sound);
   const lastChime = useRef(0);
+  const lastScroll = useRef(0);
   const scale = useFit(pan);
 
   useEffect(() => {
@@ -99,9 +100,20 @@ export default function DemoApp() {
     return () => observer.disconnect();
   }, []);
 
+  // The terminals hold still while the page is scrolling: a tick redraws the
+  // whole replica, and doing that mid-scroll dropped frames.
+  useEffect(() => {
+    const onScroll = () => { lastScroll.current = performance.now(); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     if (!visible) return undefined;
-    const timer = window.setInterval(() => { if (!document.hidden) dispatch({ type: 'TICK' }); }, TICK_MS);
+    const timer = window.setInterval(() => {
+      if (document.hidden || performance.now() - lastScroll.current < 200) return;
+      dispatch({ type: 'TICK' });
+    }, TICK_MS);
     return () => window.clearInterval(timer);
   }, [visible]);
 
@@ -125,13 +137,13 @@ export default function DemoApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [state.palette]);
 
-  const View = VIEWS[state.route] || WorkspaceView;
+  const View = VIEWS[state.route] || GroundstationView;
 
   return <DemoContext.Provider value={{ state, dispatch }}>
     <div ref={root} className="oa-demo" onPointerEnter={() => { hovering.current = true; }} onPointerLeave={() => { hovering.current = false; }} onPointerDown={chime.unlock}>
       <Guide sound={sound} setSound={setSound}/>
       <div className="rx-stage">
-        <div ref={pan} className="rx-pan" data-lenis-prevent="">
+        <div ref={pan} className="rx-pan">
           <div className="rx-fit" style={{ width: WIDTH * scale, height: HEIGHT * scale }}>
             <div className="rx-window" style={{ transform: `scale(${scale})` }} role="region" aria-label="Interactive OUTARCH demo. Everything here is simulated in your browser.">
               <Rail/>
@@ -149,7 +161,7 @@ export default function DemoApp() {
           </div>
         </div>
       </div>
-      <p className="oa-pan-hint">Swipe sideways to see the whole window. It is easiest to explore on a larger screen.</p>
+      <p className="oa-pan-hint">Swipe sideways to see the whole window. It's easier to explore on a larger screen.</p>
     </div>
   </DemoContext.Provider>;
 }

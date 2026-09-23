@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useInView } from 'framer-motion';
 import { Check, Crown, Minus } from '@phosphor-icons/react';
 import { EVERY_PLAN, LIMIT_ROWS, priceOf } from '../lib/catalog.js';
 import { formatMoney } from '../lib/currency.js';
@@ -24,13 +24,16 @@ export function PricingControls({ period, setPeriod, currency, setCurrency }) {
 }
 
 const COPY = {
-  free: { cta: 'Download free', points: ['3 terminals at once', '1 project', 'Mission AI: 3 messages a day', 'Recipes: 1 recipe, 3-day trial', 'Every permission alert and Needs You'] },
-  pro: { cta: 'Get Pro', points: ['8 terminals at once', 'Unlimited projects, switch any time', 'Unlimited Mission AI*', '3 recipes', '1 key of your own (BYOK)', 'Mobile companion', 'MCP gateway, read-only tools'] },
-  ultimate: { cta: 'Get Ultimate', points: ['Unlimited terminals', 'Unlimited projects', 'Unlimited Mission AI*', 'Unlimited recipes', 'Unlimited keys of your own', 'Mobile companion', 'Full MCP gateway', 'VS Code bridge'] },
+  free: { cta: 'Download free', points: ['3 terminals at once', '1 project', 'Mission AI: 3 messages a day', 'Recipes: 1 recipe, 3-day trial', 'Permission alerts and Needs You'] },
+  pro: { cta: 'Get Pro', points: ['8 terminals at once', 'Unlimited projects, switch any time', 'Unlimited Mission AI*', '3 recipes', '1 AI key of your own (BYOK)', 'Mobile companion', 'MCP gateway, read-only tools'] },
+  ultimate: { cta: 'Get Ultimate', points: ['Unlimited terminals', 'Unlimited projects', 'Unlimited Mission AI*', 'Unlimited recipes', 'Unlimited AI keys of your own', 'Mobile companion', 'Full MCP gateway', 'VS Code bridge'] },
 };
 
 function PlanCard({ plan, period, currency, current }) {
   const spotlight = useSpotlight();
+  // The recommended plan's ring turns only while the card is on screen.
+  const card = useRef(null);
+  const inView = useInView(card, { margin: '80px 0px' });
   const featured = plan.id === 'ultimate';
   const price = priceOf(plan.prices, plan.id, period, currency);
   const monthly = priceOf(plan.prices, plan.id, 'month', currency);
@@ -38,12 +41,13 @@ function PlanCard({ plan, period, currency, current }) {
   const isCurrent = current === plan.id;
   const href = plan.id === 'free' ? '/#download' : `/checkout?plan=${plan.id}&period=${period}&currency=${currency}`;
   return <motion.article
+    ref={card}
     variants={staggerItem}
     onPointerMove={spotlight}
     className={`card spotlight relative flex flex-col rounded-card p-7 ${featured ? 'bg-[linear-gradient(180deg,rgba(47,123,255,0.12),rgba(155,123,255,0.05)_50%,rgba(255,255,255,0.02))]' : ''}`}
     style={{ '--spot': featured ? '155,123,255' : plan.id === 'pro' ? '47,123,255' : '63,208,181' }}
   >
-    {featured ? <span className="ring-border" aria-hidden="true"/> : null}
+    {featured ? <span className="ring-border" style={{ animationPlayState: inView ? 'running' : 'paused' }} aria-hidden="true"/> : null}
     <div className="flex items-center justify-between">
       <h3 className="flex items-center gap-2 text-[20px] font-semibold">{plan.id !== 'free' ? <Crown size={18} weight="fill" className={featured ? 'text-brand-violet' : 'text-brand-sky'}/> : null}{plan.name}</h3>
       {isCurrent ? <span className="chip">Your plan</span> : featured ? <span className="rounded-full bg-brand-violet/15 px-3 py-1 text-[12px] font-semibold text-[#d6ccff] shadow-[inset_0_0_0_1px_rgba(155,123,255,0.4)]">Everything</span> : null}
@@ -98,7 +102,7 @@ export function CompareTable({ plans }) {
         </tr>)}
         <tr className="border-t border-line-soft">
           <th scope="row" className="p-5 align-top font-normal text-fg-soft">In every plan</th>
-          <td colSpan={plans.length} className="p-5 text-center text-fg-muted">{EVERY_PLAN.join(' · ')}</td>
+          <td colSpan={plans.length} className="p-5 text-center text-fg-muted">{EVERY_PLAN.map((item, index) => <React.Fragment key={item}>{index ? ' · ' : null}<span className="whitespace-nowrap">{item}</span></React.Fragment>)}</td>
         </tr>
       </tbody>
     </table>

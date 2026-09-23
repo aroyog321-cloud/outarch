@@ -130,6 +130,13 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+/* A saved order that matches no template says so, instead of an unexplained
+   row of unselected choices. */
+.recipes-dialog.recipes-dialog-v2 .recipe-template-strip > p {
+  margin: 8px 0 0;
+  color: var(--mc-text-muted);
+  font-size: 11px;
+}
 .recipes-dialog.recipes-dialog-v2 .recipe-template-strip button {
   position: relative;
   display: grid;
@@ -2093,13 +2100,17 @@
   background: var(--mc-ok-soft) !important;
 }
 
+/* The lifecycle help sits at the end of the heading it explains, beside the
+   hint, instead of on a row of its own above the queue. */
+#root#root .shell .needs-decision-room .decision-room-heading > span { margin-left: auto; }
 #root#root .shell .needs-decision-room .attention-lifecycle-bar {
   position: relative;
   display: block;
+  flex-shrink: 0;
   width: max-content;
   max-width: 100%;
   min-height: 0 !important;
-  margin: var(--mc-space-2) 0 0 auto;
+  margin: 0 0 0 var(--mc-space-3);
   padding: 0 !important;
   background: transparent !important;
   border: 0 !important;

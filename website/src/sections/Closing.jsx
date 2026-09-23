@@ -6,7 +6,7 @@ import {
 import { PlanCards, PricingControls } from '../components/Pricing.jsx';
 import { Button, EASE, Reveal, SectionTitle, useSpotlight } from '../components/ui.jsx';
 import { Wordmark } from '../components/Brand.jsx';
-import { formatBytes, useCatalog } from '../lib/catalog.js';
+import { formatBytes, microsoftStoreLinks, useCatalog } from '../lib/catalog.js';
 import { useCurrency } from '../lib/currency.js';
 import { Link } from '../lib/router.jsx';
 
@@ -18,10 +18,10 @@ export function PricingSection() {
   const [period, setPeriod] = useState('month');
   return <section id="pricing" className="relative z-[1] mx-auto max-w-page scroll-mt-24 px-5 py-24 md:px-8">
     <div className="pointer-events-none absolute inset-x-0 top-24 mx-auto h-[420px] max-w-[900px] rounded-full bg-[radial-gradient(closest-side,rgba(155,123,255,0.14),transparent)]" aria-hidden="true"/>
-    <SectionTitle align="center" kicker="Pricing" title="Start free. Upgrade when your stack grows." lede="Prepaid monthly or yearly plans. Pay once, the plan switches on the moment the payment clears, and nothing renews by itself."/>
+    <SectionTitle align="center" kicker="Pricing" title="Start free. Upgrade when your stack grows." lede="Pay for a month or a year. Your plan switches on as soon as the payment clears, and nothing renews automatically."/>
     <Reveal delay={0.1} className="mt-10"><PricingControls period={period} setPeriod={setPeriod} currency={currency} setCurrency={setCurrency}/></Reveal>
     <div className="mt-10"><PlanCards plans={catalog.plans} prices={catalog.prices} period={period} currency={currency}/></div>
-    <p className="mt-6 text-center text-[13.5px] text-fg-dim">*Unlimited Mission AI has a fair-use ceiling of 2,000 messages a day. Prices include no hidden fees; your bank may convert the currency. <Link to="/pricing#compare" className="link-underline text-fg-muted hover:text-fg">Compare every limit</Link></p>
+    <p className="mt-6 text-center text-[13.5px] text-fg-dim">*Unlimited Mission AI has a fair-use limit of 2,000 messages a day. No hidden fees, though your bank may charge for currency conversion. <Link to="/pricing#compare" className="link-underline text-fg-muted hover:text-fg">Compare every limit</Link></p>
   </section>;
 }
 
@@ -36,11 +36,13 @@ function CopyLine({ text }) {
 }
 
 export function DownloadSection() {
-  const { release, androidApkUrl, loading } = useCatalog();
+  const { release, androidApkUrl, microsoftStoreId, loading } = useCatalog();
+  // Once the app is listed, Windows installs come from the Microsoft Store.
+  const store = microsoftStoreLinks(microsoftStoreId);
   const spotlight = useSpotlight();
   const published = release ? new Date(release.published_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   return <section id="download" className="relative z-[1] mx-auto max-w-page scroll-mt-24 px-5 py-24 md:px-8">
-    <SectionTitle title="Get OUTARCH." lede="The desktop app is where everything runs. The phone companion and the VS Code bridge connect to it."/>
+    <SectionTitle title="Get OUTARCH." lede="Everything runs in the desktop app. The mobile companion and the VS Code bridge connect to it."/>
     <div className="mt-14 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <Reveal className="h-full">
         <article onPointerMove={spotlight} className="card spotlight relative flex h-full flex-col overflow-hidden p-7 sm:p-9">
@@ -49,49 +51,59 @@ export function DownloadSection() {
             <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-brand-blue/15 text-brand-sky shadow-[inset_0_0_0_1px_rgba(47,123,255,0.4)]"><WindowsLogo size={24} weight="fill"/></span>
             <div>
               <h3 className="text-[22px] font-semibold">OUTARCH for Windows</h3>
-              <p className="text-[14px] text-fg-muted">{release ? `Version ${release.version} · ${formatBytes(release.size_bytes)} · ${published}` : loading ? 'Checking for the latest version…' : 'Windows 11 · Free plan included'}</p>
+              <p className="text-[14px] text-fg-muted">{store ? 'Windows 10 and 11 · Microsoft Store · Free plan included' : release ? `Version ${release.version} · ${formatBytes(release.size_bytes)} · ${published}` : loading ? 'Checking for the latest version…' : 'Windows 11 · Free plan included'}</p>
             </div>
           </div>
           <ol className="relative mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {[
+            {(store ? STORE_STEPS : [
               ['Download and extract the ZIP', 'Any folder works, for example D:\\Apps\\OUTARCH.'],
-              ['Run OPEN_OUTARCH_WINDOWS.cmd', 'The first run installs the native terminal support. It needs Node.js 22 LTS.'],
-              ['Sign in from the browser', 'Create a free account with email or Google. The browser hands you back to the app.'],
-              ['Open your project', 'Add terminals and agents. Updates arrive on their own after that, signed and verified.'],
-            ].map(([title, body], index) => <li key={title} className="flex gap-3">
+              ['Run OPEN_OUTARCH_WINDOWS.cmd', 'The first run installs what OUTARCH needs, which takes a few minutes. It requires Node.js 22.12 or newer (22 LTS).'],
+              ['Sign in from your browser', 'Create a free account with email or Google. Your browser sends you back to the app.'],
+              ['Open your project', 'Add your terminals and agents. New versions are offered inside the app, signed and verified.'],
+            ]).map(([title, body], index) => <li key={title} className="flex gap-3">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06] font-mono text-[12.5px] text-fg-soft shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]">{index + 1}</span>
               <div className="min-w-0"><p className="text-[15px] font-medium [overflow-wrap:anywhere]">{title}</p><p className="mt-0.5 text-[13.5px] leading-relaxed text-fg-muted">{body}</p></div>
             </li>)}
           </ol>
           <div className="relative mt-auto pt-9">
-            {release
+            {store
+              ? <div className="flex flex-wrap items-center gap-3">
+                <Button href={store.install} size="lg" cursor="Get it"><DownloadSimple size={19} weight="bold"/>Download for Windows</Button>
+                <a href={store.listing} target="_blank" rel="noreferrer" className="link-underline text-[14px] text-fg-muted hover:text-fg">View in the Microsoft Store</a>
+              </div>
+              : release
               ? <div className="flex flex-wrap items-center gap-3">
                 <Button href={release.download_url} size="lg" cursor="Download" download><DownloadSimple size={19} weight="bold"/>Download for Windows</Button>
-                <a href="https://nodejs.org/en/download" target="_blank" rel="noreferrer" className="link-underline text-[14px] text-fg-muted hover:text-fg">Get Node.js 22 LTS</a>
+                <a href={NODE_22_URL} target="_blank" rel="noreferrer" className="link-underline text-[14px] text-fg-muted hover:text-fg">Get Node.js 22 LTS</a>
               </div>
               : <div className="rounded-field bg-white/[0.04] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]">
                 <p className="text-[15px] font-medium">{loading ? 'Looking up the latest build…' : 'The first public build is being prepared.'}</p>
-                {!loading ? <p className="mt-1 text-[14px] text-fg-muted">The download appears here as soon as it is published. Create your free account now and you are ready to sign in on day one.</p> : null}
+                {!loading ? <p className="mt-1 text-[14px] text-fg-muted">The download will appear here once it's published. Create your free account now so you can sign in on day one.</p> : null}
                 {!loading ? <div className="mt-4"><Button to="/auth?mode=signup" variant="glass" size="sm">Create a free account<ArrowRight size={15}/></Button></div> : null}
               </div>}
-            {release?.sha256 ? <p className="mt-4 flex items-center gap-2 font-mono text-[11.5px] text-fg-dim"><ShieldCheck size={14} className="text-brand-mint"/>SHA-256 {release.sha256.slice(0, 16)}…{release.sha256.slice(-8)}</p> : null}
+            <p className="mt-4 text-[13px] leading-relaxed text-fg-dim">By downloading and using OUTARCH you agree to the <Link to="/terms" className="link-underline text-fg-muted hover:text-fg">Terms of service</Link> and the <Link to="/eula" className="link-underline text-fg-muted hover:text-fg">licence</Link>. The app asks you to confirm when it first starts. See the <Link to="/privacy" className="link-underline text-fg-muted hover:text-fg">privacy policy</Link> for what it sends and when.</p>
+            {!store && release?.sha256 ? <p className="mt-4 flex items-center gap-2 font-mono text-[11.5px] text-fg-dim"><ShieldCheck size={14} className="text-brand-mint"/>SHA-256 {release.sha256.slice(0, 16)}…{release.sha256.slice(-8)}</p> : null}
           </div>
         </article>
       </Reveal>
       <div className="grid grid-cols-1 gap-5">
         <Reveal delay={0.06}>
-          <article onPointerMove={spotlight} className="card spotlight relative overflow-hidden p-7" style={{ '--spot': '63,208,181' }}>
+          <article id="mobile-app" onPointerMove={spotlight} className="card spotlight relative scroll-mt-28 overflow-hidden p-7" style={{ '--spot': '63,208,181' }}>
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-[13px] bg-brand-mint/10 text-brand-mint shadow-[inset_0_0_0_1px_rgba(63,208,181,0.35)]"><DeviceMobile size={22} weight="duotone"/></span>
               <div><h3 className="text-[18px] font-semibold">Mobile companion</h3><p className="text-[13.5px] text-fg-muted">Pro and Ultimate</p></div>
             </div>
-            <p className="mt-4 text-[14.5px] leading-relaxed text-fg-muted">Nothing to download from a store. In OUTARCH open <span className="text-fg-soft">Settings, Mobile companion</span>, scan the QR code with your phone on the same network, enter the 6-digit code and add it to your home screen.</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <span className="chip"><QrCode size={14}/>Pair by QR code</span>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-fg-muted">It installs from your phone's browser, so there is no app store step.</p>
+            <ol className="mt-4 flex flex-col gap-2 text-[14px] text-fg-soft">
+              {['In OUTARCH, open Integrations, then Mobile Companion.', 'Scan the QR code with your phone on the same network.', 'Check the 6-digit code matches, tap Pair this phone, then add it to your home screen.'].map((step, index) => <li key={step} className="flex gap-2.5"><span className="font-mono text-[12.5px] text-brand-mint">{index + 1}</span>{step}</li>)}
+            </ol>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               {androidApkUrl
-                ? <a className="chip hover:text-fg" href={androidApkUrl}><AndroidLogo size={14} weight="fill"/>Android app (APK)</a>
-                : <span className="chip"><AndroidLogo size={14} weight="fill"/>Android 13+ source included</span>}
+                ? <Button href={androidApkUrl} variant="mint" size="sm" magnetic={false} download><AndroidLogo size={16} weight="fill"/>Download for Android</Button>
+                : null}
+              <span className="chip"><QrCode size={14}/>Pairs by QR code</span>
             </div>
+            <p className="mt-4 text-[13px] text-fg-dim"><Link to="/mobile-privacy" className="link-underline text-fg-muted hover:text-fg">Mobile privacy and permissions</Link></p>
           </article>
         </Reveal>
         <Reveal delay={0.12}>
@@ -100,8 +112,9 @@ export function DownloadSection() {
               <span className="grid h-11 w-11 place-items-center rounded-[13px] bg-brand-violet/10 text-brand-violet shadow-[inset_0_0_0_1px_rgba(155,123,255,0.35)]"><Code size={22} weight="duotone"/></span>
               <div><h3 className="text-[18px] font-semibold">VS Code bridge</h3><p className="text-[13.5px] text-fg-muted">Ultimate</p></div>
             </div>
-            <p className="mt-4 text-[14.5px] leading-relaxed text-fg-muted">The extension ships inside the download. Install it once, then choose <span className="text-fg-soft">Connect VS Code</span> in OUTARCH Settings.</p>
-            <div className="mt-4"><CopyLine text="code --install-extension integrations\vscode\mission-control-bridge-0.2.0.vsix"/></div>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-fg-muted">The extension ships inside the download. Install it once, then connect it in OUTARCH under <span className="text-fg-soft">Integrations, VS Code Bridge</span>.</p>
+            <div className="mt-4"><CopyLine text="code --install-extension integrations\vscode\outarch-bridge-1.0.0.vsix"/></div>
+            <p className="mt-4 text-[13px] text-fg-dim">It shares file paths, diagnostics, Git state and VS Code terminal activity with the app on this computer, never file contents. <Link to="/ai-data#vs-code-bridge" className="link-underline text-fg-muted hover:text-fg">What it shares</Link></p>
           </article>
         </Reveal>
       </div>
@@ -111,15 +124,30 @@ export function DownloadSection() {
 
 // ------------------------------------------------------------------ faq
 
+const NODE_22_URL = 'https://nodejs.org/dist/latest-v22.x/';
+
+const STORE_STEPS = [
+  ['Download for Windows', 'Your browser saves a small installer from Microsoft. Open it.'],
+  ['The Microsoft Store installs OUTARCH', 'Signed and delivered by Microsoft. Nothing else to set up, and no Node.js needed.'],
+  ['Sign in from your browser', 'Create a free account with email or Google. Your browser sends you back to the app.'],
+  ['Open your project', 'Add your terminals and agents. The Store keeps OUTARCH up to date.'],
+];
+
 const FAQ = [
-  ['Is my code sent anywhere?', 'No. Your terminals, files and the engine run on your computer. Mission AI sends a bounded, redacted summary of your workspace to the model you choose only when you ask it something, and terminal output only if you allow it.'],
-  ['Which AI agents does it work with?', 'Any agent with a command line runs in an OUTARCH terminal. Permission alerts recognise Claude Code, Codex, Gemini CLI, GitHub Copilot, Cursor, OpenCode, Goose and Aider, and the app has one-click setups for Claude Code, Codex, Gemini CLI and OpenCode.'],
-  ['Does it run on macOS or Linux?', 'Not yet. The desktop app is built and tested for Windows 11. It needs Node.js 22 LTS, which the first run uses to install native terminal support.'],
-  ['Why do I need an account?', 'Your plan lives on your account, so the app asks you to sign in once through the browser. After that it keeps working offline for up to 72 hours on the last plan it confirmed.'],
-  ['How does paying work?', 'Plans are prepaid for one month or twelve. You pay on this website through Cashfree with UPI, cards or netbanking. The plan switches on as soon as the payment clears and the app picks it up within a few minutes, or at once if you press Open OUTARCH after paying. Nothing renews automatically; buy again to extend.'],
-  ['Can I move from Pro to Ultimate?', 'Yes. Buy Ultimate and the Pro time you have left is carried over, converted at the two monthly prices, so you never pay twice for the same days.'],
-  ['What happens when a plan ends?', 'Your account drops to Free. Projects, settings and history stay where they are; features above the Free limits lock until you buy again.'],
-  ['Can I get a refund?', 'See the refund and cancellation policy for the details and how to ask.'],
+  ['What is OUTARCH?', 'A command center for your development work on Windows. It runs your terminals, dev servers, tests and AI coding agents in one window, watches them, and tells you when one needs a decision.'],
+  ['Is it only for AI agents?', 'No. Anything that runs in a terminal can be a worker: dev servers, test watchers, databases, plain shells. AI agents get extra help, such as permission alerts.'],
+  ['What platforms does it support?', 'Windows 11. The first run needs Node.js 22 (22.12 or newer) to install what OUTARCH uses. macOS and Linux are not supported yet.'],
+  ['Does my code leave my computer?', 'Not unless you use Mission AI. Your terminals, files and the engine run on your computer. When you ask Mission AI something, the context it needs, including any project files it reads to answer you, goes to the AI model you chose. It skips files that hold secrets, and terminal output is included only if you allow it.'],
+  ['Which agents work with it?', 'Any agent with a command line runs in an OUTARCH terminal. Permission alerts recognize Claude Code, Codex, Gemini CLI, GitHub Copilot, Cursor, OpenCode, Goose and Aider. Claude Code, Codex, Gemini CLI and OpenCode also have one-click setup.'],
+  ['What happens when an agent needs permission?', 'OUTARCH plays a sound and shows a notice, plus a Windows notification if the app is in the background. One click opens that agent\'s terminal, where you answer as usual. The notice clears as soon as you do.'],
+  ['What happens when a worker crashes?', 'It is marked as failed, you get a notice, and it appears in Needs You with what it printed last. Restart it from there, or ask Mission AI what went wrong.'],
+  ['What is Mission AI?', 'An assistant built into OUTARCH. It answers from your live workers, errors and history, and it asks for your approval before it runs a command or changes anything. Free includes 3 messages a day.'],
+  ['What is project memory?', 'An arch_memory.md that OUTARCH keeps in your project, once you agree to it: what the project is for, how it runs, and every change, error and fix with who made it and why. AI agents such as Claude Code and Codex read it before they work and add a short entry when they finish. When you close OUTARCH after working by hand, Mission AI records what changed. Entries are only ever added, and secrets are removed.'],
+  ['What is the mobile companion?', 'A phone app that pairs with OUTARCH over your own network. Use it to see what is running, start or restart terminals and run recipes while you are away from your desk. It comes with Pro and Ultimate.'],
+  ['Do I need an account?', 'Yes. Your plan is tied to your account, so the app asks you to sign in once through your browser. After that it keeps working offline for up to 72 hours on the last plan it confirmed.'],
+  ['How does pricing work?', 'Plans are prepaid for a month or a year and paid on this website through Cashfree, with UPI, cards or netbanking. The app picks up a new plan within five minutes, and nothing renews automatically. When a plan ends, your account returns to Free and your projects and settings stay as they are.'],
+  ['Can I move from Pro to Ultimate?', 'Yes. Buy Ultimate and the Pro time you have left carries over, converted at the two monthly prices, so you never pay twice for the same days.'],
+  ['Can I get a refund?', 'The refund and cancellation policy explains when you can and how to ask.'],
 ];
 
 function FaqItem({ question, answer, open, onToggle, index }) {
@@ -160,10 +188,10 @@ export function FinalCta() {
     <div className="relative mx-auto max-w-page overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,rgba(47,123,255,0.22),rgba(155,123,255,0.14)_45%,rgba(63,208,181,0.16))] px-6 py-20 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] sm:px-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(255,255,255,0.12),transparent)]" aria-hidden="true"/>
       <Reveal><Wordmark auto className="mx-auto h-auto w-[min(560px,80vw)] cursor-pointer"/></Reveal>
-      <Reveal delay={0.08}><p className="mx-auto mt-8 max-w-[46ch] text-[clamp(1.1rem,2vw,1.35rem)] text-fg-soft">Put every terminal and agent in one window, and stop checking on them by hand.</p></Reveal>
+      <Reveal delay={0.08}><p className="mx-auto mt-8 max-w-[46ch] text-[clamp(1.1rem,2vw,1.35rem)] text-fg-soft">Run everything in one place. Step in only when it matters.</p></Reveal>
       <Reveal delay={0.14} className="mt-9 flex flex-wrap justify-center gap-3">
         <Button to="/#download" size="lg" cursor="Get it"><DownloadSimple size={19} weight="bold"/>Download for Windows</Button>
-        <Button to="/pricing" size="lg" variant="glass">See pricing</Button>
+        <Button to="/pricing" size="lg" variant="glass">View pricing</Button>
       </Reveal>
     </div>
   </section>;

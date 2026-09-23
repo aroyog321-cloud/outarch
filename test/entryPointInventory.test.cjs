@@ -18,7 +18,8 @@ const app = fs.readFileSync(path.resolve(__dirname, "../src/groundstation/render
 test("single-destination capabilities stay single-destination", () => {
   // Add worker — every entry point goes through the one create handler, which
   // checks the plan's terminal count and then opens the one create dialog.
-  const addWorker = [...app.matchAll(/openCreateWorker\(\)/g)].length;
+  // A first-run starter passes its prefill through the same handler.
+  const addWorker = [...app.matchAll(/openCreateWorker\(/g)].length;
   assert.ok(addWorker >= 3, `expected the create-dialog handler at multiple entry points, found ${addWorker}`);
   assert.match(app, /const openCreateWorker = React\.useCallback\(\(extra = \{\}\) => \{[\s\S]{0,420}setWorkerDialog\(\{ mode: "create", \.\.\.extra \}\);/);
   assert.doesNotMatch(app, /onAddWorker=\{\(\) => setWorkerDialog\(\{ mode: "create" \}\)\}/, "an add-worker control must not skip the plan check");

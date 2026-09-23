@@ -178,8 +178,11 @@ export function UpdatesPanel({ onConfirm }) {
     try { await operation(); } catch { /* the status line carries the reason */ }
     finally { setBusy(false); }
   };
+  // A Microsoft Store install is updated by the Store, never from here.
+  const managed = state === "managed";
   let line = "OUTARCH checks for updates in the background.";
-  if (state === "checking") line = "Checking for updates…";
+  if (managed) line = status?.installBlockedReason || "Microsoft Store keeps OUTARCH up to date.";
+  else if (state === "checking") line = "Checking for updates…";
   else if (state === "up-to-date") line = "You have the latest version.";
   else if (state === "downloading") line = `Downloading ${available?.version || "the update"}… ${percent}%`;
   else if (state === "ready") line = `${available?.version} is downloaded and verified.`;
@@ -194,15 +197,15 @@ export function UpdatesPanel({ onConfirm }) {
         {status?.error ? <small className="update-panel__error" role="alert">{status.error}</small> : null}
         {available && !status?.canInstall && status?.installBlockedReason ? <small className="update-panel__note">{status.installBlockedReason}</small> : null}
       </div>
-      <div className="update-panel__actions">
+      {managed ? null : <div className="update-panel__actions">
         {available && status?.canInstall && state !== "installing"
           ? <button type="button" className="btn-primary" disabled={busy || state === "downloading"} onClick={() => confirmUpdate({ api, status, onConfirm })}>{state === "ready" ? "Restart to update" : "Update now"}</button>
           : <button type="button" className="btn-secondary" disabled={busy || state === "checking" || state === "downloading"} onClick={() => void act(() => api.check())}>Check for updates</button>}
-      </div>
+      </div>}
     </div>
     {state === "downloading" ? <span className="update-panel__progress" aria-hidden="true"><i style={{ transform: `scaleX(${percent / 100})` }}/></span> : null}
     {available?.notes ? <details className="update-panel__notes"><summary>What's new in {available.version}</summary><p>{available.notes}</p></details> : null}
-    <small className="update-panel__trust">Every update is signed by OUTARCH and verified before it installs.</small>
+    {managed ? null : <small className="update-panel__trust">Every update is signed by OUTARCH and verified before it installs.</small>}
   </div>;
 }
 

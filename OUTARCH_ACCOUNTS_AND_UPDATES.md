@@ -14,7 +14,8 @@ app and website users cannot.
 | Prices and payments | `public.plan_prices`, `public.payments`; the `billing` and `cashfree-webhook` Edge Functions (section 2) |
 | Plans and their limits | The `public.plans` table |
 | Who has which plan | The `public.subscriptions` table, or the `admin.user_plans` view |
-| Built-in Mission AI keys | The `public.ai_provider_keys` table. Only the `ai-proxy` Edge Function reads it; the app never sees a key. |
+| Built-in Mission AI keys | The `public.ai_provider_keys` table, rows with `purpose = 'mission'`. Only the `ai-proxy` Edge Function reads it; the app never sees a key. |
+| Project memory keys (writing `arch_memory.md`) | The same table, rows with `purpose = 'memory'` (step 1a-2). A key serves only its own purpose. |
 | Mission AI message quota | Enforced on the server by `begin_ai_turn()` and the `ai-proxy` function |
 | Website address the app uses | The `website_url` row in `public.app_config` |
 | Auto-updates | Signed rows in `public.app_releases`, with the ZIPs in the `releases` storage bucket |
@@ -59,6 +60,37 @@ select admin.add_ai_key('gemini', '<new key>', 'Gemini 3', 5);   -- tried first 
 update public.ai_provider_keys set enabled = false where label = 'Gemini 1';   -- retire the old one
 select * from admin.ai_key_health;   -- state, last error and counts; the key itself is masked
 ```
+
+### 1a-2. Add the project memory keys (arch_memory.md)
+
+Mission AI writes each project's `arch_memory.md` with **keys of its own**,
+kept apart from the Mission AI chat keys. They never share a quota, and you
+can replace one set without touching the other. The keys you added in step 1a
+are chat keys only. **Until you add at least one memory key, the built-in
+models cannot write `arch_memory.md`.** People can still pick one of their own
+keys for project memory in Settings, Project defaults, and AI agents still add
+their own entries.
+
+This needs the migration `outarch_memory_ai_keys` and the updated `ai-proxy`
+function (both in this repo). Then:
+
+```sql
+-- A key for arch_memory.md. Lower priority number = tried first.
+select admin.add_memory_ai_key('gemini', '<a Gemini key for project memory>', 'Memory 1', 10);
+select admin.add_memory_ai_key('nvidia', '<an NVIDIA key for project memory>', 'Memory NVIDIA', 20);
+
+-- Replace a used-up memory key: add the new one, retire the old one.
+select admin.add_memory_ai_key('gemini', '<new key>', 'Memory 2', 5);
+update public.ai_provider_keys set enabled = false where purpose = 'memory' and label = 'Memory 1';
+
+-- Both pools, keys masked. The purpose column says which is which.
+select * from admin.ai_key_health;
+```
+
+The app shows project memory only the built-in models that a memory key can
+serve: with only a Gemini memory key, only Gemini models are offered for it.
+A change here reaches running apps within 5 minutes. Each entry Mission AI
+writes still counts as one Mission AI message on the person's plan.
 
 ### 1b. Tell Supabase Auth where the website lives
 
@@ -236,7 +268,12 @@ dialog shows `plans.price_label`, currently `₹700 / month ($7.30)` and
 
 ## 3. Publishing an update
 
-Every installed OUTARCH checks for updates 20 seconds after it starts and then
+> **Microsoft Store build:** a copy installed from the Microsoft Store is
+> updated by the Store only; the updater below is switched off inside it.
+> Building, submitting and updating the Store package is covered in
+> [MICROSOFT_STORE.md](MICROSOFT_STORE.md). This section is for the ZIP build.
+
+Every installed OUTARCH (ZIP build) checks for updates 20 seconds after it starts and then
 every 6 hours. It installs only a release whose signature verifies against the
 public key built into it (`src/service/updateConfig.cjs`). The matching private
 key is at `%USERPROFILE%\.outarch\release-signing-key.pem`.
@@ -315,5 +352,6 @@ The notice clears itself as soon as you answer in that terminal. Windows' own
 | Google button shows "provider is not enabled" | Do step 1c. |
 | Browser says it can't open the `outarch://` link | Start OUTARCH once from `OPEN_OUTARCH_WINDOWS.cmd`; it registers the link handler on every start. Then select **Open OUTARCH** on the website page again. |
 | Built-in Gemini shows "Not set up", or Mission AI says the server has no key | No enabled keys, or every key is cooling down: `select * from admin.ai_key_health;` |
+| Project memory says "project memory's AI key is not available", or "Project memory has no AI key" | No enabled memory key for that provider: add one with `admin.add_memory_ai_key` (step 1a-2), then check `select * from admin.ai_key_health where purpose = 'memory';` |
 | A plan change hasn't shown up | It takes up to 5 minutes. Refocusing the app window, or opening Settings, then Account, then Refresh, picks it up immediately. |
 | Confirmation emails stop arriving | You've hit the built-in email limit. Set up SMTP (step 1d). |

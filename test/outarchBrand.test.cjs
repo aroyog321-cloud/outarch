@@ -72,7 +72,7 @@ test("the logo replaces every MC mark: sidebar, first workspace, About and the b
 
 test("no surface a person reads still says Mission Control", () => {
   const sources = [
-    ...walk(path.join(root, "src"), file => /\.(?:jsx?|cjs|css|html)$/.test(file) && !file.endsWith("outarch_app_preview.html")),
+    ...walk(path.join(root, "src"), file => /\.(?:jsx?|cjs|css|html)$/.test(file)),
     path.join(root, "bin/termctl.js"),
     path.join(root, "integrations/vscode/extension.cjs"),
     path.join(root, "integrations/vscode/package.json"),

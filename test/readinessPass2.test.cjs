@@ -210,7 +210,7 @@ test("another tool's config file is never blanked, rewritten for nothing, or hal
   files.set(installed.filePath, "{}");
   gateway.fs = makeFs({ renameFails: true });
   const fallback = gateway.installClient({ target: "claude-code" });
-  assert.ok(JSON.parse(files.get(fallback.filePath)).mcpServers["mission-control"]);
+  assert.ok(JSON.parse(files.get(fallback.filePath)).mcpServers.outarch);
   assert.equal([...files.keys()].some(key => key.endsWith(".tmp")), false, "no temporary file is left behind");
   gateway.dispose();
 

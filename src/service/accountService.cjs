@@ -160,6 +160,8 @@ class AccountService extends EventEmitter {
       usage: snapshot.usage || null,
       recipeTrial: snapshot.recipeTrial || null,
       builtinAiProviders: Array.isArray(snapshot.builtinAiProviders) ? snapshot.builtinAiProviders.filter(item => typeof item === "string") : [],
+      // Providers with a key for arch_memory.md, kept apart from Mission AI's.
+      builtinMemoryProviders: Array.isArray(snapshot.builtinMemoryProviders) ? snapshot.builtinMemoryProviders.filter(item => typeof item === "string") : [],
       plans: this.#plans.map(plan => ({ ...plan, limits: { ...plan.limits }, highlights: [...plan.highlights] })),
       verifiedAt: this.#verifiedAt,
       signIn: this.#signIn ? { mode: this.#signIn.mode, startedAt: this.#signIn.startedAt, expiresAt: this.#signIn.startedAt + SIGN_IN_TTL_MS } : null,

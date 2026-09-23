@@ -12,7 +12,13 @@ It synchronizes only bounded project context:
 - stable terminal identity, ownership, active state, shell activity, and bounded
   command metadata when VS Code shell integration is available
 
-It never streams terminal output, process IDs, environment values, or arbitrary
+With VS Code shell integration it also shares the commands run in VS Code
+terminals and what they print, so OUTARCH can show those terminals. OUTARCH
+hides commands and lines that look like secrets, keeps only the last 200 lines
+of each terminal in memory while the bridge is connected, and does not pass
+them to Mission AI or MCP clients.
+
+It never sends process IDs, environment values, file contents or arbitrary
 filesystem paths. Existing VS Code-owned terminals are always observe-only.
 OUTARCH can create terminals explicitly marked `mission-control-managed`;
 only those terminals accept approved input, focus, and close requests. Commands
@@ -23,14 +29,15 @@ that appear to contain credentials and multi-line input are blocked.
 Open this directory in VS Code and run the `Run Extension` launch target, or
 install the packaged `.vsix` included with the OUTARCH release.
 
-Use **Connect VS Code** from OUTARCH Settings. The launch URI contains a
+Use **Connect VS Code** in OUTARCH under **Integrations → VS Code Bridge**. The launch URI contains a
 one-time token that expires after 60 seconds and is consumed by the first valid
 same-project handshake.
 
 ## Terminal ownership
 
-- `vscode-owned`: created by VS Code, the user, or another extension; Mission
-  Control may observe bounded activity metadata but cannot write or close it.
+- `vscode-owned`: created by VS Code, the user, or another extension; OUTARCH
+  may observe bounded activity (commands and output, redacted) but cannot write
+  or close it.
 - `mission-control-managed`: created through the OUTARCH Settings UI;
   the bridge can focus it and can write or close it only through Protocol
   requests carrying the exact approval token.

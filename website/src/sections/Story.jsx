@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion, useInView, useReducedMotion, useScroll, useSpring } from 'framer-motion';
 import {
-  BellRinging, Check, CheckCircle, FolderOpen, HandPalm, Plus, Robot, Sparkle, TreeStructure, WarningDiamond, Eye,
+  BellRinging, Check, FolderOpen, HandPalm, Plus, Robot, Sparkle, TreeStructure, WarningDiamond, Eye,
 } from '@phosphor-icons/react';
 import { EASE, Reveal, SectionTitle, useSpotlight } from '../components/ui.jsx';
 
@@ -16,7 +16,7 @@ const TOOLS = [
 export function ToolsMarquee() {
   const row = [...TOOLS, ...TOOLS];
   return <section className="relative z-[1] border-y border-line-soft bg-ink-900/40 py-8" aria-label="Commands OUTARCH can run">
-    <p className="mx-auto mb-5 max-w-page px-5 text-center text-[14px] text-fg-muted md:px-8">Any command can be a worker. The agents in violet also get permission alerts.</p>
+    <p className="mx-auto mb-5 max-w-page px-5 text-center text-[14px] text-fg-muted md:px-8">If it runs in a terminal, OUTARCH can run it. The agents in violet also raise permission alerts.</p>
     <div className="mask-fade-x overflow-hidden">
       <div className="flex w-max animate-marquee gap-3 hover:[animation-play-state:paused]">
         {row.map(([name, agent], index) => <span key={index} className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 font-term text-[13.5px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.09)] ${agent ? 'bg-brand-violet/10 text-[#d6ccff] shadow-[inset_0_0_0_1px_rgba(155,123,255,0.3)]' : 'bg-white/[0.03] text-fg-soft'}`}>
@@ -30,10 +30,10 @@ export function ToolsMarquee() {
 // ------------------------------------------------------------------ how it works
 
 const STEPS = [
-  { icon: FolderOpen, color: '#6aa6ff', title: 'Open a project', body: 'Point OUTARCH at a folder. It restores the terminals you saved for it, or starts one shell to begin with.' },
-  { icon: Plus, color: '#3fd0b5', title: 'Add workers', body: 'Dev servers, test watchers, shells and AI agents, each in its own real Windows terminal that the engine owns.' },
-  { icon: Eye, color: '#f5b942', title: 'OUTARCH watches', body: 'Crashes, failing tests and agents stopping to ask are spotted in the output and raised with a sound.' },
-  { icon: HandPalm, color: '#9b7bff', title: 'You decide', body: 'Answer in one place. Nothing an agent, the AI or an automation asks for runs until you approve it. Your own paired phone can start and restart terminals directly.' },
+  { icon: FolderOpen, color: '#6aa6ff', title: 'Open your project', body: 'Point OUTARCH at a folder. It brings back the terminals you saved for it, or starts with a single shell.' },
+  { icon: Plus, color: '#3fd0b5', title: 'Run your stack', body: 'Add dev servers, test watchers, shells and AI agents. Each one runs in its own real terminal.' },
+  { icon: Eye, color: '#f5b942', title: 'OUTARCH watches it', body: 'It reads every line of output and catches crashes, failing tests and agents waiting on a question.' },
+  { icon: HandPalm, color: '#9b7bff', title: 'Step in when needed', body: 'A sound and a notice tell you what needs a decision. You answer in one place; everything else keeps running.' },
 ];
 
 export function HowItWorks() {
@@ -42,7 +42,7 @@ export function HowItWorks() {
   const { scrollYProgress } = useScroll({ target: track, offset: ['start 0.8', 'end 0.55'] });
   const progress = useSpring(scrollYProgress, { stiffness: 90, damping: 26 });
   return <section id="how" className="relative z-[1] mx-auto max-w-page scroll-mt-24 px-5 py-28 md:px-8">
-    <SectionTitle kicker="How it works" title="From a folder to a supervised stack in four steps." />
+    <SectionTitle kicker="How it works" title="Set it up once. Step in only when it matters." />
     <div ref={track} className="relative mt-16">
       <div className="absolute left-[22px] top-2 h-[calc(100%-16px)] w-px bg-white/10 md:left-0 md:top-[22px] md:h-px md:w-full" aria-hidden="true"/>
       <motion.div
@@ -148,23 +148,23 @@ function AiVisual() {
 const HIGHLIGHTS = [
   {
     id: 'ask', color: '47,123,255', label: 'Permission alerts', icon: BellRinging, visual: PermissionVisual,
-    title: 'Hear it the moment an agent asks.',
-    body: 'When Claude Code, Codex, Gemini CLI, Copilot, Cursor, OpenCode, Goose or Aider stops to ask for permission, OUTARCH plays a sound and shows a notice, and a Windows notification if it is in the background. One click opens that exact terminal. The notice clears itself when you answer.',
+    title: 'Know the moment an agent needs you.',
+    body: 'When a coding agent stops to ask for permission, OUTARCH plays a sound and shows a notice, with a Windows notification if the app is in the background. One click opens that exact terminal, and the notice clears once you answer. Works with Claude Code, Codex, Gemini CLI, Copilot, Cursor, OpenCode, Goose and Aider.',
   },
   {
     id: 'needs', color: '245,185,66', label: 'Needs You', icon: WarningDiamond, visual: NeedsVisual,
     title: 'One queue for every decision.',
-    body: 'Crashed workers, failing tests, agent requests, MCP requests, stop requests from a phone, automation triggers and Mission AI plans all land in Needs You. Each one shows its scope and impact, can be approved once, and expires if it waits too long.',
+    body: 'Crashed workers, failing tests, waiting agents, Mission AI plans, and requests from automations, MCP clients or your phone all land in Needs You. Each item shows what happened and what acting on it will change. Approvals run once and expire if they wait too long.',
   },
   {
     id: 'recipes', color: '63,208,181', label: 'Workspace Recipes', icon: TreeStructure, visual: RecipeVisual,
-    title: 'Start the whole stack in the right order.',
-    body: 'A recipe starts workers by dependency, in parallel where it can, and waits for real evidence before moving on: an open port, passing tests, a finished build, a healthy container, clean Git. Retries and timeouts are built in, and a rollback only stops what that recipe started.',
+    title: 'Start your whole stack with one click.',
+    body: 'A recipe starts your workers in dependency order and waits for real signals before moving on: an open port, passing tests, a finished build, a healthy container, a clean Git tree. Retries and timeouts are built in, and a rollback stops only what that recipe started.',
   },
   {
     id: 'ai', color: '155,123,255', label: 'Mission AI', icon: Sparkle, visual: AiVisual,
-    title: 'An assistant that can see your workspace.',
-    body: 'Mission AI answers from your live workers, errors and history, with built-in models or your own key from 18 providers (OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek and more) or any OpenAI-compatible endpoint. It reads files and runs checks in its own private terminal, and anything it wants to change waits for your approval.',
+    title: 'Ask what is going on, and get a real answer.',
+    body: 'Mission AI answers from your live workers, errors and history. It can read project files and run checks in a private terminal of its own, and it asks before running any command. Use the built-in models or your own key from 18 providers, including OpenAI, Anthropic, Gemini and OpenRouter, or any OpenAI-compatible endpoint.',
   },
 ];
 
@@ -174,7 +174,7 @@ export function Highlights() {
   const current = HIGHLIGHTS[active];
   const Visual = current.visual;
   return <section id="features" className="relative z-[1] mx-auto max-w-page scroll-mt-24 px-5 py-24 md:px-8">
-    <SectionTitle title="Built for the way AI-assisted coding actually goes." lede="Agents stop to ask, services crash while you look elsewhere, and five terminals are too many to watch. These are the four things OUTARCH does about it."/>
+    <SectionTitle title="Stop watching every terminal." lede="Agents stop to ask. Services crash while you look elsewhere. Five terminals are too many to watch. OUTARCH does the watching, so you only handle the decisions."/>
     <div className="mt-16 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
       <div className="hidden lg:block">
         <div className="sticky top-28">

@@ -1,7 +1,8 @@
-import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { Code, DeviceMobile, Desktop, Plugs, ShieldCheck, Sparkle, TerminalWindow } from '@phosphor-icons/react';
 import { Reveal, SectionTitle } from '../components/ui.jsx';
+import { Link } from '../lib/router.jsx';
 
 // Who can reach the engine, and what every one of them has to go through.
 // Positions are percentages of the diagram box (aspect 5:4); the SVG uses a
@@ -17,26 +18,31 @@ const CLIENTS = [
 ];
 
 const FACTS = [
-  ['Your code stays on your computer', 'Terminals, files and the engine run locally. Nothing is uploaded for OUTARCH to work.'],
-  ['Keys sealed by Windows', 'API keys and tokens are encrypted with the operating system and never reach the app\'s window process.'],
-  ['Localhost only', 'The MCP gateway listens on 127.0.0.1 with a bearer token and per-capability grants. Terminal evidence is off by default.'],
-  ['Redacted by default', 'Context shared with Mission AI, MCP or your phone leaves out environment values and secrets, and terminal output unless you allow it.'],
-  ['Approve once', 'Requests from agents, the AI, MCP and automations wait in Needs You, expire, and run a single time. A paired phone starts and restarts directly, and its stop requests wait there too.'],
-  ['A sandboxed window', 'The interface runs with context isolation and no Node access; every request to the engine is validated.'],
+  ['Runs on your computer', 'Your terminals, files and the engine run locally. OUTARCH does not upload your code. Mission AI sends context to your chosen AI provider only when you ask it something.'],
+  ['Keys sealed by Windows', 'API keys and tokens are encrypted by Windows and never reach the app\'s interface.'],
+  ['Localhost only', 'The MCP gateway answers only on this computer (127.0.0.1), with a token and per-capability scopes. Terminal output is off by default.'],
+  ['Redacted by default', 'Context shared with Mission AI, MCP clients or your phone leaves out files that hold secrets and masks values that look like secrets. MCP clients and phones see terminal output only with a permission you grant.'],
+  ['Approval before action', 'Mission AI asks before it runs any command, unless you choose Always allow for that conversation. Changes requested by MCP clients and automations wait in Needs You, run once, and expire if left waiting. A paired phone\'s start and restart requests wait for you too, unless you let that phone run them directly; stopping always waits.'],
+  ['A sandboxed interface', 'The app\'s interface has no direct access to your system. Every request it makes to the engine is checked first.'],
 ];
 
 export function Security() {
   const reduce = useReducedMotion();
+  const diagram = useRef(null);
+  // The travelling requests loop forever, so they run only while the diagram
+  // is on screen instead of costing work on every frame of the whole page.
+  const live = useInView(diagram, { margin: '60px 0px' });
   return <section className="relative z-[1] mx-auto max-w-page px-5 py-24 md:px-8">
-    <SectionTitle kicker="Privacy and control" title="Local first. Nothing runs without you." lede="One engine owns every terminal on your machine. Everything else, including the AI, reaches it through a checked, narrow door."/>
+    <SectionTitle kicker="Privacy and control" title="Local first. Approval before action." lede="One engine on your computer owns every terminal. Mission AI, MCP clients, automations and your phone all reach it through the same narrow, checked door."/>
     <div className="mt-14 grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_1fr]">
       <Reveal className="card relative aspect-[5/4] overflow-hidden">
+        <div ref={diagram} className="absolute inset-0" aria-hidden="true"/>
         <div className="absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_50%,rgba(47,123,255,0.18),transparent)]"/>
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 80" aria-hidden="true">
           <defs><linearGradient id="sec-line" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="0"><stop offset="0" stopColor="#3fd0b5"/><stop offset="1" stopColor="#2f7bff"/></linearGradient></defs>
           {CLIENTS.map((client, index) => <motion.line key={client.label} x1={CENTER.x} y1={CENTER.y * 0.8} x2={client.x} y2={client.y * 0.8} stroke="url(#sec-line)" strokeOpacity="0.55" strokeWidth="0.3" initial={{ pathLength: reduce ? 1 : 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.9, delay: 0.2 + index * 0.08 }}/>)}
           {/* Requests travelling in: every one of them arrives at the same gate. */}
-          {reduce ? null : CLIENTS.map((client, index) => <motion.circle key={`p-${client.label}`} r="0.7" fill="#6aa6ff"
+          {reduce || !live ? null : CLIENTS.map((client, index) => <motion.circle key={`p-${client.label}`} r="0.7" fill="#6aa6ff"
             initial={{ cx: client.x, cy: client.y * 0.8, opacity: 0 }}
             animate={{ cx: [client.x, CENTER.x], cy: [client.y * 0.8, CENTER.y * 0.8], opacity: [0, 1, 1, 0] }}
             transition={{ duration: 2.2, delay: 1.2 + index * 0.55, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' }}/>)}
@@ -67,6 +73,7 @@ export function Security() {
           <h3 className="flex items-center gap-2 text-[16px] font-semibold"><span className="h-4 w-[3px] rounded-full bg-gradient-to-b from-brand-blue to-brand-mint"/>{title}</h3>
           <p className="mt-2 text-[14.5px] leading-relaxed text-fg-muted">{body}</p>
         </Reveal>)}
+        <p className="text-[14px] text-fg-muted sm:col-span-2">Exactly what reaches AI providers, MCP clients and your phone is in <Link to="/ai-data" className="link-underline text-fg">AI &amp; developer data</Link>. Found a vulnerability? See <Link to="/security" className="link-underline text-fg">responsible disclosure</Link>.</p>
       </div>
     </div>
   </section>;

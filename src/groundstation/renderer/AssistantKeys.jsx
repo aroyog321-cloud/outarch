@@ -1,4 +1,5 @@
 import React from "react";
+import Chevron from "./Chevron.jsx";
 import { useAccount } from "./useAccount.js";
 import { PlanBadge, PlanNote } from "./PlanLock.jsx";
 import { planLimits, requiredPlanFor } from "./planRules.js";
@@ -124,7 +125,7 @@ function AddKeyForm({ status, onAdded }) {
         <Select.Root value={provider} onValueChange={setProvider} disabled={busy}>
           <Select.Trigger className="ai-keys__select" aria-labelledby="ai-keys-provider">
             <Select.Value/>
-            <Select.Icon className="ai-keys__select-icon">⌄</Select.Icon>
+            <Select.Icon className="ai-keys__select-icon"><Chevron/></Select.Icon>
           </Select.Trigger>
           <Select.Portal>
             <Select.Content className="ai-keys__select-menu" position="popper" sideOffset={4}>
@@ -222,6 +223,16 @@ export default function AssistantKeys({ open, onOpenChange, status, onStatus, on
               {mission?.managed
                 ? <p className="ai-keys__note">These keys live on OUTARCH's server and never reach this computer. When one runs out, the next takes over automatically, so Mission AI keeps answering. Only fast, free-tier models are offered.</p>
                 : <p className="ai-keys__note">These keys are part of the app. They cannot be viewed or changed here — when the first runs out, the second takes over, and if both are at their limit Mission AI answers with the lighter Flash-Lite model. Only fast, free-tier Flash models are offered, so everyday questions don't use up the limits.</p>}
+              {/* The built-in keys are free provider keys, and their per-minute
+                  limits are the ones a user will actually feel. Said plainly
+                  here, next to the way past them (your own key, below). */}
+              <div className="ai-keys__limits" role="note" aria-label="Free-tier limits">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+                <div>
+                  <strong>Free-tier limits</strong>
+                  <p>The built-in models use free API keys. Gemini allows about 10 to 15 requests a minute, and NVIDIA models about 40. One question can use several requests, so when you ask a lot at once Mission AI may slow down or ask you to wait a moment. For higher limits, add your own key below.</p>
+                </div>
+              </div>
             </article>
           </section>
 

@@ -5,7 +5,7 @@ OUTARCH is the new name of Mission Control. Your projects, keys and
 layouts are carried over automatically the first time OUTARCH opens.
 
 1. Extract the entire ZIP before running it.
-2. Install Node.js 22 LTS if it is not already installed.
+2. Install Node.js 22 LTS (22.12 or newer) if it is not already installed.
 3. Double-click OPEN_OUTARCH_WINDOWS.cmd.
 
 The launcher installs the Windows desktop dependencies on first use, builds the

@@ -43,7 +43,7 @@
 
 /* ---------------------------------------------------------------- stage */
 .rx-stage { position: relative; width: 100%; }
-.rx-pan { width: 100%; overflow-x: auto; overflow-y: hidden; border-radius: 14px; scrollbar-width: thin; }
+.rx-pan { width: 100%; overflow-x: auto; overflow-y: hidden; border-radius: 14px; }
 .rx-fit { position: relative; }
 .rx-window {
   position: absolute; left: 0; top: 0; width: 1440px; height: 880px; transform-origin: 0 0;
@@ -102,8 +102,16 @@
 /* ---------------------------------------------------------------- shared */
 .rx-main { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .rx-scroll { flex: 1; min-height: 0; overflow: auto; }
-.rx-scroll::-webkit-scrollbar, .rx-term::-webkit-scrollbar { width: 9px; height: 9px; }
-.rx-scroll::-webkit-scrollbar-thumb, .rx-term::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+/* Every scroll area in the replica gets the app's thin dark scrollbar. The
+   Groundstation table and inspector had none, so Windows drew its own wide
+   light one inside the dark window. */
+.oa-demo ::-webkit-scrollbar { width: 9px; height: 9px; }
+.oa-demo ::-webkit-scrollbar-track, .oa-demo ::-webkit-scrollbar-corner { background: transparent; }
+.oa-demo ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+.oa-demo ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.24); }
+@supports not selector(::-webkit-scrollbar) {
+  .oa-demo, .oa-demo * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
+}
 .rx-card { border-radius: 14px; background: var(--r-panel); box-shadow: inset 0 0 0 1px var(--r-line-2); }
 .rx-caps { font-size: 11.5px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--r-muted); }
 .rx-caps.mono { font-family: var(--r-mono); font-weight: 500; letter-spacing: .12em; }

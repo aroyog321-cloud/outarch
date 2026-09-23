@@ -25,3 +25,32 @@ __pycache__/
 
 # Signed update archives built by scripts/release/publish-release.cjs
 release/
+
+# Generated output: visual-harness screenshots, browser-tool captures, Android build caches
+artifacts/
+.playwright-mcp/
+mobile/android/.gradle/
+mobile/android/build/
+
+# Secrets never belong in the repository: environment files, private keys,
+# certificates, keystores and credential folders. (.env.example files are
+# templates without values and stay tracked.)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+credentials/
+secrets/
+mobile/android/local.properties
+supabase/.temp/
+supabase/.branches/
+mobile/android/app/build/
+mobile/android/.kotlin/
+
+# MSIX / Microsoft Store packages built by scripts/msix/build-msix.mjs
+out/

@@ -35,6 +35,7 @@ const { MissionAIConversation } = require("../../service/missionAiConversation.c
 const { BuiltinMissionAiCredentials } = require("../../service/missionAiBuiltinKeys.cjs");
 const { ByokStore } = require("../../service/byokStore.cjs");
 const { AiAssistant } = require("../../service/aiAssistant.cjs");
+const { ProjectMemoryFile } = require("../../service/projectMemoryFile.cjs");
 const { NotificationCenter, fromAttentionRecord, fromSemanticEvent } = require("../../service/notificationCenter.cjs");
 const { SessionJournal } = require("../../service/sessionJournal.cjs");
 const { SessionRecoveryService } = require("../../service/sessionRecoveryService.cjs");
@@ -48,14 +49,18 @@ const { WorkspaceBrowser } = require("./workspaceBrowser.cjs");
 const { execFile } = require("node:child_process");
 const { APP_USER_MODEL_ID, ASSETS: BRAND_ASSETS, PRODUCT_NAME } = require("../../brand/index.cjs");
 const { registerWindowsAppIdentity, resolveUserDataHome } = require("./appIdentity.cjs");
+const { STORE_DISTRIBUTION, resolveDistribution, storeLaunchDirectory } = require("./distribution.cjs");
 const { cloudConfig } = require("../../service/cloudConfig.cjs");
 const { SupabaseRest } = require("../../service/supabaseRest.cjs");
 const { AccountSessionStore } = require("../../service/accountSessionStore.cjs");
+const { LegalAcceptanceStore } = require("../../service/legalAcceptanceStore.cjs");
 const { AccountService, isDeepLink } = require("../../service/accountService.cjs");
 const { createManagedAiFetch } = require("../../service/managedAiTransport.cjs");
 const { UpdateService } = require("../../service/updateService.cjs");
 const { UPDATE_PUBLIC_KEY } = require("../../service/updateConfig.cjs");
 const APP_VERSION = require("../../../package.json").version;
+// A folder install or a Microsoft Store package (see distribution.cjs).
+const DISTRIBUTION = resolveDistribution({ packageJson: require("../../../package.json") });
 
 // OUTARCH's own data folder and name. Both are settled before anything asks
 // Electron for a path or takes the single-instance lock, which is keyed on
@@ -64,7 +69,19 @@ const userDataHome = resolveUserDataHome({ appData: app.getPath("appData") });
 app.setPath("userData", userDataHome.directory);
 if (userDataHome.error) console.warn(`${PRODUCT_NAME} kept its previous data folder: ${userDataHome.error}`);
 app.setName(PRODUCT_NAME);
-if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
+// A Store package already has its identity from the package; claiming another
+// id would split its taskbar button from its Start entry.
+if (!DISTRIBUTION.store) {
+  if (process.platform === "win32") app.setAppUserModelId(APP_USER_MODEL_ID);
+}
+// Windows starts a packaged app in System32 or its read-only install folder;
+// the first terminal opens in the home folder instead.
+if (DISTRIBUTION.store) {
+  const launchDirectory = storeLaunchDirectory({ cwd: process.cwd(), home: app.getPath("home"), executable: process.execPath });
+  if (launchDirectory) {
+    try { process.chdir(launchDirectory); } catch { /* the launch folder stays */ }
+  }
+}
 
 // One OUTARCH at a time: opening it again brings the running window forward
 // instead of failing on the project that window already holds. A launch that
@@ -102,6 +119,8 @@ let terminalWindowManager = null;
 let workspaceBrowser = null;
 let missionAiConversation = null;
 let aiAssistant = null;
+// arch_memory.md for the open project, and the ask-before-closing check.
+let projectMemory = null;
 let byokStore = null;
 let notificationCenter = null;
 let cliUsageImporter = null;
@@ -319,6 +338,8 @@ async function rebindWorkspaceIntelligence() {
   }
   else workspaceIntelligence.detachEngine();
   ipcHost?.broadcast({ type: "services:changed", detail: "project:switched" });
+  projectMemory?.observe(engineApi);
+  ipcHost?.broadcast({ type: "projectMemory:changed" });
 }
 
 async function createDetachedTerminalWindow(spec) {
@@ -501,7 +522,7 @@ function createWindow(options = {}) {
   window.on("close", event => {
     if (shutdownComplete) return;
     event.preventDefault();
-    void shutdownAndClose(window);
+    void requestClose(window);
   });
 
   rendererRecovery?.dispose();
@@ -560,6 +581,8 @@ function sendToWindows(channel, payload) {
 // binary with this script, so the link reaches the same app the launcher runs.
 function registerDeepLinkProtocol() {
   if (process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) return;
+  // The Store package's manifest registers outarch:// for the installed version.
+  if (DISTRIBUTION.store) return;
   try {
     if (app.isPackaged) app.setAsDefaultProtocolClient("outarch");
     else app.setAsDefaultProtocolClient("outarch", process.execPath, [path.resolve(__filename)]);
@@ -584,6 +607,18 @@ function applyPlanToServices() {
   }
   // The model menu shows which of the operator's own keys the plan lets answer.
   try { aiAssistant?.emit("change", { scope: "keys" }); } catch { /* not ready yet */ }
+}
+
+// Closing the window asks first when project memory has something to record:
+// the dialog in the window then closes the app itself through system.shutdown.
+// Anything that goes wrong while asking closes the app as it always did.
+async function requestClose(window) {
+  if (shutdownInProgress) return;
+  let decision = "close";
+  if (window === mainWindow && projectMemory && !process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) {
+    try { decision = await projectMemory.requestClose(); } catch { decision = "close"; }
+  }
+  if (decision === "close") await shutdownAndClose(window);
 }
 
 async function shutdownAndClose(window) {
@@ -685,7 +720,8 @@ async function start() {
     sendToWindows("mission-control:account-event", status);
     applyPlanToServices();
     // Signing in makes the built-in models reachable; read them once it does.
-    const providers = (status.builtinAiProviders || []).join(",");
+    // A memory key added or removed on the server changes project memory's models.
+    const providers = `${(status.builtinAiProviders || []).join(",")}|${(status.builtinMemoryProviders || []).join(",")}`;
     if (status.authorized && providers !== lastBuiltinProviders) void aiAssistant?.refreshMissionModels({ force: true }).catch(() => {});
     lastBuiltinProviders = providers;
   });
@@ -697,7 +733,9 @@ async function start() {
     currentVersion: APP_VERSION,
     publicKey: UPDATE_PUBLIC_KEY,
     appRoot: path.resolve(__dirname, "../../.."),
-    workDir: path.join(app.getPath("userData"), "updates")
+    workDir: path.join(app.getPath("userData"), "updates"),
+    // The Store installs its own updates; this copy must never replace itself.
+    managedBy: DISTRIBUTION.store ? STORE_DISTRIBUTION : null
   });
   updateService.on("change", status => sendToWindows("mission-control:update-event", status));
   updateService.on("available", status => {
@@ -720,6 +758,18 @@ async function start() {
       case "refresh": return accountService.refresh();
       case "openPortal": await accountService.openPortal(request.page === "pricing" ? "pricing" : "account", request.query && typeof request.query === "object" ? request.query : {}); return true;
       default: throw new Error("Unknown account request");
+    }
+  });
+  // The terms this Windows user agreed to, with the version and the time. The
+  // renderer owns the policy text and its version; this only keeps the record.
+  const legalAcceptance = new LegalAcceptanceStore(path.join(app.getPath("userData"), "legal-acceptance.json"), { appVersion: APP_VERSION });
+  ipcMain.handle("mission-control:legal", async (event, request) => {
+    assertTrustedMainFrame(event);
+    const action = typeof request?.action === "string" ? request.action : "";
+    switch (action) {
+      case "status": return legalAcceptance.status();
+      case "accept": return legalAcceptance.accept({ version: request.version, documents: request.documents });
+      default: throw new Error("Unknown legal request");
     }
   });
   ipcMain.handle("mission-control:update", async (event, request) => {
@@ -756,8 +806,12 @@ async function start() {
   missionAi = new MissionAIService({
     credentialStore: new BuiltinMissionAiCredentials({
       preferencesPath: path.join(app.getPath("userData"), "mission-ai-preferences.json"),
-      // The keys are on OUTARCH's server; which providers it has keys for.
-      managed: { providers: () => (accountService.isAuthorized() ? accountService.status().builtinAiProviders : []) }
+      // The keys are on OUTARCH's server; which providers it has keys for,
+      // for Mission AI and, separately, for arch_memory.md.
+      managed: {
+        providers: () => (accountService.isAuthorized() ? accountService.status().builtinAiProviders : []),
+        memoryProviders: () => (accountService.isAuthorized() ? accountService.status().builtinMemoryProviders || [] : [])
+      }
     }),
     fetch: (url, init) => managedAiFetch(url, init, { surface: "mission" }),
     missionContext,
@@ -916,7 +970,7 @@ async function start() {
     mainWindow.on("focus", () => accountService?.noteWindowFocus());
   }
   // Toasts are headed with the app's registered name and logo.
-  if (!process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR) void registerWindowsAppIdentity({ execFile, iconPath: BRAND_ASSETS.iconPng256 });
+  if (!process.env.MISSION_CONTROL_VISUAL_CAPTURE_DIR && !DISTRIBUTION.store) void registerWindowsAppIdentity({ execFile, iconPath: BRAND_ASSETS.iconPng256 });
   // T033/T036 — the notifier is main-process because only the main process owns
   // the OS notification surface and the window a click has to bring forward.
   const focusMainWindow = () => {
@@ -1047,6 +1101,18 @@ async function start() {
   aiAssistant.on("navigate", payload => ipcHost?.broadcast({ type: "notification:activate", route: payload?.route || "workspace" }));
   void migrateLegacyMissionAiKey();
   void aiAssistant.reconcileKeysOnStartup();
+  projectMemory = new ProjectMemoryFile({
+    getEngineApi: () => engineHost?.engineApi || null,
+    missionContext,
+    assistant: aiAssistant,
+    preferencesPath: path.join(app.getPath("userData"), "project-memory.json"),
+    // Only ever the memory file of the open project; the path is the service's own.
+    openPath: memoryFile => shell.openPath(memoryFile)
+  });
+  projectMemory.on("change", () => ipcHost?.broadcast({ type: "projectMemory:changed" }));
+  projectMemory.on("close-request", payload => ipcHost?.broadcast({ type: "projectMemory:close-requested", ...payload }));
+  // Keeps the memory's facts (terminals, servers) current as the terminals change.
+  projectMemory.observe(engineHost?.engineApi || null);
   // Mission AI's own Gemini calls are the one source whose token counts are
   // reported by the provider, so they are recorded rather than estimated. This
   // is the single write point: every Mission AI request passes through it,
@@ -1076,6 +1142,7 @@ async function start() {
     terminalWindowManager,
     missionAiConversation,
     aiAssistant,
+    projectMemory,
     // Write authority is decided in the main process. A renderer that lost the
     // handoff, or a pop-out for a different worker, is refused at the protocol
     // rather than being trusted to stop sending keystrokes.

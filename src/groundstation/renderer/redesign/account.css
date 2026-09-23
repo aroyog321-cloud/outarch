@@ -691,3 +691,142 @@
 
 /* A saved key the plan does not use. */
 .ai-keys__card-head strong .ai-keys__crown { margin-left: 8px; vertical-align: 1px; }
+
+/* ------------------------------------------------------------ legal and privacy */
+
+/* The first-launch agreement: the sign-in card, a little wider so the policy
+   reader has a readable measure. */
+.account-gate .account-gate__card--legal { width: min(520px, 100%); }
+.account-gate .legal-points {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.account-gate .legal-points li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--mc-text-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.account-gate .legal-points li::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  background: var(--mc-accent-strong);
+  border-radius: 50%;
+}
+.account-gate .legal-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.account-gate .legal-links button {
+  min-height: 30px;
+  padding: 0 11px;
+  color: var(--mc-text);
+  background: var(--mc-surface-3);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-pill);
+  font: 550 12px/1 var(--mc-font-ui);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.account-gate .legal-links button:hover { background: var(--mc-surface-4); border-color: var(--mc-border-strong); }
+.account-gate .legal-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  color: var(--mc-text);
+  background: var(--mc-surface-2);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+  font-size: 12.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.account-gate .legal-check input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--mc-accent);
+  cursor: pointer;
+}
+.account-gate :is(.legal-links button, .legal-check input):focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
+.account-gate .account-gate__primary:disabled { cursor: not-allowed; }
+
+/* The reader, on the agreement screen and in Settings. */
+:is(.account-gate, .shell) .legal-back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px 0 6px;
+  color: var(--mc-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--mc-radius-sm);
+  font: 600 12.5px/1 var(--mc-font-ui);
+  cursor: pointer;
+}
+:is(.account-gate, .shell) .legal-back:hover { color: var(--mc-text); background: var(--mc-surface-3); }
+:is(.account-gate, .shell) .legal-back:focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 2px; }
+.legal-reader { min-height: 0; overflow: auto; overscroll-behavior: contain; outline: none; }
+.legal-reader--gate { max-height: min(56vh, 520px); margin-right: -12px; padding-right: 12px; }
+.legal-doc { color: var(--mc-text-muted); font-size: 13px; line-height: 1.6; }
+.legal-doc :is(h2, h3).legal-doc__title { margin: 0; color: var(--mc-text); font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
+.legal-doc .legal-doc__meta { margin: 4px 0 0; color: var(--mc-text-dim); font-size: 11.5px; }
+.legal-doc .legal-doc__summary { margin: 12px 0 0; color: var(--mc-text-soft); }
+.legal-doc__section { margin-top: 18px; }
+.legal-doc__section :is(h3, h4) { margin: 0 0 6px; color: var(--mc-text); font-size: 13px; font-weight: 650; }
+.legal-doc__section p { margin: 6px 0 0; }
+.legal-doc__section ul { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 18px; }
+.legal-doc__section li::marker { color: var(--mc-accent-strong); }
+
+/* Settings > Legal & privacy. */
+.shell .legal-reader-panel { display: flex; flex-direction: column; gap: 10px; }
+.shell .legal-reader-panel .legal-reader { max-width: 72ch; }
+.shell .legal-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.shell .legal-list .legal-list__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  color: var(--mc-text-dim);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--mc-radius-sm);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.shell .legal-list .legal-list__item:hover { background: var(--mc-surface-3); border-color: var(--mc-border); }
+.shell .legal-list .legal-list__item:focus-visible { outline: 2px solid var(--mc-accent-strong); outline-offset: 1px; }
+.shell .legal-list .legal-list__item > span { display: grid; gap: 2px; min-width: 0; }
+.shell .legal-list .legal-list__item strong { color: var(--mc-text); font-size: 12.5px; font-weight: 600; }
+.shell .legal-list .legal-list__item small { color: var(--mc-text-muted); font-size: 11.5px; line-height: 1.45; }
+.shell .legal-list .legal-list__item > svg { flex: 0 0 auto; }
+
+/* Keys & models: the built-in keys' free-tier limits. A calm notice, not an
+   error: it explains a pause before the user meets one. */
+.shell .ai-keys__limits,
+.ai-keys .ai-keys__limits {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  color: var(--mc-text-muted);
+  background: var(--mc-accent-soft);
+  border: 1px solid var(--mc-accent-line);
+  border-radius: var(--mc-radius-sm);
+}
+.ai-keys__limits > svg { flex: 0 0 auto; margin-top: 1px; color: var(--mc-accent-strong); }
+.ai-keys__limits strong { display: block; color: var(--mc-text); font-size: 12px; font-weight: 600; }
+.ai-keys__limits p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; }

@@ -16,7 +16,28 @@ const AccountPage = lazy(() => import('./pages/AccountPage.jsx'));
 const LegalPage = lazy(() => import('./pages/LegalPage.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
-const LEGAL = new Set(['/terms', '/privacy', '/refunds', '/delivery', '/contact']);
+// The Legal & privacy section. The policy paths and titles repeat the ones in
+// src/legal/outarchPolicies.js so this file does not pull the policy text into
+// the first page load; test/legalPolicies.test.cjs keeps the two in step.
+const LEGAL_TITLES = {
+  '/legal': 'Legal & privacy',
+  '/terms': 'Terms of service',
+  '/eula': 'End user licence agreement',
+  '/privacy': 'Privacy policy',
+  '/ai-data': 'AI & developer data',
+  '/ai-terms': 'AI services terms',
+  '/acceptable-use': 'Acceptable use policy',
+  '/mobile-privacy': 'Mobile companion privacy',
+  '/cookies': 'Cookie policy',
+  '/data-retention': 'Data retention & deletion',
+  '/security': 'Security & responsible disclosure',
+  '/subprocessors': 'Third-party services',
+  '/licenses': 'Open-source licences',
+  '/refunds': 'Refunds and cancellation',
+  '/delivery': 'Delivery',
+  '/contact': 'Contact',
+};
+const LEGAL = new Set(Object.keys(LEGAL_TITLES));
 
 function page(path) {
   if (path === '/') return Home;
@@ -29,28 +50,25 @@ function page(path) {
 }
 
 const TITLES = {
-  '/': 'OUTARCH | The command center for your terminals and AI agents',
+  '/': 'OUTARCH | One command center for your terminals, tests and AI agents',
   '/pricing': 'Pricing | OUTARCH',
   '/checkout': 'Checkout | OUTARCH',
   '/checkout/return': 'Payment | OUTARCH',
   '/auth': 'Sign in | OUTARCH',
   '/account': 'Your account | OUTARCH',
-  '/terms': 'Terms of service | OUTARCH',
-  '/privacy': 'Privacy policy | OUTARCH',
-  '/refunds': 'Refunds and cancellation | OUTARCH',
-  '/delivery': 'Delivery | OUTARCH',
-  '/contact': 'Contact | OUTARCH',
+  ...Object.fromEntries(Object.entries(LEGAL_TITLES).map(([to, title]) => [to, `${title} | OUTARCH`])),
 };
 
+// Smooth wheel scrolling. `lerp` eases toward where the wheel points and stays
+// close behind it; the old fixed 1.1s glide kept moving long after the wheel
+// stopped, which read as lag. Inner scroll areas (a terminal in the live demo,
+// for example) scroll themselves while they still can, then hand back to the page.
 function useSmoothScroll() {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const lenis = new Lenis({ duration: 1.1, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true });
+    const lenis = new Lenis({ lerp: 0.12, smoothWheel: true, allowNestedScroll: true, autoRaf: true });
     window.__lenis = lenis;
-    let frame = 0;
-    const loop = time => { lenis.raf(time); frame = requestAnimationFrame(loop); };
-    frame = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(frame); lenis.destroy(); window.__lenis = null; };
+    return () => { lenis.destroy(); window.__lenis = null; };
   }, []);
 }
 

@@ -68,7 +68,7 @@ test("Groundstation product experience keeps the intentional navigation and Miss
     /Restart worker/
   );
   assert.match(appSource, /function GroundstationOnboarding/);
-  assert.match(appSource, /Build your supervised project/);
+  assert.match(appSource, /Open your first terminal/);
   assert.match(appSource, /ReferenceRecipePanel/);
   assert.match(appSource, /Command\.Group/);
   assert.match(appSource, /WORKER INTELLIGENCE/);
@@ -130,7 +130,10 @@ test("Groundstation product experience keeps the intentional navigation and Miss
   // Agent creation flow (the inline AgentsView is gone — T180 — but App still owns createAgent).
   assert.match(appSource, /request\("agent\.create", \{ adapterId \}\)/);
   assert.match(appSource, /sessionId: createdSessionId, action: \{ type: "start" \}/);
-  assert.match(appSource, /progress not reported/);
+  // Agents say only what their CLI reported, never an invented progress figure.
+  // This once matched agentPhase(), which nothing rendered after T180 and was
+  // removed as dead code; the live wording is AGENT_STATE_COPY.
+  assert.match(appSource, /idle: \{ label: "Idle", full: "Idle — nothing reported since its last turn"/);
   assert.doesNotMatch(appSource, /68%|Mark resolved|window\.confirm/);
   assert.match(appSource, /ConfirmationDialog/);
   assert.match(appSource, /from "cmdk"/);

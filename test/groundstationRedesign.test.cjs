@@ -179,7 +179,7 @@ test("the inspector renders only for a selection and reports engine facts", () =
   assert.match(app, /<dl className="mc-gs-inspector-facts">/);
   // Ownership names the engine PTY and real pid, or says there is none.
   assert.match(app, /session\.isAlive && session\.pid \? `Engine PTY · pid \$\{session\.pid\}` : "No engine PTY"/);
-  assert.match(app, /Number\.isFinite\(session\.lastOutputAt\) \? `\$\{timeAgo\(session\.lastOutputAt\)\} ago` : "Not reported"/);
+  assert.match(app, /Number\.isFinite\(session\.lastOutputAt\) \? ago\(session\.lastOutputAt\) : "Not reported"/);
   assert.match(app, /<WorkerInspector session=\{selected\}/);
   // The rail only claims layout width when something is actually selected.
   assert.match(app, /className=\{`mc-ref-groundstation \$\{selected \? "has-inspector" : ""\}`\}/);

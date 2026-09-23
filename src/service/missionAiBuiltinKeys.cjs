@@ -11,6 +11,11 @@
 //
 //  The constants stay, empty, so a development build can still be pointed at
 //  keys of its own through the `keys` option (the tests do exactly that).
+//
+//  Project memory (arch_memory.md) has keys of its own on the server
+//  (`select admin.add_memory_ai_key(...)`). Every question below takes an
+//  optional purpose, "mission" or "memory"; with managed keys the answer comes
+//  from that purpose's pool. A development build's own keys serve both.
 // ============================================================================
 
 const MISSION_AI_PRIMARY_KEY = "";
@@ -87,7 +92,8 @@ class BuiltinMissionAiCredentials {
   constructor(options = {}) {
     this.#keys = builtinKeys(options.keys || null);
     // Managed mode: the keys are on the server and the ai-proxy uses them.
-    // `providers()` says which providers the server has a key for right now.
+    // `providers()` says which providers the server has a Mission AI key for
+    // right now, and `memoryProviders()` which have a key for arch_memory.md.
     this.#managed = !options.keys && options.managed && typeof options.managed.providers === "function" ? options.managed : null;
     this.#preferencesPath = typeof options.preferencesPath === "string" && options.preferencesPath
       ? path.resolve(options.preferencesPath)
@@ -120,21 +126,28 @@ class BuiltinMissionAiCredentials {
     this.#fs.renameSync(temporary, this.#preferencesPath);
   }
 
-  #managedProviders() {
+  #managedProviders(purpose = "mission") {
     try {
-      const listed = this.#managed.providers();
+      const read = purpose === "memory" ? this.#managed.memoryProviders : this.#managed.providers;
+      if (typeof read !== "function") return [];
+      const listed = read.call(this.#managed);
       return Array.isArray(listed) ? listed.filter(item => item === "gemini" || item === "nvidia") : [];
     } catch {
       return [];
     }
   }
 
-  hasKey(slot = "primary", provider = null) {
+  // Whether project memory has a key pool of its own, apart from Mission AI's.
+  separateMemoryKeys() {
+    return Boolean(this.#managed);
+  }
+
+  hasKey(slot = "primary", provider = null, purpose = "mission") {
     const wantsFallback = slot === "secondary" || slot === "fallback";
     if (this.#managed) {
       // The server rotates its own keys; there is one managed slot per provider.
       if (wantsFallback) return false;
-      const providers = this.#managedProviders();
+      const providers = this.#managedProviders(purpose === "memory" ? "memory" : "mission");
       return provider ? providers.includes(provider) : providers.length > 0;
     }
     const subSlot = wantsFallback ? "fallback" : "primary";
@@ -201,11 +214,12 @@ class BuiltinMissionAiCredentials {
     return this.status();
   }
 
-  apiKey(slot = "primary", provider = null) {
+  apiKey(slot = "primary", provider = null, purpose = "mission") {
     const wantsFallback = slot === "secondary" || slot === "fallback";
     if (this.#managed) {
       // A placeholder the provider layer accepts; the managed transport drops it.
-      if (this.hasKey(wantsFallback ? "fallback" : "primary", provider)) return MANAGED_KEY_PLACEHOLDER;
+      if (this.hasKey(wantsFallback ? "fallback" : "primary", provider, purpose)) return MANAGED_KEY_PLACEHOLDER;
+      if (purpose === "memory") throw new Error("Project memory's AI keys are not available right now. Pick one of your own keys for project memory in Settings, or try again shortly.");
       throw new Error("Mission AI is not available right now. Sign in to OUTARCH, or try again shortly.");
     }
     const targetProvider = provider === "nvidia" ? "nvidia" : (provider === "gemini" ? "gemini" : (this.#keys.gemini?.primary || this.#keys.gemini?.fallback ? "gemini" : "nvidia"));

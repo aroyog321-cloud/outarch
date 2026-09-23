@@ -26,8 +26,9 @@ function runPty(pty, shell, args, expected) {
 async function main() {
   if (process.platform !== "win32") throw new Error("Windows release acceptance must run on Windows 11");
   const checks = [];
-  const major = Number(process.versions.node.split(".")[0]);
-  checks.push(result("Node.js LTS", major === 20 || major === 22, `Node ${process.versions.node}`));
+  // Electron's installer needs 22.12 or newer (it require()s an ES module).
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  checks.push(result("Node.js LTS", major === 22 && minor >= 12, `Node ${process.versions.node}`));
   const renderer = path.join(root, "dist", "groundstation", "renderer", "index.html");
   checks.push(result("Production renderer", fs.existsSync(renderer), fs.existsSync(renderer) ? "Built renderer found" : "Run npm run groundstation:build"));
   let pty;

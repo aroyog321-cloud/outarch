@@ -31,7 +31,7 @@ function timeAgo(timestamp) {
   if (!Number.isFinite(timestamp)) return "No output yet";
   const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
   if (seconds < 45) return "Just now";
-  const minutes = Math.floor(seconds / 60);
+  const minutes = Math.max(1, Math.floor(seconds / 60));
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;

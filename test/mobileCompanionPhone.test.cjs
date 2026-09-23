@@ -214,7 +214,7 @@ test("the Workers tab holds terminals and recipes, and the Cockpit tile opens th
   const terminals = page.context.renderWorkersTab(data);
   assert.match(terminals, /Terminals<b>1<\/b>/);
   assert.match(terminals, /Recipes<b>1<\/b>/);
-  assert.match(terminals, /TAP FOR SUMMARY/);
+  assert.match(terminals, /Tap a terminal for its summary\./);
   assert.match(terminals, /onclick="openWorkerDetail\(this\.dataset\.id\)"/);
   assert.match(page.context.renderOverviewTab(data), /onclick="openRecipes\(\)"/);
   page.run("openRecipes()");
@@ -316,7 +316,12 @@ test("the poll asks for no terminal output, keeps what the desktop says the phon
   await page.context.refreshDashboard();
   await page.context.refreshDashboard();
   assert.equal(page.paints.count, painted, "an unchanged poll writes nothing, so a tap is never dropped mid-rebuild");
+  // Runtime grows on every poll, so the list does not show it (the summary
+  // sheet does); a change the list does show repaints it once.
   data.workers[0].runtimeMs = 5 * 60000;
+  await page.context.refreshDashboard();
+  assert.equal(page.paints.count, painted, "a runtime tick alone repaints nothing");
+  Object.assign(data.workers[0], { state: "failed", isAlive: false, exitCode: 1 });
   await page.context.refreshDashboard();
   assert.equal(page.paints.count, painted + 1);
 });

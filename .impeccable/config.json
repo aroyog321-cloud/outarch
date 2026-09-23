@@ -68,6 +68,15 @@
         "value": "oa-bounce",
         "createdAt": "2026-09-19T15:59:46.401Z",
         "reason": "Claude decided: oa-bounce is the three-dot 'Mission AI is typing' indicator in the demo (default ease, 4px lift); literal typing-dots motion, not a bounce/elastic easing curve"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/groundstation/renderer/ProjectMemory.css"
+        ],
+        "createdAt": "2026-09-22T15:57:53.179Z",
+        "reason": "User said leave it (2026-09-22). Claude checked: projectMemory.css is tracked, imported by main.jsx and styles the History page (engine Project Memory 2, not arch_memory.md). L156 is .history-chapter-context { border-left: 2px }, recoloured per run state (ok/danger/warning) in the event detail panel, and the state is also written as text (RUN CHAPTER · state). A status rule, same as the cockpit.css recipe-run-history exception, not a decorative side-tab."
       }
     ]
   }

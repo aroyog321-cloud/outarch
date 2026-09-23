@@ -12,12 +12,18 @@
 //      refuses (quota, rate limit, revoked) is reported and put on cooldown and
 //      the same request moves to the next key.
 //
+// Keys have a purpose. A turn begun for "memory" (writing arch_memory.md) is
+// served only by memory keys; every other call only by mission keys. The turn's
+// surface is read from the database, where begin_ai_turn recorded it.
+//
 // Replacing a used-up key is a database edit: insert a row into
-// public.ai_provider_keys (or `select admin.add_ai_key(...)`), or disable one.
+// public.ai_provider_keys (`select admin.add_ai_key(...)` for Mission AI,
+// `select admin.add_memory_ai_key(...)` for arch_memory.md), or disable one.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type Provider = "gemini" | "nvidia";
+type Purpose = "mission" | "memory";
 
 const UPSTREAM: Record<Provider, string> = {
   gemini: "https://generativelanguage.googleapis.com",
@@ -34,6 +40,8 @@ const ROUTES: Array<{ provider: Provider; method: "GET" | "POST"; pattern: RegEx
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 const UPSTREAM_TIMEOUT_MS = 170_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// PostgREST's code for "no function with those arguments".
+const MISSING_FUNCTION = "PGRST202";
 
 function proxyError(status: number, code: string, message: string): Response {
   return new Response(JSON.stringify({ error: { code, message } }), {
@@ -86,17 +94,35 @@ Deno.serve(async (request: Request) => {
   const route = ROUTES.find(item => item.provider === provider && item.method === method && item.pattern.test(path));
   if (!route) return proxyError(400, "ROUTE_NOT_ALLOWED", "Mission AI does not use that endpoint.");
 
+  // Listing models never touches the memory keys; a model call uses the pool
+  // of the turn it belongs to.
+  let purpose: Purpose = "mission";
   if (route.metered) {
     const turn = request.headers.get("x-outarch-turn") || "";
     if (!UUID.test(turn)) return proxyError(428, "TURN_REQUIRED", "Start a Mission AI message first.");
-    const { data: claimed, error: claimError } = await admin.rpc("claim_ai_turn_call", { p_turn: turn, p_user: user.id });
+    let { data: surface, error: claimError } = await admin.rpc("claim_ai_turn", { p_turn: turn, p_user: user.id });
+    if (claimError?.code === MISSING_FUNCTION) {
+      // A database from before the memory-keys migration: the older claim,
+      // which knows no surface, so the call uses Mission AI's keys as before.
+      const older = await admin.rpc("claim_ai_turn_call", { p_turn: turn, p_user: user.id });
+      claimError = older.error;
+      surface = older.data === true ? "mission" : null;
+    }
     if (claimError) return proxyError(500, "TURN_CHECK_FAILED", "Mission AI could not check this message. Try again.");
-    if (claimed !== true) return proxyError(409, "TURN_EXPIRED", "This Mission AI message has ended. Send it again.");
+    if (typeof surface !== "string" || !surface) return proxyError(409, "TURN_EXPIRED", "This Mission AI message has ended. Send it again.");
+    if (surface === "memory") purpose = "memory";
   }
 
-  const { data: keys, error: keysError } = await admin.rpc("next_ai_keys", { p_provider: provider });
+  let { data: keys, error: keysError } = await admin.rpc("next_ai_keys", { p_provider: provider, p_purpose: purpose });
+  if (keysError?.code === MISSING_FUNCTION && purpose === "mission") {
+    // Before the memory-keys migration next_ai_keys took the provider alone.
+    ({ data: keys, error: keysError } = await admin.rpc("next_ai_keys", { p_provider: provider }));
+  }
   if (keysError) return proxyError(500, "KEYS_UNAVAILABLE", "Mission AI could not read its keys. Try again.");
   if (!Array.isArray(keys) || !keys.length) {
+    if (purpose === "memory") {
+      return proxyError(503, "NO_MEMORY_KEYS", "Project memory has no AI key for this model on the server yet. Pick one of your own keys for project memory in Settings, or try again later.");
+    }
     return proxyError(503, "NO_KEYS", "Mission AI has no key for this model on the server yet. Pick another model, or try again later.");
   }
 

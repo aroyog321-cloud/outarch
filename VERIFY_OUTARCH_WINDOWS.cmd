@@ -18,7 +18,7 @@ pause
 exit /b 0
 
 :missing_node
-echo Node.js 22 LTS is required.
+echo Node.js 22 LTS, version 22.12 or newer, is required.
 goto failed
 
 :failed

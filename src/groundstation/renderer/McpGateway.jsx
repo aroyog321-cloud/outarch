@@ -127,7 +127,8 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
   }, []);
 
-  const copyText = async (text, label) => {
+  // Named apart from the imported helper it calls: sharing the name made it call itself.
+  const copyWithFeedback = async (text, label) => {
     try {
       await copyText(text);
       setCopyFeedback(label);
@@ -217,11 +218,11 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
   const endpointUrl = status?.endpoint || "http://127.0.0.1:37421/mcp";
   const activeToken = token || "<TOKEN>";
 
-  const claudeCliCommand = `claude mcp add mission-control -- npx -y mcp-remote ${endpointUrl} --header "Authorization: Bearer ${activeToken}"`;
+  const claudeCliCommand = `claude mcp add outarch -- npx -y mcp-remote ${endpointUrl} --header "Authorization: Bearer ${activeToken}"`;
 
   const claudeConfigSnippet = JSON.stringify({
     mcpServers: {
-      "mission-control": {
+      "outarch": {
         command: "npx",
         args: ["-y", "mcp-remote", endpointUrl, "--header", `Authorization: Bearer ${activeToken}`]
       }
@@ -229,7 +230,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
   }, null, 2);
 
   const cursorConfigSnippet = JSON.stringify({
-    name: "mission-control",
+    name: "outarch",
     type: "http",
     url: endpointUrl,
     headers: {
@@ -238,14 +239,14 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
   }, null, 2);
 
   const codexConfigSnippet = [
-    "[mcp_servers.mission-control]",
+    "[mcp_servers.outarch]",
     'command = "npx"',
     `args = ["-y", "mcp-remote", "${endpointUrl}", "--header", "Authorization: Bearer ${activeToken}"]`
   ].join("\n");
 
   const geminiConfigSnippet = JSON.stringify({
     mcpServers: {
-      "mission-control": {
+      "outarch": {
         httpUrl: endpointUrl,
         headers: { Authorization: `Bearer ${activeToken}` }
       }
@@ -313,7 +314,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
               </span>}
             </div>
             <div className="mcp-clients__actions">
-              <button type="button" className="mcp-clients__copy-button" onClick={() => void copyText(client.copy, `${client.name} setup copied`)}>
+              <button type="button" className="mcp-clients__copy-button" onClick={() => void copyWithFeedback(client.copy, `${client.name} setup copied`)}>
                 {copyFeedback === `${client.name} setup copied` ? "Copied" : client.copyLabel}
               </button>
               <button type="button" className="mcp-clients__install" onClick={() => void autoInstall(client.id)} disabled={Boolean(busy) || !token} title={isInstalled ? "Update client configuration with current token" : "Configure client"}>
@@ -340,7 +341,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
           <button type="button" onClick={() => setShowToken(!showToken)}>
             {showToken ? "Hide" : "Show"}
           </button>
-          <button type="button" onClick={() => void copyText(token, "Token copied!")}>
+          <button type="button" onClick={() => void copyWithFeedback(token, "Token copied!")}>
             {copyFeedback === "Token copied!" ? "Copied Token!" : "Copy Plain Token"}
           </button>
         </div>

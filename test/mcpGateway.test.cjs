@@ -193,8 +193,8 @@ test("SecureMcpGateway getToken retrieves configured credentials and installClie
   assert.equal(claudeCodeResult.ok, true);
   assert.match(claudeCodeResult.message, /Claude Code/);
   const claudeCodeJson = JSON.parse(fsMap.get(claudeCodeResult.filePath));
-  assert.ok(claudeCodeJson.mcpServers["mission-control"]);
-  assert.equal(claudeCodeJson.mcpServers["mission-control"].command, "npx");
+  assert.ok(claudeCodeJson.mcpServers.outarch);
+  assert.equal(claudeCodeJson.mcpServers.outarch.command, "npx");
 
   const claudeDesktopResult = gateway.installClient({ target: "claude-desktop" });
   assert.equal(claudeDesktopResult.ok, true);
@@ -204,14 +204,14 @@ test("SecureMcpGateway getToken retrieves configured credentials and installClie
   assert.equal(cursorResult.ok, true);
   assert.match(cursorResult.message, /Cursor/);
   const cursorJson = JSON.parse(fsMap.get(cursorResult.filePath));
-  assert.equal(cursorJson.mcpServers["mission-control"].type, "http");
-  assert.equal(cursorJson.mcpServers["mission-control"].headers.Authorization, `Bearer ${store.token()}`);
+  assert.equal(cursorJson.mcpServers.outarch.type, "http");
+  assert.equal(cursorJson.mcpServers.outarch.headers.Authorization, `Bearer ${store.token()}`);
 
   const codexResult = gateway.installClient({ target: "codex" });
   assert.equal(codexResult.ok, true);
   assert.match(codexResult.message, /Codex CLI/);
   const codexContent = fsMap.get(codexResult.filePath);
-  assert.match(codexContent, /\[mcp_servers\.mission-control\]/);
+  assert.match(codexContent, /\[mcp_servers\.outarch\]/);
 
   const geminiResult = gateway.installClient({ target: "gemini-cli" });
   assert.equal(geminiResult.ok, true);
@@ -230,13 +230,13 @@ test("SecureMcpGateway getToken retrieves configured credentials and installClie
   assert.equal(removeClaude.ok, true);
   assert.equal(removeClaude.removed, true);
   const updatedClaudeJson = JSON.parse(fsMap.get(claudeCodeResult.filePath));
-  assert.equal(updatedClaudeJson.mcpServers?.["mission-control"], undefined);
+  assert.equal(updatedClaudeJson.mcpServers?.outarch, undefined);
 
   const removeCodex = gateway.removeClient({ target: "codex" });
   assert.equal(removeCodex.ok, true);
   assert.equal(removeCodex.removed, true);
   const updatedCodex = fsMap.get(codexResult.filePath);
-  assert.equal(/\[mcp_servers\.mission-control\]/.test(updatedCodex), false);
+  assert.equal(/\[mcp_servers\.outarch\]/.test(updatedCodex), false);
 
   const removeCursor = gateway.removeClient({ target: "cursor", workspacePath: "/mock/workspace" });
   assert.equal(removeCursor.ok, true);
@@ -270,3 +270,34 @@ test("withoutCodexServer cleanly strips mission-control server from TOML while p
 });
 
 
+
+
+test("MCP clients get OUTARCH under its own name, replacing the old mission-control entry", () => {
+  const files = new Map();
+  const fakeFs = {
+    existsSync: file => files.has(file) || [...files.keys()].some(key => key.startsWith(`${file}/`) || key.startsWith(`${file}\\`)),
+    readFileSync: file => { if (!files.has(file)) throw new Error("ENOENT"); return files.get(file); },
+    writeFileSync: (file, content) => { files.set(file, String(content)); },
+    mkdirSync: () => {}
+  };
+  const { gateway } = fixture(["context.read"]);
+  gateway.fs = fakeFs;
+  gateway.os = { homedir: () => "/home/u" };
+  const probe = gateway.installClient({ target: "claude-code" });
+  files.set(probe.filePath, JSON.stringify({ mcpServers: { "mission-control": { command: "npx" }, other: { command: "x" } } }));
+  gateway.installClient({ target: "claude-code" });
+  const config = JSON.parse(files.get(probe.filePath));
+  assert.ok(config.mcpServers.outarch, "installed under the OUTARCH name");
+  assert.equal(config.mcpServers["mission-control"], undefined, "the legacy entry is replaced, not duplicated");
+  assert.ok(config.mcpServers.other, "other servers are left alone");
+
+  // A config that still has only the legacy entry counts as installed and is removable.
+  files.set(probe.filePath, JSON.stringify({ mcpServers: { "mission-control": { command: "npx" } } }));
+  assert.equal(gateway.removeClient({ target: "claude-code" }).removed, true);
+  assert.deepEqual(JSON.parse(files.get(probe.filePath)).mcpServers, {});
+
+  const toml = withoutCodexServer("[mcp_servers.mission-control]\ncommand = \"npx\"\n\n[mcp_servers.outarch]\ncommand = \"npx\"\n\n[mcp_servers.keep]\ncommand = \"k\"\n");
+  assert.doesNotMatch(toml, /mission-control|outarch/);
+  assert.match(toml, /\[mcp_servers\.keep\]/);
+  gateway.dispose();
+});

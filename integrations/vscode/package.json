@@ -1,12 +1,22 @@
 {
   "name": "bridge",
   "displayName": "OUTARCH Bridge",
-  "description": "Authenticated editor synchronization and explicitly owned managed-terminal control for the OUTARCH desktop app.",
-  "version": "0.2.0",
+  "description": "Connect VS Code to the OUTARCH desktop app: share the active file, diagnostics, Git state and terminal activity, and let OUTARCH manage the terminals it creates.",
+  "version": "1.0.0",
   "publisher": "mission-control",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE.md",
   "icon": "media/outarch.png",
+  "galleryBanner": {
+    "color": "#050608",
+    "theme": "dark"
+  },
+  "keywords": [
+    "outarch",
+    "terminals",
+    "ai agents",
+    "developer tools",
+    "local"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -16,6 +26,13 @@
   "extensionKind": [
     "workspace"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "OUTARCH Bridge can open files and manage terminals for OUTARCH, so it runs only in trusted workspaces."
+    },
+    "virtualWorkspaces": false
+  },
   "main": "./extension.cjs",
   "activationEvents": [
     "onUri",

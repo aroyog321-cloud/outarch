@@ -31,7 +31,7 @@ export function initialState() {
     tick: 0,
     seq: 10,
     codes: { W: 1, A: 0, M: 0 },
-    route: 'workspace',
+    route: 'groundstation',
     layout: '2x2',
     panes: [...DEFAULT_PANES],
     folder: 'all',

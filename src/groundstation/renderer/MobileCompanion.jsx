@@ -29,6 +29,14 @@ function phoneActionLabel(item) {
   return `${verb} ${item.targetName || ""}`.trim();
 }
 
+// Why the phone service is not listening, in words the operator can act on.
+function startProblem(error, port) {
+  const text = String(error || "");
+  if (/EADDRINUSE|address already in use/i.test(text)) return `Another program is using port ${port || 37422}. Close it, or restart OUTARCH, then try again.`;
+  if (/EACCES|permission denied/i.test(text)) return `Windows would not let OUTARCH listen on port ${port || 37422}. Try again, or restart OUTARCH.`;
+  return text || "The phone service did not start.";
+}
+
 function refreshAge(timestamp) {
   if (!timestamp) return "never";
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -115,7 +123,9 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     if (statusResult.status === "fulfilled") {
       const nextStatus = statusResult.value;
       setStatus(nextStatus);
-      if (nextStatus?.activeInvitation) setInvitation(nextStatus.activeInvitation);
+      // The service is the source of truth: a code a phone just used, or one
+      // locked after wrong guesses, disappears here too.
+      setInvitation(nextStatus?.activeInvitation || null);
     }
     if (devicesResult.status === "fulfilled") {
       setDevices(Array.isArray(devicesResult.value) ? devicesResult.value : []);
@@ -154,9 +164,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
       unsubscribe = missionApi().subscribe(notification => {
         if (active && notification?.type === "integration:event" && notification.integration === "mobile") {
           setStatus(notification.status);
-          if (notification.status?.activeInvitation) {
-            setInvitation(notification.status.activeInvitation);
-          }
+          setInvitation(notification.status?.activeInvitation || null);
           setResourceState(current => ({ ...current, statusError: "", statusUpdatedAt: Date.now() }));
           void missionApi().request("mobile.device.list").then(value => {
             if (!active) return;
@@ -175,32 +183,38 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     };
   }, [refresh, workspace?.path]);
 
-  // Auto-generate invite on first enable or if running without invite
+  // One code is made for the operator when the panel first finds the service
+  // running without one. After that a code is made only on request: renewing
+  // it on every expiry filled the audit trail every five minutes the panel sat
+  // open, and a failing request retried itself in a loop.
+  const autoInviteRef = React.useRef(false);
   React.useEffect(() => {
-    if (status?.running && !invitation && !busy) {
+    if (status?.running && !invitation && !busy && !autoInviteRef.current) {
+      autoInviteRef.current = true;
       void invite();
     }
   }, [status?.running, invitation, busy, invite]);
 
+  // A phone that pairs uses the code up; say so instead of leaving an empty box.
+  const pairedCountRef = React.useRef(null);
+  React.useEffect(() => {
+    const count = status?.deviceCount;
+    if (typeof count !== "number") return;
+    if (pairedCountRef.current !== null && count > pairedCountRef.current) setMessage("A phone just paired. It is listed under Paired phones.");
+    pairedCountRef.current = count;
+  }, [status?.deviceCount]);
+
   // Countdown timer for invitation expiration
-  const autoInviteAttemptedRef = React.useRef(null);
   React.useEffect(() => {
     if (!invitation?.expiresAt) {
       setTimeLeft(0);
       return;
     }
-    const updateCountdown = () => {
-      const remaining = Math.max(0, Math.floor((invitation.expiresAt - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining === 0 && status?.running && !busy && autoInviteAttemptedRef.current !== invitation.expiresAt) {
-        autoInviteAttemptedRef.current = invitation.expiresAt;
-        void invite();
-      }
-    };
+    const updateCountdown = () => setTimeLeft(Math.max(0, Math.floor((invitation.expiresAt - Date.now()) / 1000)));
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [invitation?.expiresAt, status?.running, busy, invite]);
+  }, [invitation?.expiresAt]);
 
   const copyTimerRef = React.useRef(null);
   React.useEffect(() => () => {
@@ -222,7 +236,8 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
         setInvitation(null);
       }
     } catch (error) {
-      setMessage(error.message || String(error));
+      const text = error.message || String(error);
+      setMessage(/EADDRINUSE|EACCES/.test(text) ? startProblem(text, status?.port) : text);
     } finally {
       setBusy("");
     }
@@ -252,7 +267,8 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
     }
   };
 
-  const copyText = async (text, key) => {
+  // Named apart from the imported helper it calls: sharing the name made it call itself.
+  const copyWithFeedback = async (text, key) => {
     if (!text) return;
     try {
       await copyText(text);
@@ -281,15 +297,23 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
 
   const protectedStore = status?.available === true;
   const statusKnown = status !== null;
+  // Switched on but not listening has three reasons, and "Starting…" was shown
+  // for all of them, forever, when the port was taken or the plan left it out.
+  const planBlocked = Boolean(status?.enabled && !status?.running && status?.planAllowed === false);
+  const startFailed = Boolean(status?.enabled && !status?.running && !planBlocked && status?.lastError);
   const serviceLabel = !statusKnown && resourceState.loading
     ? "Loading status…"
     : !statusKnown && resourceState.statusError
       ? "Status unavailable"
       : status?.running
         ? "Running"
-        : status?.enabled
-          ? "Starting…"
-          : "Off";
+        : planBlocked
+          ? "Not in your plan"
+          : startFailed
+            ? "Could not start"
+            : status?.enabled
+              ? "Starting…"
+              : "Off";
   const knownCount = value => statusKnown ? String(value ?? 0) : "—";
   const webEndpoints = (status?.endpoints || []).map(ep => ep.replace(/\/$/, "") + "/mobile");
   const activeEndpoint = selectedEndpoint && webEndpoints.includes(selectedEndpoint)
@@ -307,7 +331,9 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
   const secondsRemaining = timeLeft % 60;
   const formattedTime = `${minutesRemaining}:${String(secondsRemaining).padStart(2, "0")}`;
 
-  const serviceTone = status?.running ? "is-live" : status?.enabled || resourceState.statusError ? "is-warning" : "is-offline";
+  const serviceTone = status?.running ? "is-live" : startFailed ? "is-error" : status?.enabled || resourceState.statusError ? "is-warning" : "is-offline";
+  const codeExpired = Boolean(invitation && timeLeft === 0);
+  const currentProject = workspace?.name || "";
   // Why the switch cannot be used, said beside it instead of left to a greyed button.
   const blockedReason = !statusKnown
     ? ""
@@ -360,45 +386,63 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
           <header>
             <div>
               <h4>Pair a phone</h4>
-              <p>{invitation ? <>Scan the code with the phone's camera, or open the link on it. The code works once and expires in <b className="companion__timer">{formattedTime}</b>.</> : "Create a one-time code to pair a phone."}</p>
+              <p>{!invitation
+                ? "Make a one-time code, then scan it with the phone's camera."
+                : codeExpired
+                  ? "This code has expired. Make a new one to pair a phone."
+                  : <>Scan the code with the phone's camera, or open the link on it. The code works once and expires in <b className="companion__timer">{formattedTime}</b>.</>}</p>
             </div>
-            {invitation && <button type="button" className="companion__ghost" disabled={busy === "invite"} onClick={() => void invite()} title="Replace the code with a new one">
+            {invitation && <button type="button" className={codeExpired ? "companion__primary" : "companion__ghost"} disabled={busy === "invite"} onClick={() => void invite()} title="Replace the code with a new one">
               {busy === "invite" ? "Creating…" : "New code"}
             </button>}
           </header>
-          <div className="companion__pair-body">
-            <div className="companion__qr"><MobileQRCode url={pairingWebUrl} size={164}/></div>
+          {invitation ? <div className="companion__pair-body">
+            <div className={`companion__qr ${codeExpired ? "is-expired" : ""}`}>
+              <MobileQRCode url={pairingWebUrl} size={164}/>
+              {codeExpired && <span className="companion__qr-veil">Expired</span>}
+            </div>
             <div className="companion__pair-detail">
               <div className="companion__code">
                 <small>One-time code</small>
-                {invitation
-                  ? <strong aria-label={`Pairing code ${invitation.code.split("").join(" ")}`}>{formattedCode}</strong>
-                  : <button type="button" className="companion__primary" disabled={busy === "invite"} onClick={() => void invite()}>{busy === "invite" ? "Creating…" : "Create pairing code"}</button>}
-                {invitation && <button type="button" className="companion__ghost" onClick={() => void copyText(invitation.code, "code")}>{copiedKey === "code" ? "Copied" : "Copy code"}</button>}
+                <strong className={codeExpired ? "is-expired" : ""} aria-label={`Pairing code ${invitation.code.split("").join(" ")}${codeExpired ? ", expired" : ""}`}>{formattedCode}</strong>
+                {!codeExpired && <button type="button" className="companion__ghost" onClick={() => void copyWithFeedback(invitation.code, "code")}>{copiedKey === "code" ? "Copied" : "Copy code"}</button>}
               </div>
               <div className="companion__link">
                 <code title={pairingWebUrl || ""}>{pairingWebUrl || "Waiting for a local address…"}</code>
-                <button type="button" className="companion__ghost" disabled={!pairingWebUrl} onClick={() => void copyText(pairingWebUrl, "url")}>{copiedKey === "url" ? "Copied" : "Copy link"}</button>
+                <button type="button" className="companion__ghost" disabled={!pairingWebUrl || codeExpired} onClick={() => void copyWithFeedback(pairingWebUrl, "url")}>{copiedKey === "url" ? "Copied" : "Copy link"}</button>
               </div>
-              {webEndpoints.length > 1 && <label className="companion__endpoint">
+              {webEndpoints.length > 1 && <div className="companion__endpoint" role="radiogroup" aria-label="Network address">
                 <span>Network</span>
-                <select value={activeEndpoint || ""} onChange={event => setSelectedEndpoint(event.target.value)}>
-                  {webEndpoints.map(endpoint => <option key={endpoint} value={endpoint}>{endpoint}</option>)}
-                </select>
-              </label>}
+                {webEndpoints.map(endpoint => <button key={endpoint} type="button" role="radio" aria-checked={endpoint === activeEndpoint} className={endpoint === activeEndpoint ? "is-current" : ""} onClick={() => setSelectedEndpoint(endpoint)}>{endpoint.replace(/^https?:\/\//, "").replace(/\/mobile$/, "")}</button>)}
+              </div>}
               <ol className="companion__steps">
-                <li>Open the link on the phone — it has to be on the same network as this computer.</li>
+                <li>Open the link on the phone. It has to be on the same Wi-Fi as this computer.</li>
                 <li>Check the code on the phone matches the one here.</li>
-                <li>Tap Authorize &amp; Connect. The phone keeps an encrypted credential; the code is not reusable.</li>
+                <li>Tap Pair this phone. The phone keeps its own encrypted key, and the code cannot be used again.</li>
               </ol>
             </div>
-          </div>
+          </div> : <div className="companion__pair-empty">
+            <button type="button" className="companion__primary" disabled={busy === "invite"} onClick={() => void invite()}>{busy === "invite" ? "Creating…" : "Create pairing code"}</button>
+            <span>A code works once and lasts 5 minutes.</span>
+          </div>}
+          <details className="companion__help">
+            <summary>The phone can't open the link?</summary>
+            <ul>
+              <li>Put the phone on the same Wi-Fi as this computer. Guest networks and mobile data cannot reach it.</li>
+              <li>Windows may block the connection. In Windows Security, open Firewall &amp; network protection, then Allow an app through firewall, and allow OUTARCH (or Electron) on Private networks. Mark your Wi-Fi as a Private network.</li>
+              <li>{webEndpoints.length > 1 ? "This computer has more than one network address. Pick the one on your Wi-Fi under Network, then scan again." : "If this computer uses a VPN, pause it and scan again."}</li>
+            </ul>
+          </details>
         </section>
       ) : statusKnown ? (
-        <div className="companion__off">
+        <div className={`companion__off ${startFailed ? "is-error" : ""}`}>
           <div>
-            <strong>{status?.enabled ? "The phone service is starting" : "The phone service is off"}</strong>
-            <p>{blockedReason || "Turn it on to pair a phone. It listens on your local network only, and a phone sees nothing until you pair it."}</p>
+            <strong>{planBlocked ? "Your plan does not include the phone service" : startFailed ? "The phone service could not start" : status?.enabled ? "The phone service is starting" : "The phone service is off"}</strong>
+            <p>{planBlocked
+              ? "Mobile Companion comes with Pro and Ultimate. It turns on by itself when your plan includes it."
+              : startFailed
+                ? startProblem(status?.lastError, status?.port)
+                : blockedReason || "Turn it on to pair a phone. It listens on your local network only, and a phone sees nothing until you pair it."}</p>
           </div>
           {!status?.enabled && <button
             type="button"
@@ -407,6 +451,14 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
             onClick={() => void configure({ enabled: true })}
           >
             {busy === "configure" ? "Turning on…" : "Turn on"}
+          </button>}
+          {startFailed && <button
+            type="button"
+            className="companion__primary"
+            disabled={Boolean(busy)}
+            onClick={() => void configure({ enabled: true })}
+          >
+            {busy === "configure" ? "Trying…" : "Try again"}
           </button>}
         </div>
       ) : <div className="companion__off" aria-busy={resourceState.loading ? "true" : undefined}><div><strong>{resourceState.loading ? "Checking Mobile Companion…" : "Mobile Companion unavailable"}</strong><p>{resourceState.loading ? "OUTARCH is verifying local service and secure-storage availability." : "Retry the status request before enabling or configuring mobile supervision."}</p></div></div>}
@@ -471,7 +523,7 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
       <section className="companion__section" aria-label="Paired phones">
         <header>
           <h4>Paired phones</h4>
-          <p>Revoking a phone ends its access at once and removes it from this list.</p>
+          <p>A phone follows the project it was paired with. Revoking one ends its access at once and removes it from this list; a phone can also unpair itself from its More tab.</p>
         </header>
         {resourceState.devicesUpdatedAt && !resourceState.devicesError && devices.length === 0 && <p className="integration-resource-empty">No mobile devices paired.</p>}
         {/* A revoked device is removed from the register rather than kept in it
@@ -482,8 +534,8 @@ export function MobileCompanionSettings({ workspace, onConfirm }) {
             <li key={device.id}>
               <span className="companion__device-icon" aria-hidden="true"><PhoneGlyph/></span>
               <div>
-                <strong>{device.name}</strong>
-                <small>{`${timeLabel(device.lastSeenAt)} · ${device.scopes?.length || 0} permissions`}{device.scopes?.includes("actions.request") ? " · can start and restart" : ""}{device.scopes?.includes("assistant.ask") ? " · can ask Mission AI" : ""}</small>
+                <strong>{device.name}{device.projectName && currentProject && device.projectName !== currentProject ? <span className="companion__device-tag">Other project</span> : null}</strong>
+                <small>{`${timeLabel(device.lastSeenAt)} · ${device.projectName ? `paired with ${device.projectName}` : `${device.scopes?.length || 0} permissions`}`}{device.scopes?.includes("actions.request") ? " · can start and restart" : ""}{device.scopes?.includes("assistant.ask") ? " · can ask Mission AI" : ""}</small>
               </div>
               <button
                 type="button"

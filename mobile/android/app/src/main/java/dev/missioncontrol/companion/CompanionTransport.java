@@ -78,9 +78,9 @@ final class CompanionTransport {
   private static JSONObject post(String url, JSONObject body, JSONObject headers) throws Exception { return exchange("POST", url, body, headers); }
   private static JSONObject exchange(String method, String target, JSONObject body, JSONObject headers) throws Exception {
     HttpURLConnection connection = (HttpURLConnection) new URL(target).openConnection(); connection.setRequestMethod(method); connection.setConnectTimeout(8000); connection.setReadTimeout(12000); connection.setRequestProperty("Accept", "application/json");
-    if (headers != null) for (String key : JSONObject.getNames(headers)) connection.setRequestProperty(key, headers.getString(key));
+    if (headers != null) for (java.util.Iterator<String> keys = headers.keys(); keys.hasNext();) { String key = keys.next(); connection.setRequestProperty(key, headers.getString(key)); }
     if (body != null) { connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "application/json"); try (OutputStream output = connection.getOutputStream()) { output.write(body.toString().getBytes(StandardCharsets.UTF_8)); } }
-    InputStream stream = connection.getResponseCode() < 400 ? connection.getInputStream() : connection.getErrorStream(); StringBuilder value = new StringBuilder(); try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) { String line; while ((line = reader.readLine()) != null && value.length() < 262144) value.append(line); }
+    int statusCode = connection.getResponseCode(); InputStream stream = statusCode < 400 ? connection.getInputStream() : connection.getErrorStream(); if (stream == null) throw new IllegalStateException("OUTARCH request failed (HTTP " + statusCode + ")"); StringBuilder value = new StringBuilder(); try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) { String line; while ((line = reader.readLine()) != null && value.length() < 262144) value.append(line); }
     JSONObject result = new JSONObject(value.toString()); if (connection.getResponseCode() >= 400) throw new IllegalStateException(result.optString("error", "OUTARCH request failed")); return result;
   }
 }

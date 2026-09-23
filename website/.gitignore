@@ -3,3 +3,10 @@ dist
 dist-ssr
 *.local
 .DS_Store
+
+# Secrets never belong in the repository.
+.env
+.env.*
+!.env.example
+*.pem
+*.key

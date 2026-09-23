@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import {
   BookOpen, ChartLineUp, Code, Command, Cpu, Lightning, LockKey, ShieldCheck, SquaresFour,
 } from '@phosphor-icons/react';
@@ -9,6 +9,8 @@ import { SectionTitle, Stagger, staggerItem, useSpotlight } from '../components/
 
 function LayoutMorph() {
   const reduce = useReducedMotion();
+  const box = useRef(null);
+  const inView = useInView(box, { margin: '80px 0px' });
   const layouts = [
     { cols: 1, rows: 1, count: 1, label: '1' },
     { cols: 2, rows: 1, count: 2, label: '1×2' },
@@ -17,13 +19,13 @@ function LayoutMorph() {
   ];
   const [index, setIndex] = useState(2);
   useEffect(() => {
-    if (reduce) return undefined;
+    if (reduce || !inView) return undefined;
     const timer = window.setInterval(() => setIndex(value => (value + 1) % layouts.length), 1800);
     return () => window.clearInterval(timer);
-  }, [reduce]);
+  }, [reduce, inView]);
   const layout = layouts[index];
   const tones = ['#32d583', '#32d583', '#f5b942', '#32d583', '#6aa6ff', '#9b7bff'];
-  return <div className="mt-6 flex items-end gap-5">
+  return <div ref={box} className="mt-6 flex items-end gap-5">
     <div className="grid h-[150px] flex-1 gap-1.5 rounded-[12px] bg-black/60 p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]" style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)`, gridTemplateRows: `repeat(${layout.rows}, 1fr)` }}>
       {Array.from({ length: layout.count }, (_, cell) => <motion.div key={cell} layout transition={{ type: 'spring', stiffness: 260, damping: 28 }} className="flex flex-col gap-1 overflow-hidden rounded-[7px] bg-ink-700 p-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]">
         <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: tones[cell] }}/><span className="h-1 w-8 rounded bg-white/25"/></span>
@@ -38,15 +40,17 @@ function LayoutMorph() {
 
 function Sparkline() {
   const reduce = useReducedMotion();
+  const box = useRef(null);
+  const inView = useInView(box, { margin: '80px 0px' });
   const [points, setPoints] = useState(() => Array.from({ length: 28 }, (_, i) => 30 + Math.sin(i / 2.4) * 14 + (i % 5) * 2));
   useEffect(() => {
-    if (reduce) return undefined;
+    if (reduce || !inView) return undefined;
     const timer = window.setInterval(() => setPoints(list => [...list.slice(1), Math.max(8, Math.min(58, list[list.length - 1] + (Math.random() - 0.5) * 16))]), 700);
     return () => window.clearInterval(timer);
-  }, [reduce]);
+  }, [reduce, inView]);
   const path = points.map((value, i) => `${i === 0 ? 'M' : 'L'}${(i / (points.length - 1)) * 200} ${64 - value}`).join(' ');
   const last = Math.round(points[points.length - 1] / 3);
-  return <div className="mt-5">
+  return <div ref={box} className="mt-5">
     <div className="flex items-baseline justify-between font-mono text-[12px] text-fg-muted"><span>API gateway</span><span className="text-brand-mint">{last}% CPU</span></div>
     <svg viewBox="0 0 200 64" className="mt-2 h-16 w-full" preserveAspectRatio="none" aria-hidden="true">
       <defs><linearGradient id="spark-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3fd0b5" stopOpacity=".35"/><stop offset="1" stopColor="#3fd0b5" stopOpacity="0"/></linearGradient></defs>
@@ -94,15 +98,15 @@ function RuleMini() {
 // ------------------------------------------------------------------ tiles
 
 const TILES = [
-  { span: 'md:col-span-2', icon: SquaresFour, color: '47,123,255', title: 'Split layouts and Focus mode', body: 'One, two, four or six terminals on one canvas, a free mosaic, per-pane resize, and Focus to give one terminal the whole window. Layouts are saved per project.', extra: LayoutMorph, tint: 'from-brand-blue/15' },
-  { span: '', icon: Cpu, color: '63,208,181', title: 'Worker health', body: 'CPU and memory for each worker and its child processes, sampled by the engine.', extra: Sparkline, tint: 'from-brand-mint/15' },
-  { span: '', icon: BookOpen, color: '245,185,66', title: 'Project memory and recovery', body: 'Every run becomes a resumable chapter. After a crash, OUTARCH shows what was interrupted and proposes a recovery for you to approve.' },
-  { span: '', icon: LockKey, color: '155,123,255', title: 'Secure MCP gateway', body: 'Let Claude Desktop and other MCP clients read your workspace over localhost only, with a token and scopes. Any change they ask for waits in Needs You.' },
-  { span: '', icon: Code, color: '106,166,255', title: 'VS Code bridge', body: 'Syncs the active file, diagnostics, Git state and task results from VS Code. It never types into or reads your terminals.' },
-  { span: 'md:col-span-2', icon: ChartLineUp, color: '155,123,255', title: 'Token and cost usage', body: 'See what each agent and model used, read locally from the agent CLIs\' own transcripts. Only counts are read, never prompts or code.', extra: UsageBars, tint: 'from-brand-violet/15' },
-  { span: '', icon: Lightning, color: '245,185,66', title: 'Automation workflows', body: 'When a worker event happens, propose an allow-listed action. Cooldowns stop loops, dry run shows what would happen, and each run is approved once.', extra: RuleMini },
-  { span: '', icon: Command, color: '47,123,255', title: 'Command palette', body: 'Ctrl K reaches every worker, view and action from the keyboard.', extra: PaletteMini },
-  { span: 'md:col-span-2', icon: ShieldCheck, color: '63,208,181', title: 'Signed automatic updates', body: 'Updates install only after their signature checks out against the key built into your copy. The current version is backed up first and restored if anything fails.', extra: UpdateMini, tint: 'from-brand-mint/10' },
+  { span: 'md:col-span-2', icon: SquaresFour, color: '47,123,255', title: 'Split layouts and Focus mode', body: 'See one terminal or six at once. Arrange them freely, resize any pane, or use Focus to give one terminal the whole window. Each project keeps its own layout.', extra: LayoutMorph, tint: 'from-brand-blue/15' },
+  { span: '', icon: Cpu, color: '63,208,181', title: 'Worker health', body: 'Spot a runaway process early. Each worker shows its CPU and memory, including its child processes.', extra: Sparkline, tint: 'from-brand-mint/15' },
+  { span: '', icon: BookOpen, color: '245,185,66', title: 'Project memory and recovery', body: 'Pick up where you left off. Every run is recorded, and after a crash OUTARCH shows what was interrupted and proposes a recovery for you to approve.' },
+  { span: '', icon: LockKey, color: '155,123,255', title: 'Secure MCP gateway', body: 'Give Claude Desktop and other MCP clients a view of your workspace. The gateway answers only on this computer, with a token and scopes, and any change a client asks for waits in Needs You.' },
+  { span: '', icon: Code, color: '106,166,255', title: 'VS Code bridge', body: 'Bring your editor into the picture: the active file, diagnostics, Git state, task results and VS Code terminal activity. It types only into terminals OUTARCH created, and only after you approve.' },
+  { span: 'md:col-span-2', icon: ChartLineUp, color: '155,123,255', title: 'Token and cost usage', body: 'See how many tokens each agent and model used. OUTARCH takes the counts from the agent CLIs\' own local transcripts and keeps nothing else: no prompts, no code.', extra: UsageBars, tint: 'from-brand-violet/15' },
+  { span: '', icon: Lightning, color: '245,185,66', title: 'Automation workflows', body: 'Turn a worker event into a proposed fix, such as restarting a crashed worker. A dry run shows what would happen, cooldowns prevent loops, and every run waits for your approval.', extra: RuleMini },
+  { span: '', icon: Command, color: '47,123,255', title: 'Command palette', body: 'Press Ctrl K to reach every worker, view and action from the keyboard.', extra: PaletteMini },
+  { span: 'md:col-span-2', icon: ShieldCheck, color: '63,208,181', title: 'Signed updates', body: 'An update installs only if its signature matches the key built into your copy. Your current version is backed up first and restored if anything goes wrong.', extra: UpdateMini, tint: 'from-brand-mint/10' },
 ];
 
 function Tile({ tile }) {
@@ -130,7 +134,7 @@ function Tile({ tile }) {
 
 export function Bento() {
   return <section className="relative z-[1] mx-auto max-w-page px-5 py-24 md:px-8">
-    <SectionTitle title="Everything else in the cockpit." lede="The details that make a long session with several agents calm instead of chaotic."/>
+    <SectionTitle title="The rest of the control surface." lede="The details that keep a long session with several agents calm."/>
     <Stagger className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
       {TILES.map(tile => <Tile key={tile.title} tile={tile}/>)}
     </Stagger>

@@ -24,10 +24,12 @@
     "RELEASE_NOTES.md",
     "mobile/android",
     "vite.groundstation.config.mjs",
-    "termctl.config.example.json"
+    "termctl.config.example.json",
+    "THIRD_PARTY_LICENSES.md",
+    "SECURITY.md"
   ],
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=22.12 <23"
   },
   "scripts": {
     "start": "node bin/termctl.js",
@@ -36,6 +38,11 @@
     "groundstation": "node scripts/ensure-renderer-build.cjs && electron src/groundstation/main/index.cjs",
     "groundstation:windows": "npm run groundstation",
     "verify:windows": "node scripts/windows-release-check.cjs",
+    "package:store": "node scripts/msix/build-msix.mjs --mode store",
+    "package:msix:test": "node scripts/msix/build-msix.mjs --mode test",
+    "package:msix:install-test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/msix/install-test.ps1",
+    "package:msix:verify": "node scripts/msix/verify-msix.mjs",
+    "brand:store-assets": "python scripts/brand/build-store-assets.py",
     "test": "node --test --test-concurrency=1 test/*.test.cjs",
     "test:parallel": "node --test test/*.test.cjs"
   },
@@ -58,8 +65,10 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@electron/fuses": "2.1.3",
+    "@electron/packager": "20.3.0",
     "electron": "40.10.6",
-    "shadcn": "^4.19.0",
+    "supabase": "^2.117.0",
     "vite": "6.4.3"
   }
 }

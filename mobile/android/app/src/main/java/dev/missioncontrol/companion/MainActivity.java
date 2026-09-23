@@ -1,7 +1,7 @@
 package dev.missioncontrol.companion;
 
 import android.app.Activity;
-import android.app.BiometricPrompt;
+import android.hardware.biometrics.BiometricPrompt;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.text.InputType;
@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
     try { if (credentials.load() != null) status.setText("Paired credential protected by Android Keystore"); } catch (Exception error) { status.setText("Secure credential needs repair"); }
   }
   private void pair() { status.setText("Proving pairing code and exchanging keys…"); work.execute(() -> { try { JSONObject value = CompanionTransport.pair(endpoint.getText().toString(), code.getText().toString(), name.getText().toString()); credentials.save(value.toString()); runOnUiThread(() -> { status.setText("Paired · credential protected by Android Keystore"); code.setText(""); output.setText("Encrypted supervision is ready."); }); } catch (Exception error) { showError(error); } }); }
-  private void read(String operation) { status.setText("Reading bounded " + operation + "…"); work.execute(() -> { try { String stored = credentials.load(); if (stored == null) throw new IllegalStateException("Pair this phone first"); JSONObject result = CompanionTransport.request(new JSONObject(stored), operation); runOnUiThread(() -> { status.setText("Encrypted response verified"); output.setText(result.toString(2)); }); } catch (Exception error) { showError(error); } }); }
+  private void read(String operation) { status.setText("Reading bounded " + operation + "…"); work.execute(() -> { try { String stored = credentials.load(); if (stored == null) throw new IllegalStateException("Pair this phone first"); JSONObject result = CompanionTransport.request(new JSONObject(stored), operation); String shown = result.toString(2); runOnUiThread(() -> { status.setText("Encrypted response verified"); output.setText(shown); }); } catch (Exception error) { showError(error); } }); }
   private void biometric() { BiometricPrompt prompt = new BiometricPrompt.Builder(this).setTitle("OUTARCH approval").setSubtitle("Confirm your identity before reviewing a sensitive request").setNegativeButton("Cancel", getMainExecutor(), (dialog, which) -> {}).build(); prompt.authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() { @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) { status.setText("Identity verified for this review"); } @Override public void onAuthenticationError(int code, CharSequence message) { status.setText(message); } }); }
   private void showError(Exception error) { runOnUiThread(() -> { status.setText("Request did not complete"); output.setText(error.getMessage()); }); }
 }

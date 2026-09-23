@@ -10,11 +10,17 @@ export default function useMissionState() {
   const [recovery, setRecovery] = React.useState(null);
   const refreshTimer = React.useRef(null);
   const refreshPromise = React.useRef(null);
+  // Set when a refresh is asked for while one is already out. That request's
+  // snapshot may predate the event behind the new ask, so one more follows it.
+  const refreshAgain = React.useRef(false);
   const lastSequence = React.useRef(null);
   const mounted = React.useRef(true);
 
   const refresh = React.useCallback(async () => {
-    if (refreshPromise.current) return refreshPromise.current;
+    if (refreshPromise.current) {
+      refreshAgain.current = true;
+      return refreshPromise.current;
+    }
     const operation = (async () => {
       try {
         const next = await missionApi().request("state.get");
@@ -46,6 +52,10 @@ export default function useMissionState() {
       return await operation;
     } finally {
       if (refreshPromise.current === operation) refreshPromise.current = null;
+      if (refreshAgain.current && mounted.current && !refreshPromise.current) {
+        refreshAgain.current = false;
+        void refresh();
+      }
     }
   }, []);
 

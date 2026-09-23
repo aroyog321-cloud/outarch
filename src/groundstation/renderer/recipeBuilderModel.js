@@ -17,6 +17,18 @@ export function applyRecipeTemplate(templateId, steps) {
   return clean.map((step, index) => ({ ...step, dependsOn: index ? [clean[index - 1].workerId] : [] }));
 }
 
+// The template a saved graph was built from, or "custom" when its order was set
+// worker by worker. A saved recipe used to reopen with no strategy chosen.
+export function matchRecipeTemplate(steps) {
+  if (!Array.isArray(steps) || !steps.length) return "custom";
+  const sameSet = (left, right) => left.length === right.length && left.every(value => right.includes(value));
+  for (const template of RECIPE_TEMPLATES) {
+    const expected = applyRecipeTemplate(template.id, steps);
+    if (expected.every((step, index) => sameSet(step.dependsOn, steps[index].dependsOn || []))) return template.id;
+  }
+  return "custom";
+}
+
 export function toggleStepDependency(steps, workerId, dependencyId) {
   return steps.map(step => {
     if (step.workerId !== workerId) return { ...step, dependsOn: [...step.dependsOn] };

@@ -19,7 +19,7 @@ import { website } from '../lib/supabase.js';
 
 const PLAN_POINTS = {
   pro: ['8 terminals at once', 'Unlimited projects', 'Unlimited Mission AI*', '3 recipes', '1 key of your own', 'Mobile companion', 'MCP gateway, read-only tools'],
-  ultimate: ['Unlimited terminals', 'Unlimited projects', 'Unlimited Mission AI*', 'Unlimited recipes', 'Unlimited keys of your own', 'Mobile companion', 'Full MCP gateway', 'VS Code bridge'],
+  ultimate: ['Unlimited terminals', 'Unlimited projects', 'Unlimited Mission AI*', 'Unlimited recipes', 'Unlimited AI keys of your own', 'Mobile companion', 'Full MCP gateway', 'VS Code bridge'],
 };
 
 const CODES = [
@@ -297,7 +297,7 @@ export default function CheckoutPage() {
                   {phase === 'creating' || phase === 'paying' ? <CircleNotch size={18} className="animate-spin"/> : <Lock size={17} weight="bold"/>}
                   {phase === 'creating' ? 'Starting secure checkout…' : phase === 'paying' ? 'Complete the payment in the window' : charged ? `Pay ${formatMoney(charged.amount, chargeCurrency, { exact: false })}` : 'Pay'}
                 </button>
-                <p className="flex items-start gap-2 text-[13px] leading-relaxed text-fg-dim"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-brand-mint"/>Payments are processed by Cashfree Payments with UPI, cards, netbanking and wallets. OUTARCH never sees your card or bank details. By paying you agree to the <Link to="/terms" className="underline hover:text-fg">terms</Link> and the <Link to="/refunds" className="underline hover:text-fg">refund policy</Link>.</p>
+                <p className="flex items-start gap-2 text-[13px] leading-relaxed text-fg-dim"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-brand-mint"/>Payments are processed by Cashfree Payments with UPI, cards, netbanking and wallets. OUTARCH never sees your card or bank details. By paying you agree to the <Link to="/terms" className="underline hover:text-fg">terms</Link> and the <Link to="/refunds" className="underline hover:text-fg">refund policy</Link>. See the <Link to="/privacy" className="underline hover:text-fg">privacy policy</Link> for how your details are handled.</p>
               </form>}
           </div>
         </div>
