@@ -272,7 +272,7 @@ function workerKind(session) {
   const source = `${session?.name || ""} ${session?.command || ""} ${(session?.args || []).join(" ")}`.toLowerCase();
   if (observed?.isAgent === false) {
     // Observed and not an agent: fall through to the non-agent heuristics.
-  } else if (session?.id?.startsWith("agent-") || /claude|codex|gemini|opencode/.test(source)) return "AI agent";
+  } else if (session?.id?.startsWith("agent-") || /claude|codex|gemini|opencode|antigravity|\bagy\b|\bqwen\b|\baider\b|cursor-agent|\bcopilot\b|kiro-cli/.test(source)) return "AI agent";
   if (/test|vitest|jest|playwright|pytest/.test(source)) return "Test watcher";
   if (/docker|container/.test(source)) return "Container";
   if (/postgres|mysql|mongo|redis|database|\bdb\b/.test(source)) return "Database";

@@ -78,7 +78,7 @@ test("while Mission Control is the window in use, a notice shows in the app only
   assert.equal(c.flashes.length, 0);
 });
 
-test("in the background, a notice becomes a Windows toast that carries the sound", () => {
+test("in the background, a notice becomes a silent Windows toast and the app rings at once", () => {
   const c = center({ focused: false });
   c.instance.publish(conflict());
   assert.equal(c.shown.length, 1);
@@ -86,12 +86,15 @@ test("in the background, a notice becomes a Windows toast that carries the sound
   assert.match(xml, /<text hint-maxLines="1">Billing couldn&apos;t start<\/text>/);
   assert.match(xml, /Port 4000 is already in use/);
   assert.match(xml, /<text placement="attribution">OUTARCH · acme<\/text>/);
-  // Windows ignores a file on a toast from an unpackaged app; its own sound events play.
-  assert.match(xml, /<audio src="ms-winsoundevent:Notification\.Reminder"\/>/);
+  // Windows played its sound only once the banner was up, well after the
+  // notice, and at the system notification level: operators heard it late and
+  // quiet. The toast is silent and the app's own chime rings immediately.
+  assert.match(xml, /<audio silent="true"\/>/);
+  assert.equal(c.notices[0].delivery.sound, "alert");
   // One button, and only an action that makes sense from a single click.
   assert.match(xml, /<action content="Open terminal"/);
   assert.doesNotMatch(xml, /Who&apos;s using it/);
-  assert.equal(c.notices[0].delivery.soundBy, "system", "Windows plays it, so the app stays quiet");
+  assert.equal(c.notices[0].delivery.soundBy, "app", "the app rings, the moment the notice arrives");
   assert.equal(c.flashes.length, 1, "a failure flashes the taskbar button");
 });
 

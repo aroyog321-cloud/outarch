@@ -117,7 +117,11 @@ test("an agent's permission question is one notice whose button opens that termi
   center.publish(notice);
   assert.equal(shown.length, 1, "in the background it is a Windows notification");
   assert.match(shown[0].options.toastXml, /Open terminal/);
-  assert.match(shown[0].options.toastXml, /ms-winsoundevent/, "with sound");
+  // The app rings it the moment it arrives; the Windows toast is silent so it
+  // does not ring a second time, late (operatorFixes0924).
+  assert.match(shown[0].options.toastXml, /<audio silent="true"\/>/);
+  assert.equal(heard[0].delivery.sound, "attention", "with sound");
+  assert.equal(heard[0].delivery.soundBy, "app");
   assert.equal(heard[0].delivery.windows, true);
 
   // Answered: the toast is taken back, and the agent's next question notifies again.

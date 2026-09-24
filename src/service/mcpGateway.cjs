@@ -224,6 +224,11 @@ function resolveClientConfigPath(target, workspacePath = "", customOs = os) {
     case "gemini-cli": {
       return path.join(home, ".gemini", "settings.json");
     }
+    // Antigravity CLI (agy), Gemini CLI's successor, reads its global MCP
+    // servers from ~/.gemini/config/mcp_config.json.
+    case "antigravity": {
+      return path.join(home, ".gemini", "config", "mcp_config.json");
+    }
     default:
       throw new TypeError(`Unsupported client install target: ${target}`);
   }
@@ -234,7 +239,8 @@ const CLIENT_LABELS = Object.freeze({
   "claude-code": "Claude Code",
   cursor: "Cursor",
   codex: "Codex CLI",
-  "gemini-cli": "Gemini CLI"
+  "gemini-cli": "Gemini CLI",
+  antigravity: "Antigravity CLI"
 });
 
 function tomlString(value) {
@@ -514,7 +520,16 @@ class SecureMcpGateway extends EventEmitter {
     if (!isPlainObject(config.mcpServers)) config.mcpServers = {};
     for (const legacy of LEGACY_MCP_SERVER_NAMES) delete config.mcpServers[legacy];
 
-    if (target === "gemini-cli") {
+    if (target === "antigravity") {
+      // Antigravity declares a remote server with serverUrl; it does not
+      // accept Gemini CLI's url or httpUrl.
+      config.mcpServers[MCP_SERVER_NAME] = {
+        serverUrl: endpoint,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+    } else if (target === "gemini-cli") {
       config.mcpServers[MCP_SERVER_NAME] = {
         httpUrl: endpoint,
         headers: {

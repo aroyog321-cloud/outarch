@@ -3236,8 +3236,14 @@ body:has(.popout-window) { background: var(--mc-canvas); }
   min-height: 26px;
   padding: 0 9px;
 }
+/* The older sheet fixes these at 29px, sized for the single-digit glyph they
+   once had. "1×2" is 19px of text inside 8px of padding a side, so four of the
+   five overflowed their buttons: uneven gaps, and the current layout's fill
+   no longer framed its label. Width follows the label; the shared minimum
+   keeps the five buttons all but equal. */
 #root#root#root .shell .workspace-toolbar-v2 .layout-switcher button {
-  min-width: 30px;
+  width: auto;
+  min-width: 34px;
   min-height: 24px;
   padding: 0 5px;
 }

@@ -113,8 +113,10 @@ test("a question is answered in plain Markdown after the model looks at the term
   assert.equal(responseTurn.parts[0].functionResponse.name, "read_terminal_output");
   assert.match(JSON.stringify(responseTurn.parts[0].functionResponse.response), /EADDRINUSE/);
 
-  // Output is plain prose, not a forced JSON envelope.
-  assert.equal(followUp.generationConfig, undefined);
+  // Output is plain prose, not a forced JSON envelope. The only generation
+  // setting is the built-in models' short thinking (operatorFixes0924).
+  assert.equal(followUp.generationConfig?.responseMimeType, undefined);
+  assert.deepEqual(followUp.generationConfig, { thinkingConfig: { thinkingBudget: 0 } });
   // Every attempt is metered as assistant spend, not project spend.
   assert.ok(usage.length >= 2);
   assert.ok(usage.every(record => record.surface === "assistant"));

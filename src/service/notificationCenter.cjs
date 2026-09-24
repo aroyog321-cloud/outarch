@@ -21,8 +21,11 @@
 //      only within your severity floor, quiet hours and rate limits.
 //   3. A sound, but not a nuisance. Quiet hours and the Sound setting silence
 //      it, a severity floor applies, and chimes are spaced apart so a burst
-//      rings once. When a Windows toast is shown, Windows plays the sound, so
-//      Focus Assist and system volume are respected; otherwise the app rings.
+//      rings once. The app always plays the chime itself, the moment the notice
+//      is emitted, and the Windows toast is silent. Handing the sound to the
+//      toast made it arrive well after the notice (Windows plays it only once
+//      its banner is up) and at the system notification sound's level, which
+//      operators heard as late and quiet.
 //
 // Electron is injected, so the whole decision path runs in tests.
 
@@ -478,9 +481,9 @@ class NotificationCenter extends EventEmitter {
   test() {
     const prefs = preferencesFrom(this.#getPreferences());
     const notice = this.#normalize({ kind: "notification.test", title: "Notifications are working", body: "This is how OUTARCH tells you about crashes, port conflicts and servers coming up.", dedupeKey: `test:${this.#now()}` });
-    const shown = this.supported ? this.#showWindows(notice, { audible: prefs.sound, tone: "success" }) : false;
+    const shown = this.supported ? this.#showWindows(notice, { audible: false, tone: "success" }) : false;
     const sound = prefs.sound ? APP_SOUND.success : null;
-    this.#emitNotice(notice, { windows: shown, windowsReason: shown ? "test" : "unsupported", sound, soundBy: sound ? (shown ? "system" : "app") : null, focused: this.#focused(), quiet: false, test: true });
+    this.#emitNotice(notice, { windows: shown, windowsReason: shown ? "test" : "unsupported", sound, soundBy: sound ? "app" : null, focused: this.#focused(), quiet: false, test: true });
     if (!this.supported) return { ok: false, delivered: false, error: "This platform does not support desktop notifications" };
     return shown
       ? { ok: true, delivered: true, at: this.#lastDeliveryAt }
@@ -565,7 +568,7 @@ class NotificationCenter extends EventEmitter {
       const decision = this.#policy.consider({ id: notice.id, severity: policySeverity, groupKey: notice.dedupeKey }, { ...prefs, desktopNotifications: prefs.desktopNotifications && this.supported }, at);
       windowsReason = decision.reason;
       if (decision.deliver) {
-        windows = this.#showWindows(notice, { audible: wantsSound, tone: notice.tone, summary: decision.summary === true });
+        windows = this.#showWindows(notice, { audible: false, tone: notice.tone, summary: decision.summary === true });
         if (windows) this.#counts.windows += 1;
       } else {
         this.#suppress(decision.reason);
@@ -574,7 +577,7 @@ class NotificationCenter extends EventEmitter {
 
     const sound = wantsSound ? APP_SOUND[notice.tone] : null;
     if (sound) this.#lastSoundAt = at;
-    this.#emitNotice(notice, { windows, windowsReason, sound, soundBy: sound ? (windows ? "system" : "app") : null, focused, quiet, collapsed: overflow });
+    this.#emitNotice(notice, { windows, windowsReason, sound, soundBy: sound ? "app" : null, focused, quiet, collapsed: overflow });
     if (!focused && notice.tone === "critical") {
       try { this.#flashWindow(); } catch { /* attention is best effort */ }
     }

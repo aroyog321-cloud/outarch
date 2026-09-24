@@ -31,6 +31,17 @@ const AGENT_PATTERNS = Object.freeze([
     turnCompleteRegex: /(?:response complete|done\.)/i
   },
   {
+    // Antigravity CLI (agy), Google's successor to Gemini CLI. Its startup
+    // screen reads "Welcome to the Antigravity CLI."
+    type: "antigravity",
+    detectRegex: /(?:welcome to the antigravity cli|antigravity cli)/i,
+    thinkingRegex: /(?:antigravity is (?:thinking|working)|thinking\.\.\.|working\.\.\.)/i,
+    toolRegex: /(?:calling tool:\s*([a-zA-Z0-9_-]+)|running (?:shell )?command|executing tool)/i,
+    approvalRegex: /(?:do you trust the contents of this project\?|requires permission to (?:read|edit|execute)|allow (?:this )?(?:command|tool call|edit)\?)/i,
+    costTokenRegex: /(?:tokens?:\s*([0-9,]+))/i,
+    turnCompleteRegex: /(?:task complete|turn complete)/i
+  },
+  {
     type: "opencode",
     detectRegex: /(?:opencode\s+cli|opencode interpreter)/i,
     thinkingRegex: /(?:opencode thinking|interpreting\.\.\.)/i,
@@ -43,8 +54,61 @@ const AGENT_PATTERNS = Object.freeze([
 
 // Evidence that a CLI has handed the terminal back: an explicit goodbye, or a
 // shell prompt reappearing on its own line. Both are weak on their own, which is
-// why they only ever downgrade a classification, never create one.
-const AGENT_EXIT_PATTERN = /(?:^|\s)(?:goodbye!?|session ended|exiting (?:claude|codex|gemini|opencode)|agent session closed)\b|^(?:PS\s+[A-Za-z]:\\[^\n]*>|\$|>)\s*$/i;
+// why they only ever downgrade a classification, never create one. A bare ">"
+// is not a shell prompt: agents draw it as their own input line (Antigravity,
+// OpenCode), so reading it as an exit dropped them the moment they started.
+const AGENT_EXIT_PATTERN = /(?:^|\s)(?:goodbye!?|session ended|exiting (?:claude|codex|gemini|opencode|antigravity)|agent session closed)\b|^(?:PS\s+[A-Za-z]:\\[^\n]*>|\$)\s*$/i;
+
+// The command names of agent CLIs, as typed or configured, and the agent each
+// one is. Matching is on whole command names, so "amp" is an agent and
+// "example" is not.
+const AGENT_COMMANDS = Object.freeze({
+  claude: "claude",
+  "claude-code": "claude",
+  codex: "codex",
+  gemini: "gemini",
+  "gemini-cli": "gemini",
+  opencode: "opencode",
+  agy: "antigravity",
+  antigravity: "antigravity",
+  "antigravity-cli": "antigravity",
+  qwen: "qwen",
+  aider: "aider",
+  "cursor-agent": "cursor",
+  copilot: "copilot",
+  amp: "amp",
+  crush: "crush",
+  droid: "droid",
+  "kiro-cli": "kiro",
+  goose: "goose"
+});
+// Launchers and shells that run the program named after them
+// (npx @anthropic-ai/claude-code, cmd /c codex, powershell -Command agy).
+const LAUNCHERS = new Set(["npx", "bunx", "pnpx", "uvx", "pipx", "pnpm", "yarn", "bun", "npm", "dlx", "exec", "x", "run", "cmd", "powershell", "pwsh", "call", "start"]);
+
+function commandName(token) {
+  const bare = String(token || "").replace(/^[&.'"(]+/, "").replace(/['")]+$/, "");
+  const last = bare.split(/[\\/]/).pop() || "";
+  return last.toLowerCase().replace(/\.(?:exe|cmd|bat|ps1|js|mjs|cjs)$/, "");
+}
+
+/**
+ * The agent a command line starts, or null. Reads the program being run: the
+ * first word, or the program after a launcher (npx, cmd /c, powershell
+ * -Command). Only the start of the line counts, so a prompt typed to an agent
+ * that merely mentions another agent is not read as starting it.
+ */
+function agentForCommandLine(line) {
+  const tokens = String(line || "").trim().split(/\s+/).filter(Boolean).slice(0, 10);
+  for (const token of tokens) {
+    if (/^[/-]/.test(token)) continue;
+    const name = commandName(token);
+    if (!name) continue;
+    if (Object.hasOwn(AGENT_COMMANDS, name)) return AGENT_COMMANDS[name];
+    if (!LAUNCHERS.has(name)) return null;
+  }
+  return null;
+}
 
 class AgentActivityService extends EventEmitter {
   #workers;
@@ -87,6 +151,7 @@ class AgentActivityService extends EventEmitter {
     else if (combined.includes("codex")) detectedType = "codex";
     else if (combined.includes("gemini")) detectedType = "gemini";
     else if (combined.includes("opencode")) detectedType = "opencode";
+    else detectedType = agentForCommandLine(command) || agentForCommandLine(processName);
 
     const prev = this.getWorkerActivity(workerId);
     const isAgent = Boolean(detectedType);
@@ -219,6 +284,32 @@ class AgentActivityService extends EventEmitter {
     }
   }
 
+  /**
+   * A command line typed into this terminal (the engine's sanitised input
+   * preview). Starting an agent CLI makes the terminal an agent at once, before
+   * the agent has drawn anything. It never downgrades: while an agent runs,
+   * what is typed is a prompt to it, not a shell command.
+   */
+  noteCommand(workerId, runId, commandLine) {
+    if (!workerId) return;
+    const agentType = agentForCommandLine(commandLine);
+    if (!agentType) return;
+    const current = this.getWorkerActivity(workerId);
+    if (current.isAgent) return;
+    const updated = {
+      ...current,
+      workerId,
+      runId: runId || current.runId,
+      isAgent: true,
+      agentType,
+      state: "idle",
+      currentTool: null,
+      updatedAt: this.#now()
+    };
+    this.#workers.set(workerId, updated);
+    this.emit("change", updated);
+  }
+
   // A permission prompt found by the prompt detector, which reads the whole
   // screen rather than one line, so it sees dialogs the per-line patterns miss.
   setAwaitingApproval(workerId, prompt = null) {
@@ -250,4 +341,4 @@ class AgentActivityService extends EventEmitter {
   }
 }
 
-module.exports = { AgentActivityService, AGENT_PATTERNS };
+module.exports = { AgentActivityService, AGENT_COMMANDS, AGENT_PATTERNS, agentForCommandLine };

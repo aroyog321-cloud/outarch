@@ -1,5 +1,5 @@
 import React from "react";
-import { playNotificationSound } from "./notificationSound.js";
+import { playNotificationSound, primeNotificationSound } from "./notificationSound.js";
 
 /* ===========================================================================
    ToastSystem — how OUTARCH shows a notification inside the window.
@@ -55,6 +55,10 @@ export function ToastProvider({ children }) {
     for (const entry of timersRef.current.values()) clearTimeout(entry.timer);
     timersRef.current.clear();
   }, []);
+
+  // The audio device is opened now, not by the first notification, so the
+  // first chime is not late.
+  React.useEffect(() => { primeNotificationSound(); }, []);
 
   const remove = React.useCallback(id => {
     const entry = timersRef.current.get(id);
@@ -181,6 +185,14 @@ export function ToastProvider({ children }) {
       }
     }
   }, [remove]);
+
+  // Closing the last toast removes the stack from under the pointer, so the
+  // stack never hears the pointer leave and the pause it set was never lifted:
+  // every later toast was created paused and stayed until it was hovered and
+  // left again. With nothing on screen, nothing is being pointed at.
+  React.useEffect(() => {
+    if (!toasts.length && pausedRef.current) pause(false);
+  }, [toasts.length, pause]);
 
   const markAllRead = React.useCallback(() => setHistory(prev => (prev.some(item => !item.read) ? prev.map(item => ({ ...item, read: true })) : prev)), []);
   const clearHistory = React.useCallback(() => setHistory([]), []);

@@ -503,6 +503,48 @@ function toolResultText(result) {
   try { return JSON.stringify(result); } catch { return String(result); }
 }
 
+// Mission AI's built-in models answer in the "fast" mode. Measured on the
+// ai-proxy (2026-09-23): replies of a few hundred bytes took 29-58 seconds per
+// model call, because Gemini 2.5 and NVIDIA's Nemotron 3 think at length by
+// default before every answer — and one Mission AI message makes a call per
+// tool round. Each setting below is the provider's documented control; a
+// model that refuses one is sent the request again without it.
+const FAST_REFUSED = new Set();
+
+function fastGeminiThinking(model) {
+  const id = String(model || "").toLowerCase();
+  if (/^gemini-3/.test(id)) return { thinkingLevel: "low" };
+  // Pro cannot switch thinking off; 128 is its floor. A small fixed budget
+  // replaces the open-ended default.
+  if (/^gemini-2\.5-pro/.test(id)) return { thinkingBudget: 512 };
+  // Flash and Flash-Lite: off.
+  if (/^gemini-2\.5-flash/.test(id)) return { thinkingBudget: 0 };
+  // 2.0 and 1.5 do not think.
+  return null;
+}
+
+function fastOpenAiExtras(model) {
+  const id = String(model || "").toLowerCase();
+  // A model named for reasoning was chosen for it.
+  if (/^nvidia\/nemotron-3/.test(id) && !/reasoning/.test(id)) return { chat_template_kwargs: { enable_thinking: false } };
+  return null;
+}
+
+function fastSettingsFor(style, model) {
+  if (FAST_REFUSED.has(`${style}:${model}`)) return null;
+  if (style === "gemini") {
+    const thinkingConfig = fastGeminiThinking(model);
+    return thinkingConfig ? { generationConfig: { thinkingConfig } } : null;
+  }
+  if (style === "openai") return fastOpenAiExtras(model);
+  return null;
+}
+
+function refusesFastSettings(error) {
+  const msg = String(error?.message || "");
+  return [400, 422].includes(error?.status) && /think|budget|chat_template_kwargs|enable_thinking|generation_?config/i.test(msg);
+}
+
 function geminiBody({ system, messages, tools }) {
   const contents = [];
   for (const message of messages) {
@@ -702,11 +744,19 @@ async function chat(request = {}) {
   let attempt = { ...request };
   let toolsDropped = false;
   let systemMerged = false;
-  for (let round = 0; round < 3; round += 1) {
+  let fastDropped = false;
+  for (let round = 0; round < 4; round += 1) {
     try {
       const result = await chatOnce(attempt);
       return { ...result, toolsDropped, systemMerged };
     } catch (error) {
+      if (!fastDropped && attempt.speed === "fast" && refusesFastSettings(error)) {
+        fastDropped = true;
+        const style = providerSpec(attempt.provider, attempt.baseUrl).style;
+        FAST_REFUSED.add(`${style}:${attempt.model}`);
+        attempt = { ...attempt, speed: null };
+        continue;
+      }
       if (!toolsDropped && attempt.tools?.length && refusesTools(error)) {
         toolsDropped = true;
         attempt = { ...attempt, tools: [] };
@@ -733,9 +783,10 @@ function resolveChatTimeout(model, timeoutMs = null) {
   return isReasoningOrThinkingModel(model) ? REASONING_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
 }
 
-async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messages, tools = [], maxTokens = null, temperature = null, fetch: fetchImpl = global.fetch, signal, timeoutMs = null } = {}) {
+async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messages, tools = [], maxTokens = null, temperature = null, fetch: fetchImpl = global.fetch, signal, timeoutMs = null, speed = null } = {}) {
   const cleanKey = sanitizeApiKey(apiKey);
   const spec = providerSpec(provider, baseUrl);
+  const fast = speed === "fast" ? fastSettingsFor(spec.style, model) : null;
   if (typeof fetchImpl !== "function") throw new TypeError("fetch is unavailable");
   if (typeof model !== "string" || !model.trim()) throw new TypeError("A model is required");
   const effectiveTimeout = resolveChatTimeout(model, timeoutMs);
@@ -745,7 +796,7 @@ async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messa
     const data = await send(fetchImpl, `${spec.baseUrl}/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": cleanKey },
-      body: JSON.stringify(geminiBody({ system, messages, tools }))
+      body: JSON.stringify({ ...geminiBody({ system, messages, tools }), ...(fast || {}) })
     }, options);
     return parseGemini(data);
   }
@@ -763,7 +814,7 @@ async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messa
   const data = await send(fetchImpl, `${spec.baseUrl}/chat/completions`, {
     method: "POST",
     headers,
-    body: JSON.stringify(openAiBody({ model, system, messages, tools, maxTokens, temperature }))
+    body: JSON.stringify({ ...openAiBody({ model, system, messages, tools, maxTokens, temperature }), ...(fast || {}) })
   }, options);
   try {
     return parseOpenAi(data);
@@ -774,6 +825,8 @@ async function chatOnce({ provider, apiKey, baseUrl = null, model, system, messa
 }
 
 module.exports = {
+  fastSettingsFor,
+  refusesFastSettings,
   PROVIDERS,
   REQUEST_TIMEOUT_MS,
   REASONING_REQUEST_TIMEOUT_MS,

@@ -51,6 +51,7 @@ node-pty's Windows backend forks `conpty_console_list_agent.js` with `ELECTRON_R
 
 ## 2. One-time setup
 
+0. **Put the website online first (required).** The app sends people to `app_config.website_url` to sign in. Until the site is deployed, that is `http://localhost:5173`, which only works on your own PC while `cd website && npm run dev` is running. Microsoft's certification testers and every Store user would get stuck at the sign-in screen, and certification fails. Deploy `website/` (for example to Vercel; `vercel.json` is included), then follow steps 1b and 1e in `OUTARCH_ACCOUNTS_AND_UPDATES.md`: set `website_url` to the real `https://` address and add it to Supabase Auth's site URL and redirect URLs. Check by signing in from an installed copy on another PC or network.
 1. **Windows 11 SDK:** gives you `makeappx`, `makepri`, `signtool` and the App Certification Kit. <https://developer.microsoft.com/windows/downloads/windows-sdk/>
 2. **Node.js 22.12+** and `npm install` in the repository.
 3. **A Partner Center developer account:** <https://partner.microsoft.com/dashboard/registration>. Individual or company. Check the current registration fee there.

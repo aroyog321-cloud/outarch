@@ -12,6 +12,7 @@ import {
 import { CrashLens } from "./CrashLens.jsx";
 import { describeLaunch } from "./launchLabel.js";
 import { copyText } from "./clipboard.js";
+import { chunkTerminalInput, isPasteChord, isShellAltChord } from "./terminalInput.js";
 
 const TERMINAL_THEMES = {
   // ANSI has sixteen slots and a program picks whichever it likes, so the
@@ -262,6 +263,11 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         if (selection) void copyText(selection).catch(() => {});
         return false;
       }
+      // Paste: Ctrl V, Ctrl Shift V and Shift Insert go to the browser, which
+      // pastes into xterm (terminalInput.js explains why xterm cannot).
+      if (isPasteChord(event)) return false;
+      // Alt V is Claude Code's image paste on Windows and no shortcut here.
+      if (isShellAltChord(event)) return true;
       // Alt is the workspace modifier: pane focus, layout, focus mode, the
       // in-app browser and every route jump.
       if (event.altKey && !accelerator) return false;
@@ -372,9 +378,13 @@ export default function TerminalPane({ session, sessions, profile, active, expan
         inputDisposable = terminal.onData(data => {
           const currentStream = streamRef.current;
           if (!currentStream) return;
-          void missionApi().request("terminal.write", { streamId: currentStream, data }).catch(error => {
-            if (!disposed) reportOperationalError(error);
-          });
+          // A long paste arrives as one string; it is sent in pieces the
+          // protocol accepts. Requests reach the main process in order.
+          for (const piece of chunkTerminalInput(data)) {
+            void missionApi().request("terminal.write", { streamId: currentStream, data: piece }).catch(error => {
+              if (!disposed) reportOperationalError(error);
+            });
+          }
         });
       } catch (openError) {
         if (!disposed) {

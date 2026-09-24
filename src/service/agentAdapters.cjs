@@ -6,6 +6,7 @@ const AGENT_ADAPTERS = Object.freeze([
   Object.freeze({ id: "claude", name: "Claude Code", command: "claude", description: "Anthropic's local coding agent CLI" }),
   Object.freeze({ id: "codex", name: "Codex", command: "codex", description: "OpenAI's local coding agent CLI" }),
   Object.freeze({ id: "gemini", name: "Gemini CLI", command: "gemini", description: "Google's local coding agent CLI" }),
+  Object.freeze({ id: "antigravity", name: "Antigravity CLI", command: "agy", description: "Google's terminal coding agent, Gemini CLI's successor" }),
   Object.freeze({ id: "opencode", name: "OpenCode", command: "opencode", description: "Provider-neutral local coding agent CLI" })
 ]);
 

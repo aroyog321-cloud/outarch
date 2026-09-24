@@ -12,6 +12,7 @@ test("agent adapters are fixed and create inert worker definitions", () => {
     { id: "claude", command: "claude" },
     { id: "codex", command: "codex" },
     { id: "gemini", command: "gemini" },
+    { id: "antigravity", command: "agy" },
     { id: "opencode", command: "opencode" }
   ]);
   const worker = createAgentDefinition("codex", options);

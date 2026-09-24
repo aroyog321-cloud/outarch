@@ -253,9 +253,19 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
     }
   }, null, 2);
 
+  const antigravityConfigSnippet = JSON.stringify({
+    mcpServers: {
+      "outarch": {
+        serverUrl: endpointUrl,
+        headers: { Authorization: `Bearer ${activeToken}` }
+      }
+    }
+  }, null, 2);
+
   const localClients = [
     { id: "claude-code", name: "Claude Code", where: "~/.claude.json", copy: claudeCliCommand, copyLabel: "Copy command" },
     { id: "codex", name: "Codex CLI", where: "~/.codex/config.toml", copy: codexConfigSnippet, copyLabel: "Copy TOML" },
+    { id: "antigravity", name: "Antigravity CLI", where: "~/.gemini/config/mcp_config.json", copy: antigravityConfigSnippet, copyLabel: "Copy JSON" },
     { id: "gemini-cli", name: "Gemini CLI", where: "~/.gemini/settings.json", copy: geminiConfigSnippet, copyLabel: "Copy JSON" },
     { id: "cursor", name: "Cursor", where: ".cursor/mcp.json in this project", copy: cursorConfigSnippet, copyLabel: "Copy JSON" },
     { id: "claude-desktop", name: "Claude Desktop", where: "claude_desktop_config.json", copy: claudeConfigSnippet, copyLabel: "Copy JSON" }
@@ -267,7 +277,7 @@ export function McpGatewaySettings({ workspace, onConfirm }) {
         <span className="mcp-mark">M</span>
         <div>
           <h3>Secure MCP Gateway</h3>
-          <p>Lets AI tools running on this computer — Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop — see this project and ask OUTARCH to act. It listens on 127.0.0.1 only, so nothing off this machine can reach it.</p>
+          <p>Lets AI tools running on this computer — Claude Code, Codex CLI, Antigravity CLI, Cursor, Claude Desktop — see this project and ask OUTARCH to act. It listens on 127.0.0.1 only, so nothing off this machine can reach it.</p>
         </div>
       </div>
       <div className={`mcp-state ${running ? "is-live" : status?.lastError || resourceState.statusError ? "is-risk" : ""}`}>

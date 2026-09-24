@@ -43,6 +43,8 @@ const STRONG_PATTERNS = Object.freeze([
   { agent: "gemini", question: /\bAllow execution of\b[^\n]{0,160}\??/i },
   { agent: "gemini", question: /\bApply this change\?/i },
   { agent: "gemini", question: /\bWaiting for user confirmation\b/i },
+  // Antigravity CLI (agy): the folder-trust question it asks before it works
+  { agent: "antigravity", question: /\bDo you trust the contents of this project\?/i },
   // GitHub Copilot CLI, Cursor agent, OpenCode, Goose, Amp, Aider
   { agent: "copilot", question: /\bDo you want to (?:run|allow) this (?:command|tool)\b[^\n]{0,160}\??/i },
   { agent: "cursor", question: /\bRun this command\?/i },
@@ -54,7 +56,7 @@ const STRONG_PATTERNS = Object.freeze([
 
 // Choices an agent offers under a permission question. One of these near a
 // question is what makes a strong pattern certain rather than conversational.
-const CHOICE = /(?:^|\s)(?:1[.)]\s*Yes\b|Yes,? (?:and )?(?:don'?t ask|allow|approve)|Yes \(y\)|Allow once|Allow always|\(Y\)es\/\(N\)o|No, (?:and )?(?:tell|suggest)|Reject\b|\[y\/N\]|\[Y\/n\]|\(y\/n\)|Esc to cancel|Press enter to confirm)/i;
+const CHOICE = /(?:^|\s)(?:1[.)]\s*Yes\b|Yes, I trust\b|Yes,? (?:and )?(?:don'?t ask|allow|approve)|Yes \(y\)|Allow once|Allow always|\(Y\)es\/\(N\)o|No, (?:and )?(?:tell|suggest)|Reject\b|\[y\/N\]|\[Y\/n\]|\(y\/n\)|Esc to cancel|Press enter to confirm)/i;
 
 // A plain yes/no question: only reported for a terminal known to run an agent.
 const GENERIC = /[^\n]{3,160}\?\s*(?:\[[yY]\/[nN]\]|\[[yY]es\/[nN]o\]|\([yY]\/[nN]\)|\([yY]es\/[nN]o\))\s*:?\s*$/m;
@@ -76,7 +78,7 @@ function fingerprint(workerId, question) {
 function choicesNear(lines) {
   const out = [];
   for (const line of lines) {
-    const match = line.match(/^\s*(?:\d[.)]\s*)?(Yes[^\n]{0,70}|No[^\n]{0,70}|Allow (?:once|always)[^\n]{0,40}|Reject[^\n]{0,40})$/i);
+    const match = line.match(/^\s*(?:>\s*)?(?:\d[.)]\s*)?(Yes[^\n]{0,70}|No[^\n]{0,70}|Allow (?:once|always)[^\n]{0,40}|Reject[^\n]{0,40})$/i);
     if (match) out.push(match[1].trim());
     if (out.length >= 4) break;
   }

@@ -1263,7 +1263,9 @@ class AiAssistant extends EventEmitter {
             provider: "nvidia",
             apiKey: () => this.#builtin.apiKey(slot, "nvidia", purpose),
             baseUrl: null,
-            fetch: this.#fetchForMission(conversation.turn || null)
+            fetch: this.#fetchForMission(conversation.turn || null),
+            // Built-in models answer without long hidden reasoning (see aiProviders.cjs).
+            speed: "fast"
           });
         }
       } else {
@@ -1276,7 +1278,8 @@ class AiAssistant extends EventEmitter {
               provider: "gemini",
               apiKey: () => this.#builtin.apiKey(slot, "gemini", purpose),
               baseUrl: null,
-              fetch: this.#fetchForMission(conversation.turn || null)
+              fetch: this.#fetchForMission(conversation.turn || null),
+              speed: "fast"
             });
           }
         }
@@ -1291,7 +1294,7 @@ class AiAssistant extends EventEmitter {
       const system = conversation.systemOverride || systemPrompt({ surface: conversation.surface, snapshot: this.#snapshot(), focused, autoApprove: this.#selections.autoApprove[conversation.id] === true, readOnly: conversation.readOnly === true, toolsAvailable, platform: this.#platform });
       const startedAt = this.#now();
       try {
-        const response = await providers.chat({ provider: attempt.provider, apiKey: attempt.apiKey(), baseUrl: attempt.baseUrl, model: attempt.model, system, messages, tools: toolsAvailable ? toolDefinitions : [], fetch: attempt.fetch || this.#fetch, signal });
+        const response = await providers.chat({ provider: attempt.provider, apiKey: attempt.apiKey(), baseUrl: attempt.baseUrl, model: attempt.model, system, messages, tools: toolsAvailable ? toolDefinitions : [], fetch: attempt.fetch || this.#fetch, signal, speed: attempt.speed || null });
         this.#usage({ ...target, model: attempt.model }, attempt, "success", response.usage, startedAt);
         if (response.toolsDropped) this.#noTools.add(this.#toolsKey(target, attempt.model));
         return { ...response, servedModel: attempt.model };

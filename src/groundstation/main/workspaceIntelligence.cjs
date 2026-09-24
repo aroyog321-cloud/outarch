@@ -141,7 +141,13 @@ class WorkspaceIntelligence {
     this.#engineApi = engineApi;
     this.#projectId = projectId || "default";
     if (typeof engineApi.subscribe === "function") {
-      this.#unsubscribeEngine = engineApi.subscribe(() => this.#scheduleReconcile());
+      this.#unsubscribeEngine = engineApi.subscribe(event => {
+        // A command typed into a terminal can start an agent CLI (agy, claude,
+        // codex…) inside an ordinary shell; it is recognised from the line
+        // itself, before the agent has drawn anything.
+        if (event?.type === "session:input-evidence") this.#noteCommand(event);
+        this.#scheduleReconcile();
+      });
     }
     this.#reconcile();
   }
@@ -221,8 +227,10 @@ class WorkspaceIntelligence {
     }
 
     try {
+      // The whole command line: a worker is often a shell running the agent
+      // ("powershell.exe -NoExit -Command agy"), not the agent's own executable.
       this.#agents.setProcessState(session.id, runId, {
-        command: session.command || "",
+        command: [session.command, ...(Array.isArray(session.args) ? session.args : [])].filter(Boolean).join(" "),
         processName: session.command || ""
       });
     } catch {}
@@ -232,6 +240,12 @@ class WorkspaceIntelligence {
     } catch {
       this.#observed.delete(session.id);
     }
+  }
+
+  #noteCommand(event) {
+    const workerId = event?.id;
+    if (!workerId || event.kind !== "command" || typeof event.preview !== "string") return;
+    try { this.#agents.noteCommand(workerId, this.#observed.get(workerId)?.runId || null, event.preview); } catch {}
   }
 
   #stopObserving(workerId, { invalidate = false, forget = false, exitCode = null } = {}) {

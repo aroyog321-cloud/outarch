@@ -217,6 +217,16 @@ test("SecureMcpGateway getToken retrieves configured credentials and installClie
   assert.equal(geminiResult.ok, true);
   assert.match(geminiResult.message, /Gemini CLI/);
 
+  // Antigravity CLI (agy), Gemini CLI's successor: its own file, and remote
+  // servers declared with serverUrl (it rejects url/httpUrl).
+  const antigravityResult = gateway.installClient({ target: "antigravity" });
+  assert.equal(antigravityResult.ok, true);
+  assert.match(antigravityResult.message, /Antigravity CLI/);
+  assert.match(antigravityResult.filePath.replace(/\\/g, "/"), /\/mock\/home\/\.gemini\/config\/mcp_config\.json$/);
+  const antigravityJson = JSON.parse(fsMap.get(antigravityResult.filePath));
+  assert.deepEqual(Object.keys(antigravityJson.mcpServers.outarch).sort(), ["headers", "serverUrl"]);
+  assert.equal(antigravityJson.mcpServers.outarch.headers.Authorization, `Bearer ${store.token()}`);
+
   // Test clientStatus
   const statusMap = gateway.clientStatus({ workspacePath: "/mock/workspace" });
   assert.equal(statusMap["claude-code"].installed, true);
